@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Hors App Store : app NON sandboxée (pas de com.apple.security.app-sandbox). -->
+	<!-- Nécessaire pour lancer des subprocess (yt-dlp/ffmpeg) et un serveur HTTP LAN. -->
+
+	<!-- Requis quand on signera yt-dlp (bootloader PyInstaller) avec hardened runtime. -->
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<true/>
+	<!-- Autorise le chargement de binaires/dylibs signés différemment (ffmpeg embarqué). -->
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+</dict>
+</plist>

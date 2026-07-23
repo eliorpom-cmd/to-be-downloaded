@@ -1,0 +1,15 @@
+# Build
+build/
+dist/
+DerivedData/
+*.xcuserstate
+
+# Projet généré par XcodeGen (source de vérité = project.yml)
+Downloader.xcodeproj/
+
+# macOS
+.DS_Store
+
+# SPM
+.swiftpm/
+Package.resolved
