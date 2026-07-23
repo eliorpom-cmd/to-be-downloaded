@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(run)",
+      "Skill(run:*)"
+    ]
+  }
+}

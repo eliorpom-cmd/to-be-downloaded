@@ -1,0 +1,56 @@
+# =============================================================================
+#  NOM DE L'APP — PLACEHOLDER
+#  Pour renommer l'app plus tard, change ces 3 valeurs puis relance `xcodegen`:
+#    - name: (nom du projet)
+#    - PRODUCT_NAME
+#    - INFOPLIST_KEY_CFBundleDisplayName
+#  Le nom affiché dans le code vit dans App/Sources/AppConfig.swift.
+# =============================================================================
+name: Downloader
+
+options:
+  bundleIdPrefix: com.local
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+
+packages:
+  FlyingFox:
+    url: https://github.com/swhitty/FlyingFox
+    from: "0.27.0"
+
+targets:
+  Downloader:
+    type: application
+    platform: macOS
+    sources:
+      - path: App/Sources
+      - path: App/Resources/bin
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - package: FlyingFox
+    settings:
+      base:
+        PRODUCT_NAME: Downloader
+        PRODUCT_BUNDLE_IDENTIFIER: com.local.downloader
+        INFOPLIST_FILE: App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: App/Downloader.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_KEY_CFBundleDisplayName: Downloader
+        # Hardened runtime OFF : requis seulement pour la notarisation Apple
+        # (compte développeur payant). Sans lui, le yt-dlp figé s'exécute sans souci.
+        # → Repasser à YES le jour où une notarisation Developer ID est mise en place.
+        ENABLE_HARDENED_RUNTIME: NO
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+        LD_RUNPATH_SEARCH_PATHS:
+          - "$(inherited)"
+          - "@executable_path/../Frameworks"
