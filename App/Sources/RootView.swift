@@ -52,7 +52,17 @@ struct RootView: View {
         // nous-mêmes pour les feux tricolores, d'où le grand vide au-dessus de
         // « Download ». En l'ignorant, nos marges redeviennent la seule vérité.
         .ignoresSafeArea(.container, edges: .top)
-        .background(Theme.window)
+        .background {
+            // Translucidité légère : le matériau prend le fond de l'écran, le
+            // voile lui rend la lisibilité. 0,82 est le point où l'effet se
+            // remarque encore sans qu'un fond d'écran chargé vienne parasiter
+            // le texte.
+            ZStack {
+                WindowMaterial()
+                Theme.window.opacity(0.82)
+            }
+            .ignoresSafeArea()
+        }
         .task {
             server.start()
             Notifier.shared.requestAuthorization()
@@ -142,7 +152,8 @@ struct RootView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.window)
+        // Fond volontairement absent : c'est le matériau translucide de la
+        // racine qui traverse. Un aplat ici l'annulerait.
     }
 }
 

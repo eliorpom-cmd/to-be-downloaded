@@ -87,7 +87,13 @@ final class ServerController: ObservableObject {
 
         // Page web
         await server.appendRoute("GET /") { _ in
-            let html = WebUI.indexHTML(appName: appName)
+            // Lu à chaque requête, et non capturé au démarrage : changer le
+            // format audio dans l'app doit se voir au rafraîchissement suivant.
+            let audioBitrateSelectable = await MainActor.run {
+                AppSettings.shared.audioFormat.usesBitrate
+            }
+            let html = WebUI.indexHTML(
+                appName: appName, audioBitrateSelectable: audioBitrateSelectable)
             return HTTPResponse(statusCode: .ok,
                                 headers: [.contentType: "text/html; charset=utf-8"],
                                 body: Data(html.utf8))
@@ -153,7 +159,12 @@ final class ServerController: ObservableObject {
                                     headers: [.contentType: "application/json"],
                                     body: Data(#"{"error":"invalid request"}"#.utf8))
             }
-            let id = await downloads.startDownload(urlString: dto.url, format: dto.toFormat())
+            // Le conteneur audio et les sous-titres suivent les réglages de
+            // l'app : la page web ne les expose pas, elle ne doit pas décider
+            // à leur place.
+            let defaults = await MainActor.run { AppSettings.shared.currentDefaultFormat }
+            let id = await downloads.startDownload(
+                urlString: dto.url, format: dto.toFormat(defaults: defaults))
             let payload = ["id": id?.uuidString ?? ""]
             let data = (try? JSONEncoder().encode(payload)) ?? Data("{}".utf8)
             return HTTPResponse(statusCode: .ok,

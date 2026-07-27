@@ -6,10 +6,13 @@ struct DownloadRequestDTO: Codable, Sendable {
     let kind: String        // "video" | "audio"
     let quality: String?    // "360".."1080" / "max"  ou  "128".."320"
 
-    func toFormat() -> DownloadFormat {
+    /// `defaults` porte ce que la page web n'expose pas (conteneur audio,
+    /// sous-titres) : ces choix appartiennent aux réglages de l'app.
+    func toFormat(defaults: DownloadFormat) -> DownloadFormat {
         let mediaKind = MediaKind(rawValue: kind) ?? .video
-        var format = DownloadFormat(kind: mediaKind)
-        if let quality {
+        var format = defaults
+        format.kind = mediaKind
+        if let quality, !quality.isEmpty {
             switch mediaKind {
             case .video:
                 if quality.lowercased() == "max" {

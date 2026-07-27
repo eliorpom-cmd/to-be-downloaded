@@ -75,15 +75,19 @@ struct DownloadCapsule: View {
                         .frame(width: 132, height: 9)
                         .transition(.opacity)
                 } else {
+                    // Priorité de mise en page au titre : c'est lui qu'on
+                    // cherche du regard, et la meta n'a plus qu'un pourcentage
+                    // à loger.
                     Text(job.displayTitle)
                         .font(Theme.Text.body)
                         .foregroundStyle(job.state == .paused ? Theme.labelSecondary : Theme.label)
                         .lineLimit(1)
                         .truncationMode(.tail)
+                        .layoutPriority(1)
                         .transition(.opacity)
                 }
 
-                Spacer(minLength: Theme.Space.s8)
+                Spacer(minLength: Theme.Space.s6)
 
                 // Largeur RÉSERVÉE et chiffres à chasse fixe : le texte change à
                 // chaque rafraîchissement, et sans cela toute la ligne — titre
@@ -108,8 +112,12 @@ struct DownloadCapsule: View {
             }
         }
         .animation(.easeOut(duration: 0.25), value: job.metadata?.title)
+        .overlay(alignment: .topTrailing) { liveTooltip }
+        // Sinon l'info-bulle passerait SOUS la capsule suivante.
+        .zIndex(hovering ? 1 : 0)
         .contentShape(Capsule())
         .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
         // Toute la capsule est cliquable une fois le fichier là.
         // Une ligne terminée mène à la bibliothèque, pas au Finder : on reste
         // dans l'app, où la vidéo a une fiche, une vignette et un menu.
@@ -127,27 +135,73 @@ struct DownloadCapsule: View {
         .help(helpText)
     }
 
+    // MARK: - Info-bulle vivante
+
     /// Le débit et le temps restant ne tiennent plus dans la ligne : ils
-    /// mangeaient la place du titre, qui est la seule information qu'on
-    /// cherche vraiment du regard. Ils vivent ici, comme le libellé d'un
-    /// bouton — visibles quand on les demande.
+    /// mangeaient la place du titre. Ils s'affichent au survol.
+    ///
+    /// Vue SwiftUI et NON `.help()` : ce dernier pose une info-bulle AppKit,
+    /// dont le texte n'est relu qu'au survol SUIVANT. Elle restait donc figée
+    /// sur les chiffres du moment où on est arrivé dessus, ce qui est pire que
+    /// de ne rien afficher pour une valeur qui change chaque seconde.
+    @ViewBuilder
+    private var liveTooltip: some View {
+        if hovering, let text = liveDetail {
+            Text(text)
+                .font(Theme.Text.caption)
+                .monospacedDigit()
+                .foregroundStyle(Theme.label)
+                .fixedSize()
+                .padding(.horizontal, Theme.Space.s8)
+                .padding(.vertical, 5)
+                .background(
+                    RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
+                        .fill(Theme.card)
+                        .shadow(color: .black.opacity(0.22), radius: 8, y: 2)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
+                        .strokeBorder(Theme.separator, lineWidth: 1)
+                )
+                .offset(y: -30)
+                .allowsHitTesting(false)
+                .transition(.opacity)
+        }
+    }
+
+    /// Contenu de l'info-bulle : `nil` quand il n'y a rien qui bouge à dire.
+    private var liveDetail: String? {
+        switch job.state {
+        case .downloading:
+            var parts: [String] = []
+            let speed = Format.speed(job.progress?.speed)
+            let eta = Format.eta(job.progress?.eta)
+            if !speed.isEmpty { parts.append(speed) }
+            if !eta.isEmpty { parts.append(eta) }
+            if let done = job.progress?.downloadedBytes, let total = job.progress?.totalBytes {
+                parts.append("\(Format.bytes(done)) / \(Format.bytes(total))")
+            }
+            return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        case .paused:
+            return "Paused at \(Int(job.overallProgress * 100))%"
+        case .queued:
+            return waiting ? "Waiting for a free slot" : "Starting the download engine…"
+        case .merging:
+            return "Merging the video and audio tracks"
+        default:
+            return nil
+        }
+    }
+
     private var helpText: String {
         switch job.state {
         case .failed:
             return job.errorMessage ?? "Failed"
         case .completed:
             return "Show in Library — \(job.displayTitle)"
-        case .queued:
-            return waiting ? "Waiting for a free slot" : "Starting the download engine…"
-        case .downloading, .paused:
-            var parts = [job.displayTitle]
-            let speed = Format.speed(job.progress?.speed)
-            let eta = Format.eta(job.progress?.eta)
-            if !speed.isEmpty { parts.append(speed) }
-            if !eta.isEmpty { parts.append(eta) }
-            if let total = job.progress?.totalBytes { parts.append(Format.bytes(total)) }
-            return parts.joined(separator: " · ")
         default:
+            // Les états qui bougent ont l'info-bulle vivante ci-dessus ; celle
+            // d'AppKit ne sert plus qu'à donner le titre en entier.
             return job.displayTitle
         }
     }
@@ -158,8 +212,9 @@ struct DownloadCapsule: View {
     /// plus qu'un pourcentage, le reste est passé en info-bulle.
     private var metaWidth: CGFloat? {
         switch job.state {
-        case .downloading, .paused: return 38
-        case .queued, .merging:     return 74
+        case .downloading:      return 34
+        case .paused:           return 46
+        case .queued, .merging: return 70
         case .completed, .failed, .cancelled: return nil
         }
     }
@@ -173,7 +228,9 @@ struct DownloadCapsule: View {
             // deux doivent raconter la même histoire.
             return "\(Int(job.overallProgress * 100))%"
         case .paused:
-            return "\(Int(job.overallProgress * 100))%"
+            // Le mot, pas le chiffre : sans lui, une barre arrêtée ressemble à
+            // un téléchargement bloqué. Le pourcentage est dans l'info-bulle.
+            return "Paused"
         case .merging:
             return "Finishing up…"
         case .completed:

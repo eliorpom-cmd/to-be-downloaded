@@ -26,7 +26,11 @@ enum WebUI {
     /// et surtout les mêmes capsules dont le FOND se remplit au fil de la
     /// progression — pas de barre séparée. Monochrome strict : la hiérarchie
     /// vient de la typo et de l'espace, jamais d'une couleur.
-    static func indexHTML(appName: String) -> String {
+    /// `audioBitrateSelectable` reflète le réglage de l'app : en M4A la piste
+    /// d'origine est conservée, il n'y a pas de débit à choisir. La page web
+    /// proposait encore la liste des débits alors que l'app ne la montrait
+    /// plus — deux interfaces qui promettent des choses différentes.
+    static func indexHTML(appName: String, audioBitrateSelectable: Bool) -> String {
         """
         <!doctype html>
         <html lang="en">
@@ -229,7 +233,9 @@ enum WebUI {
 
         <script>
           const VQ = [["1080","1080p"],["720","720p"],["480","480p"],["360","360p"],["max","Best"]];
-          const AQ = [["320","320 kbps"],["192","192 kbps"],["128","128 kbps"]];
+          const AQ = \(audioBitrateSelectable
+              ? #"[["320","320 kbps"],["192","192 kbps"],["128","128 kbps"]]"#
+              : #"[["", "Original quality"]]"#);
           const HOSTS = ["youtube.com","www.youtube.com","m.youtube.com","music.youtube.com","youtu.be","www.youtu.be"];
 
           const ICON = {
@@ -314,16 +320,20 @@ enum WebUI {
             let meta = "", action = "", href = "";
 
             if (j.state === "downloading")   meta = eta(j.eta) || `${pct}%`;
-            else if (j.state === "queued")   meta = "Starting…";
+            else if (j.state === "queued")   meta = "Preparing…";
             else if (j.state === "paused")   meta = `Paused · ${pct}%`;
             else if (j.state === "merging")  meta = "Finishing up…";
-            else if (j.state === "completed") meta = human(j.fileSize);
+            // Sur le téléphone, la taille du fichier n'aide pas : ce qu'on
+            // veut savoir, c'est qu'on peut le récupérer ICI, d'un geste.
+            else if (j.state === "completed") meta = "Save · " + human(j.fileSize);
             else if (j.state === "failed")   meta = "Failed";
             else if (j.state === "cancelled") meta = "Cancelled";
 
             if (active) {
               action = `<button class="act" aria-label="Cancel" onclick="cancelJob(event,'${j.id}')">${ICON.cancel}</button>`;
             } else if (j.state === "completed" && j.canFetch) {
+              // La capsule entière devient un lien de téléchargement : n'importe
+              // quelle vidéo de la session du Mac se récupère sur l'appareil.
               action = `<span class="act">${ICON.get}</span>`;
               href = `/api/file/${j.id}`;
             } else if (j.state === "failed" || j.state === "cancelled") {

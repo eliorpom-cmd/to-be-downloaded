@@ -275,3 +275,22 @@ struct SidebarMaterial: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
 }
+
+/// Fond de fenêtre translucide, comme celui du Terminal.
+///
+/// `.underWindowBackground` en `behindWindow` : le flou prend ce qu'il y a
+/// DERRIÈRE la fenêtre. Un voile de la couleur de fond est posé par-dessus —
+/// sans lui, le texte perdrait son contraste dès qu'une image claire passe
+/// derrière, et le monochrome de l'app ne pardonne pas ça. C'est le réglage
+/// de ce voile qui fait la différence entre « léger » et « illisible ».
+struct WindowMaterial: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .underWindowBackground
+        view.blendingMode = .behindWindow
+        view.state = .followsWindowActiveState
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+}
