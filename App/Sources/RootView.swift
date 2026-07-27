@@ -60,7 +60,7 @@ struct RootView: View {
             // Téléchargements laissés en plan au dernier arrêt : on les propose,
             // on ne les relance pas — fermer l'app peut vouloir dire « stop ».
             manager.loadResumable()
-            GlobalShortcut.setEnabled(settings.globalShortcut)
+            settings.applyGlobalShortcut()
             // Contrôle silencieux de yt-dlp : sans lui, l'app casse à la
             // prochaine parade anti-bot de YouTube. Throttlé à 24 h côté
             // updater, et sans effet si l'utilisateur l'a désactivé.

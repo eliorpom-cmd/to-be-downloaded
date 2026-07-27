@@ -58,6 +58,9 @@ final class AppSettings: ObservableObject {
         static let filenameTemplate = "filenameTemplate"
         static let filenameCustom = "filenameCustomPattern"
         static let globalShortcut = "globalShortcutEnabled"
+        static let shortcutKeyCode = "globalShortcutKeyCode"
+        static let shortcutModifiers = "globalShortcutModifiers"
+        static let shortcutLabel = "globalShortcutLabel"
     }
 
     @Published var outputDirectory: URL {
@@ -137,8 +140,54 @@ final class AppSettings: ObservableObject {
     @Published var globalShortcut: Bool {
         didSet {
             store.set(globalShortcut, forKey: Key.globalShortcut)
-            GlobalShortcut.setEnabled(globalShortcut)
+            applyGlobalShortcut()
         }
+    }
+    @Published private(set) var shortcutKeyCode: Int
+    @Published private(set) var shortcutModifiers: UInt
+    @Published private(set) var shortcutLabel: String
+    /// Vrai quand la dernière combinaison demandée a été refusée par le
+    /// système — presque toujours parce qu'une autre app l'a déjà prise.
+    @Published private(set) var shortcutRejected = false
+
+    /// Change la combinaison. Renvoie `false` si elle est déjà prise, auquel
+    /// cas l'ancienne est remise en place.
+    @discardableResult
+    func setShortcut(keyCode: Int, modifiers: UInt, label: String) -> Bool {
+        let previous = (shortcutKeyCode, shortcutModifiers, shortcutLabel)
+        shortcutKeyCode = keyCode
+        shortcutModifiers = modifiers
+        shortcutLabel = label
+        store.set(keyCode, forKey: Key.shortcutKeyCode)
+        store.set(Int(modifiers), forKey: Key.shortcutModifiers)
+        store.set(label, forKey: Key.shortcutLabel)
+
+        guard globalShortcut else { return true }
+        if applyGlobalShortcut() { return true }
+        // Refusée : on ne laisse pas l'utilisateur avec un raccourci mort.
+        shortcutKeyCode = previous.0
+        shortcutModifiers = previous.1
+        shortcutLabel = previous.2
+        store.set(previous.0, forKey: Key.shortcutKeyCode)
+        store.set(Int(previous.1), forKey: Key.shortcutModifiers)
+        store.set(previous.2, forKey: Key.shortcutLabel)
+        _ = applyGlobalShortcut()
+        shortcutRejected = true
+        return false
+    }
+
+    func clearShortcutRejection() { shortcutRejected = false }
+
+    @discardableResult
+    func applyGlobalShortcut() -> Bool {
+        guard globalShortcut else {
+            GlobalShortcut.disable()
+            shortcutRejected = false
+            return true
+        }
+        let ok = GlobalShortcut.enable(keyCode: shortcutKeyCode, modifiers: shortcutModifiers)
+        shortcutRejected = !ok
+        return ok
     }
 
     /// Motif `-o` effectif, extension comprise.
@@ -203,5 +252,10 @@ final class AppSettings: ObservableObject {
             rawValue: store.string(forKey: Key.filenameTemplate) ?? "") ?? .title
         filenameCustom = store.string(forKey: Key.filenameCustom) ?? "%(title)s"
         globalShortcut = store.object(forKey: Key.globalShortcut) as? Bool ?? false
+        shortcutKeyCode = store.object(forKey: Key.shortcutKeyCode) as? Int
+            ?? GlobalShortcut.defaultKeyCode
+        shortcutModifiers = UInt(store.object(forKey: Key.shortcutModifiers) as? Int
+            ?? Int(GlobalShortcut.defaultModifiers))
+        shortcutLabel = store.string(forKey: Key.shortcutLabel) ?? GlobalShortcut.defaultLabel
     }
 }

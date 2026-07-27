@@ -38,9 +38,11 @@ final class ServerController: ObservableObject {
         // Icône PNG pré-rendue (PWA / apple-touch-icon), générée hors des
         // handlers (qui tournent hors du thread principal).
         let iconData = AppIcon.png(size: 512)
+        // Variante serrée pour l'onglet du navigateur : voir `AppIcon.favicon`.
+        let faviconData = AppIcon.favicon(size: 64)
 
         task = Task { [weak self] in
-            await self?.configureRoutes(on: server, iconData: iconData)
+            await self?.configureRoutes(on: server, iconData: iconData, faviconData: faviconData)
             do {
                 try await server.run()
             } catch {
@@ -77,7 +79,9 @@ final class ServerController: ObservableObject {
 
     // MARK: - Routes
 
-    private func configureRoutes(on server: HTTPServer, iconData: Data?) async {
+    private func configureRoutes(
+        on server: HTTPServer, iconData: Data?, faviconData: Data?
+    ) async {
         let downloads = self.downloads
         let appName = AppConfig.displayName
 
@@ -96,7 +100,7 @@ final class ServerController: ObservableObject {
                          body: Data(WebUI.manifestJSON(appName: appName).utf8))
         }
 
-        // Icône (PWA + apple-touch-icon + favicon).
+        // Icône d'écran d'accueil (PWA + apple-touch-icon).
         await server.appendRoute("GET /icon-512.png") { _ in
             guard let iconData else {
                 return HTTPResponse(statusCode: .notFound, body: Data())
@@ -104,6 +108,16 @@ final class ServerController: ObservableObject {
             return HTTPResponse(statusCode: .ok,
                                 headers: [.contentType: "image/png"],
                                 body: iconData)
+        }
+
+        // Icône d'onglet.
+        await server.appendRoute("GET /favicon.png") { _ in
+            guard let faviconData else {
+                return HTTPResponse(statusCode: .notFound, body: Data())
+            }
+            return HTTPResponse(statusCode: .ok,
+                                headers: [.contentType: "image/png"],
+                                body: faviconData)
         }
 
         // Liste des jobs (chaque appel = un appareil actif sur le réseau).

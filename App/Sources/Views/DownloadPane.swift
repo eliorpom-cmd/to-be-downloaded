@@ -147,6 +147,11 @@ struct DownloadPane: View {
             sessionList
                 .frame(maxWidth: 320)
         }
+        // L'animation vit ICI, sur le conteneur, et non sur la seule liste :
+        // ajouter une capsule pousse tout ce qui est au-dessus (logo, champ,
+        // contrôles). Animer la liste seule laissait ce déplacement se faire
+        // d'un coup pendant que la capsule, elle, s'animait — d'où l'à-coup.
+        .animation(.easeOut(duration: 0.22), value: sessionJobs.count)
     }
 
     // MARK: - Bandeau moteur (yt-dlp dépassé par YouTube)
@@ -404,7 +409,7 @@ struct DownloadPane: View {
         if !sessionJobs.isEmpty {
             VStack(spacing: Theme.Space.s8) {
                 ForEach(Array(sessionJobs.prefix(visibleCapsules))) { job in
-                    DownloadCapsule(job: job, manager: manager)
+                    DownloadCapsule(job: job, manager: manager, onOpen: goToLibrary)
                         .transition(.appearingCapsule)
                 }
 
@@ -442,9 +447,6 @@ struct DownloadPane: View {
                     .padding(.top, Theme.Space.s2)
                 }
             }
-            // Un lancement se voit, sans se faire attendre : courbe amortie et
-            // brève, la même qui remet la liste en page.
-            .animation(.easeOut(duration: 0.2), value: sessionJobs.map(\.id))
         }
     }
 
