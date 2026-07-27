@@ -1,49 +1,52 @@
 import Foundation
 import CoreGraphics
 import AppKit
+import SwiftUI
 
-/// Rend l'icône de l'app en PNG (monochrome, sur-marque) : carré arrondi noir
-/// + flèche de téléchargement blanche. Dessin via CoreGraphics (thread-safe,
-/// pas de contexte AppKit à verrouiller), servi à la PWA et à apple-touch-icon.
+/// Rend l'icône de l'app en PNG, servie à la PWA et à `apple-touch-icon`.
+///
+/// Même dessin que l'icône du bundle : la pastille claire aux proportions macOS
+/// et le tracé exact du logo (`MascotShape`). L'icône sur l'écran d'accueil d'un
+/// téléphone est donc la même que celle du Dock.
 enum AppIcon {
+
     static func png(size: Int) -> Data? {
         let s = CGFloat(size)
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
         guard let ctx = CGContext(
             data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0,
-            space: colorSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else { return nil }
 
-        // Fond : carré arrondi quasi-noir.
-        let inset = s * 0.06
-        let rect = CGRect(x: inset, y: inset, width: s - 2 * inset, height: s - 2 * inset)
-        let corner = s * 0.225      // squircle façon iOS/macOS
-        let bg = CGPath(roundedRect: rect, cornerWidth: corner, cornerHeight: corner, transform: nil)
-        ctx.addPath(bg)
-        ctx.setFillColor(CGColor(red: 0.04, green: 0.04, blue: 0.04, alpha: 1))
+        // Pastille : proportions des icônes macOS (marge 100/1024, rayon 185/1024).
+        let margin = s * 100.0 / 1024.0
+        let body = CGRect(x: margin, y: margin, width: s - 2 * margin, height: s - 2 * margin)
+        let radius = s * 185.0 / 1024.0
+        ctx.addPath(CGPath(roundedRect: body, cornerWidth: radius, cornerHeight: radius, transform: nil))
+        ctx.setFillColor(CGColor(red: 0.98, green: 0.98, blue: 0.98, alpha: 1))
         ctx.fillPath()
 
-        // Flèche de téléchargement blanche (repère y bas-gauche en CoreGraphics).
-        ctx.setFillColor(CGColor(red: 0.96, green: 0.96, blue: 0.96, alpha: 1))
-        let cx = s / 2
-        let stemW = s * 0.10
-        let stemTop = s * 0.72
-        let stemBottom = s * 0.40
-        // Hampe
-        ctx.fill(CGRect(x: cx - stemW / 2, y: stemBottom, width: stemW, height: stemTop - stemBottom))
-        // Pointe (triangle)
-        let head = s * 0.20
-        ctx.move(to: CGPoint(x: cx - head, y: stemBottom + head * 0.2))
-        ctx.addLine(to: CGPoint(x: cx + head, y: stemBottom + head * 0.2))
-        ctx.addLine(to: CGPoint(x: cx, y: s * 0.28))
-        ctx.closePath()
-        ctx.fillPath()
-        // Socle (barre sous la flèche)
-        let baseW = s * 0.40
-        ctx.fill(CGRect(x: cx - baseW / 2, y: s * 0.24, width: baseW, height: s * 0.055))
+        // Logo centré, à 58 % de la pastille.
+        let target = body.width * 0.58
+        let height = target * 920.0 / 930.0
+        let logoRect = CGRect(x: body.midX - target / 2,
+                              y: body.midY - height / 2,
+                              width: target, height: height)
+
+        // Le tracé est exprimé en coordonnées SwiftUI (y vers le bas) alors que
+        // CoreGraphics compte depuis le bas : sans ce retournement, la mascotte
+        // sort sur la tête.
+        ctx.saveGState()
+        ctx.translateBy(x: 0, y: s)
+        ctx.scaleBy(x: 1, y: -1)
+        let flipped = CGRect(x: logoRect.minX, y: s - logoRect.maxY,
+                             width: logoRect.width, height: logoRect.height)
+        ctx.addPath(MascotShape().path(in: flipped).cgPath)
+        ctx.setFillColor(CGColor(red: 0.04, green: 0.04, blue: 0.04, alpha: 1))
+        ctx.fillPath(using: .winding)
+        ctx.restoreGState()
 
         guard let cgImage = ctx.makeImage() else { return nil }
-        let rep = NSBitmapImageRep(cgImage: cgImage)
-        return rep.representation(using: .png, properties: [:])
+        return NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:])
     }
 }

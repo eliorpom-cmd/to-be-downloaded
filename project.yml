@@ -36,6 +36,9 @@ targets:
       - path: App/Resources/bin
         type: folder
         buildPhase: resources
+      # Icône générée par ./scripts/make-icon.sh à partir du tracé du logo.
+      - path: App/Resources/AppIcon.icns
+        buildPhase: resources
     dependencies:
       - package: FlyingFox
     settings:

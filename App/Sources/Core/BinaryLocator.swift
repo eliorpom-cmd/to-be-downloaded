@@ -41,6 +41,43 @@ enum BinaryLocator {
         throw BinaryError.notFound(name)
     }
 
+    // MARK: - Copie gérée (mise à jour à chaud)
+
+    /// Dossier des binaires que l'app peut remplacer elle-même.
+    ///
+    /// Volontairement HORS du bundle : réécrire `Contents/Resources` casserait
+    /// la signature du `.app`, et `/Applications` n'est pas toujours accessible
+    /// en écriture à l'utilisateur.
+    static var managedDirectory: URL {
+        let fm = FileManager.default
+        let base = (try? fm.url(for: .applicationSupportDirectory, in: .userDomainMask,
+                                appropriateFor: nil, create: true))
+            ?? fm.homeDirectoryForCurrentUser
+                .appendingPathComponent("Library/Application Support", isDirectory: true)
+        return base
+            .appendingPathComponent(AppConfig.displayName, isDirectory: true)
+            .appendingPathComponent("bin", isDirectory: true)
+    }
+
+    static var managedYtDlp: URL {
+        managedDirectory.appendingPathComponent(AppConfig.ytDlpBinaryName)
+    }
+
+    static var hasManagedYtDlp: Bool {
+        FileManager.default.isExecutableFile(atPath: managedYtDlp.path)
+    }
+
+    /// yt-dlp réellement exécuté : la copie mise à jour si elle existe, sinon
+    /// l'amorce livrée dans le bundle (qui garantit une app fonctionnelle dès
+    /// l'installation, même hors ligne).
+    static func effectiveYtDlp() throws -> URL {
+        if hasManagedYtDlp {
+            try? ensureExecutable(at: managedYtDlp)
+            return managedYtDlp
+        }
+        return try url(for: AppConfig.ytDlpBinaryName)
+    }
+
     /// Chemin d'une resource (non exécutable) dans `bin`, si elle existe.
     static func resourceInBin(_ name: String) -> URL? {
         guard let dir = binDirectory else { return nil }

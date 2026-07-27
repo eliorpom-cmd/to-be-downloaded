@@ -3,30 +3,50 @@ import SwiftUI
 extension Notification.Name {
     static let focusURLField = Notification.Name("focusURLField")
     static let pasteAndDownload = Notification.Name("pasteAndDownload")
+    /// ⌘, : les réglages vivent dans la sidebar, pas dans une fenêtre à part.
+    static let openSettingsPane = Notification.Name("openSettingsPane")
 }
 
 @main
 struct DownloaderApp: App {
     @StateObject private var manager: DownloadManager
     @StateObject private var server: ServerController
+    @StateObject private var library: LibraryStore
     @StateObject private var settings = AppSettings.shared
+    @StateObject private var updater = EngineUpdater()
+    @StateObject private var appUpdater = AppUpdater()
 
     init() {
-        let downloads = DownloadManager()
+        let store = LibraryStore()
+        let downloads = DownloadManager(library: store)
+        _library = StateObject(wrappedValue: store)
         _manager = StateObject(wrappedValue: downloads)
         _server = StateObject(wrappedValue: ServerController(downloads: downloads))
     }
 
     var body: some Scene {
         WindowGroup {
-            ContentView(manager: manager, server: server, settings: settings)
+            RootView(manager: manager, server: server, settings: settings,
+                     library: library, updater: updater, appUpdater: appUpdater)
                 .tint(Theme.ink)
-                .preferredColorScheme(settings.appearance.colorScheme)
+                // Pas de `.preferredColorScheme` : l'apparence est pilotée par
+                // NSApp (cf. AppSettings.applyAppearance), seul moyen de
+                // revenir réellement au réglage système.
+                .task { AppSettings.applyAppearance(settings.appearance) }
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
-        .defaultSize(width: 860, height: 720)
+        .defaultSize(width: 1000, height: 680)
         .commands {
+            // Remplace l'élément « Settings… » système : il sélectionne la
+            // destination Settings de la sidebar au lieu d'ouvrir une fenêtre.
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") {
+                    NotificationCenter.default.post(name: .openSettingsPane, object: nil)
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
+
             CommandGroup(after: .newItem) {
                 Button("Focus URL Field") {
                     NotificationCenter.default.post(name: .focusURLField, object: nil)
@@ -41,16 +61,17 @@ struct DownloaderApp: App {
         }
 
         MenuBarExtra {
-            MenuBarView(manager: manager, server: server)
-                .preferredColorScheme(settings.appearance.colorScheme)
+            MenuBarView(manager: manager, server: server, settings: settings)
         } label: {
-            Image(systemName: manager.activeCount > 0 ? "arrow.down.circle.fill" : "arrow.down.circle")
+            // L'icône de l'app plutôt qu'un symbole générique, en image template
+            // pour suivre le thème de la barre des menus.
+            HStack(spacing: 3) {
+                Image(nsImage: MascotImage.menuBar())
+                if manager.activeCount > 0 {
+                    Text("\(manager.activeCount)").monospacedDigit()
+                }
+            }
         }
         .menuBarExtraStyle(.window)
-
-        Settings {
-            SettingsView(settings: settings, manager: manager, server: server)
-                .preferredColorScheme(settings.appearance.colorScheme)
-        }
     }
 }

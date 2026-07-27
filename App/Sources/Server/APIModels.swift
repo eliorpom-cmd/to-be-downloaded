@@ -35,6 +35,10 @@ struct JobDTO: Codable, Sendable {
     let thumbnail: String?
     let format: String
     let state: String
+    /// Progression GLOBALE [0...1], identique à la barre de l'app native :
+    /// une seule course, du premier octet à la fin de l'assemblage.
+    let progress: Double
+    /// Progression du flux en cours, pour les compteurs d'octets.
     let fraction: Double?
     let downloaded: Int64?
     let total: Int64?
@@ -52,6 +56,7 @@ struct JobDTO: Codable, Sendable {
         thumbnail = job.metadata?.thumbnailURL
         format = job.format.shortLabel
         state = job.state.apiValue
+        progress = job.state == .completed ? 1 : job.overallProgress
         fraction = job.progress?.fraction
         downloaded = job.progress?.downloadedBytes
         total = job.progress?.totalBytes
@@ -84,6 +89,8 @@ extension DownloadJob.State {
         switch self {
         case .queued:      return "queued"
         case .downloading: return "downloading"
+        case .paused:      return "paused"
+        case .merging:     return "merging"
         case .completed:   return "completed"
         case .failed:      return "failed"
         case .cancelled:   return "cancelled"

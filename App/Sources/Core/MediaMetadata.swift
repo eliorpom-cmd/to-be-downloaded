@@ -31,4 +31,48 @@ struct MediaMetadata: Codable, Sendable, Equatable {
             thumbnailURL: raw.thumbnail
         )
     }
+
+    /// Titre et chaîne par l'endpoint oEmbed public de YouTube.
+    ///
+    /// `yt-dlp --dump-single-json` lance un interpréteur Python et extrait la
+    /// page entière : plusieurs secondes, pendant lesquelles la ligne n'affiche
+    /// ni titre ni chaîne. oEmbed répond en une requête JSON de quelques
+    /// centaines de millisecondes. On s'en sert pour peupler l'affichage tout
+    /// de suite, yt-dlp complétant ensuite (durée, formats).
+    ///
+    /// Aucune conséquence en cas d'échec : c'est un raccourci, pas une source.
+    static func oEmbed(for url: String) async -> MediaMetadata? {
+        guard YouTubeLink.isValid(url),
+              var components = URLComponents(string: "https://www.youtube.com/oembed")
+        else { return nil }
+        components.queryItems = [
+            URLQueryItem(name: "url", value: url),
+            URLQueryItem(name: "format", value: "json"),
+        ]
+        guard let endpoint = components.url else { return nil }
+
+        var request = URLRequest(url: endpoint)
+        request.timeoutInterval = 5
+        request.setValue("\(AppConfig.displayName)/\(AppConfig.version)",
+                         forHTTPHeaderField: "User-Agent")
+
+        struct Payload: Decodable {
+            let title: String?
+            let author_name: String?
+            let thumbnail_url: String?
+        }
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let payload = try? JSONDecoder().decode(Payload.self, from: data),
+              let title = payload.title?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !title.isEmpty
+        else { return nil }
+
+        return MediaMetadata(
+            title: title,
+            channel: payload.author_name,
+            duration: nil,
+            thumbnailURL: payload.thumbnail_url
+        )
+    }
 }

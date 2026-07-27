@@ -15,8 +15,14 @@ final class DownloadManager: ObservableObject {
 
     private var engine: DownloadEngine?
     private var running: [UUID: DownloadEngine.Running] = [:]
+    /// Anime la barre pendant l'assemblage ; s'arrête dès qu'aucun job n'y est.
+    private var mergeTicker: Task<Void, Never>?
 
-    init() {
+    /// Bibliothèque persistante alimentée à chaque téléchargement réussi.
+    let library: LibraryStore
+
+    init(library: LibraryStore = LibraryStore()) {
+        self.library = library
         buildEngine()
 
         // Arrête tous les subprocess yt-dlp à la fermeture de l'app (évite les orphelins).
@@ -24,6 +30,15 @@ final class DownloadManager: ObservableObject {
             forName: NSApplication.willTerminateNotification, object: nil, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.terminateAll() }
+        }
+
+        // yt-dlp vient d'être mis à jour : le moteur pointe encore sur l'ancien
+        // chemin. Les téléchargements en vol ne sont pas touchés (ils gardent
+        // leur inode), seuls les suivants prennent la nouvelle version.
+        NotificationCenter.default.addObserver(
+            forName: .engineBinaryDidChange, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.reconfigure() }
         }
     }
 
@@ -33,7 +48,8 @@ final class DownloadManager: ObservableObject {
 
     private func buildEngine() {
         do {
-            let ytDlp = try BinaryLocator.url(for: AppConfig.ytDlpBinaryName)
+            // Copie mise à jour si elle existe, amorce du bundle sinon.
+            let ytDlp = try BinaryLocator.effectiveYtDlp()
             let ffmpeg = try BinaryLocator.url(for: AppConfig.ffmpegBinaryName)
             // ffprobe vit dans le même dossier ; on s'assure qu'il est exécutable.
             _ = try? BinaryLocator.url(for: "ffprobe")
@@ -57,9 +73,14 @@ final class DownloadManager: ObservableObject {
 
     var isReady: Bool { engine != nil }
 
-    /// Nombre de téléchargements en cours ou en file (badge Dock / menu-bar).
+    /// Nombre de téléchargements qui occupent encore le moteur (badge Dock / menu-bar).
     var activeCount: Int {
-        jobs.filter { $0.state == .downloading || $0.state == .queued }.count
+        jobs.filter { $0.state.isActive }.count
+    }
+
+    /// Jobs de la session encore en vol, les plus récents d'abord.
+    var activeJobs: [DownloadJob] {
+        jobs.filter { $0.state.isActive }
     }
 
     private func updateDockBadge() {
@@ -81,12 +102,18 @@ final class DownloadManager: ObservableObject {
         let job = DownloadJob(url: trimmed, format: format)
         jobs.insert(job, at: 0)
 
-        // Récupère titre/chaîne/miniature en parallèle : la ligne affiche un vrai
-        // titre au lieu de l'URL brute, sans bloquer le démarrage du download.
+        // Titre et chaîne, en deux temps : oEmbed répond en quelques centaines
+        // de millisecondes, yt-dlp en quelques secondes. Sans le premier, la
+        // ligne restait anonyme pendant tout le début du téléchargement.
+        // (La vignette, elle, se déduit de l'URL — cf. `DownloadJob.thumbnailURL`.)
         let jobID = job.id
         Task { [weak self] in
+            guard let quick = await MediaMetadata.oEmbed(for: trimmed) else { return }
+            self?.apply(quick, to: jobID, overwrite: false)
+        }
+        Task { [weak self] in
             guard let meta = await engine.fetchMetadata(url: trimmed) else { return }
-            self?.update(jobID) { if $0.metadata == nil { $0.metadata = meta } }
+            self?.apply(meta, to: jobID, overwrite: true)
         }
 
         do {
@@ -100,6 +127,22 @@ final class DownloadManager: ObservableObject {
             }
         }
         return job.id
+    }
+
+    /// Enregistre des métadonnées sur un job.
+    ///
+    /// La vignette est FIGÉE sur celle déduite de l'identifiant YouTube quand
+    /// elle existe : les deux sources en proposent des variantes différentes,
+    /// et en changer d'URL relancerait un chargement — l'avatar clignoterait
+    /// une fois le téléchargement déjà lancé.
+    private func apply(_ metadata: MediaMetadata, to jobID: UUID, overwrite: Bool) {
+        update(jobID) { job in
+            guard overwrite || job.metadata == nil else { return }
+            var merged = metadata
+            merged.thumbnailURL = YouTubeLink.thumbnailURL(for: job.url)
+                ?? job.metadata?.thumbnailURL ?? metadata.thumbnailURL
+            job.metadata = merged
+        }
     }
 
     /// Aperçu (titre/chaîne/durée/miniature) sans démarrer de téléchargement.
@@ -122,7 +165,34 @@ final class DownloadManager: ObservableObject {
 
     func cancel(_ jobID: UUID) {
         running[jobID]?.cancel()
-        update(jobID) { if $0.state == .downloading || $0.state == .queued { $0.state = .cancelled } }
+        update(jobID) { if $0.state.isActive { $0.state = .cancelled } }
+    }
+
+    /// Suspend le process yt-dlp. Le `.part` reste en place, la reprise
+    /// repart de l'octet courant.
+    func pause(_ jobID: UUID) {
+        guard let run = running[jobID],
+              let job = jobs.first(where: { $0.id == jobID }),
+              job.state == .downloading || job.state == .queued
+        else { return }
+        if run.pause() {
+            update(jobID) { $0.state = .paused }
+        }
+    }
+
+    func resume(_ jobID: UUID) {
+        guard let run = running[jobID],
+              let job = jobs.first(where: { $0.id == jobID }), job.state == .paused
+        else { return }
+        if run.resume() {
+            update(jobID) { $0.state = .downloading }
+        }
+    }
+
+    /// Bascule pause/reprise depuis un seul bouton de la capsule.
+    func togglePause(_ jobID: UUID) {
+        guard let job = jobs.first(where: { $0.id == jobID }) else { return }
+        job.state == .paused ? resume(jobID) : pause(jobID)
     }
 
     func removeCompleted() {
@@ -151,10 +221,21 @@ final class DownloadManager: ObservableObject {
             for await event in run.events {
                 switch event {
                 case .progress(let p):
-                    self.update(jobID) {
-                        if $0.state != .cancelled { $0.state = .downloading }
-                        $0.progress = p
+                    self.update(jobID) { job in
+                        // Ne pas écraser une pause : yt-dlp peut avoir émis une
+                        // dernière ligne de progression avant de se suspendre.
+                        if job.state != .cancelled && job.state != .paused { job.state = .downloading }
+                        job.progress = p
+                        Self.advance(&job, with: p)
                     }
+                case .postProcessing:
+                    self.update(jobID) { job in
+                        guard job.state != .cancelled else { return }
+                        job.state = .merging
+                        job.overallProgress = max(job.overallProgress, job.postProcessingFloor)
+                        if job.mergeStartedAt == nil { job.mergeStartedAt = Date() }
+                    }
+                    self.startMergeTicker()
                 case .completed(let url):
                     let size = url.flatMap {
                         (try? $0.resourceValues(forKeys: [.fileSizeKey]))?.fileSize
@@ -163,10 +244,12 @@ final class DownloadManager: ObservableObject {
                         if $0.state != .cancelled {
                             $0.state = .completed
                             $0.fileURL = url
+                            $0.overallProgress = 1
                             if let size { $0.fileSize = Int64(size) }
                         }
                     }
                     if let job = self.jobs.first(where: { $0.id == jobID }), job.state == .completed {
+                        if let url { self.library.add(job: job, fileURL: url) }
                         Notifier.shared.downloadFinished(title: job.displayTitle, fileURL: url)
                     }
                 case .failed(let message):
@@ -179,6 +262,50 @@ final class DownloadManager: ObservableObject {
                 }
             }
             self.running[jobID] = nil
+        }
+    }
+
+    // MARK: - Progression globale
+
+    /// Projette la progression du flux courant sur la barre unique, sans jamais
+    /// reculer. Un changement de nom de fichier signale le passage au flux
+    /// suivant (image → son).
+    private static func advance(_ job: inout DownloadJob, with progress: DownloadProgress) {
+        if let file = progress.filename, file != job.currentStreamFile {
+            if job.currentStreamFile != nil { job.streamIndex += 1 }
+            job.currentStreamFile = file
+        }
+        let span = DownloadJob.phaseSpan(streamIndex: job.streamIndex, kind: job.format.kind)
+        let within = progress.fraction ?? 0
+        let mapped = span.lowerBound + within * (span.upperBound - span.lowerBound)
+        job.overallProgress = max(job.overallProgress, mapped)
+    }
+
+    /// Fait avancer la barre pendant l'assemblage ffmpeg, dont on ne peut pas
+    /// mesurer l'avancement : approche asymptotique du but — vite au début, de
+    /// plus en plus lentement, sans jamais atteindre 100 % avant la fin réelle.
+    /// C'est la convention pour une attente de durée inconnue.
+    private func startMergeTicker() {
+        guard mergeTicker == nil else { return }
+        mergeTicker = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 200_000_000)
+                guard let self else { return }
+                let merging = self.jobs.filter { $0.state == .merging }
+                if merging.isEmpty {
+                    self.mergeTicker = nil
+                    return
+                }
+                for job in merging {
+                    guard let started = job.mergeStartedAt else { continue }
+                    let elapsed = Date().timeIntervalSince(started)
+                    let floor = job.postProcessingFloor
+                    // τ = 5 s : ~63 % du chemin restant parcouru en 5 s.
+                    let eased = 1 - exp(-elapsed / 5)
+                    let target = floor + (0.995 - floor) * eased
+                    self.update(job.id) { $0.overallProgress = max($0.overallProgress, target) }
+                }
+            }
         }
     }
 

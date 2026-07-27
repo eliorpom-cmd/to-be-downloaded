@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Skill(run)",
-      "Skill(run:*)"
+      "Skill(run:*)",
+      "mcp__claude_ai_Figma__get_figma_skill",
+      "mcp__claude_ai_Figma__use_figma",
+      "mcp__claude_ai_Figma__get_screenshot"
     ]
   }
 }
