@@ -31,9 +31,15 @@ mkdir -p "$DIST"
 cp -R "$APP_SRC" "$DIST/"
 APP="$DIST/$APP_NAME.app"
 
-echo "▶ Signature ad-hoc (binaires embarqués, puis l'app)…"
+echo "▶ Signature ad-hoc (de l'intérieur vers l'extérieur)…"
 for bin in yt-dlp ffmpeg ffprobe; do
   codesign --force --sign - "$APP/Contents/Resources/bin/$bin"
+done
+# L'extension AVANT l'app : signer l'app scelle le contenu de PlugIns, donc
+# signer l'extension ensuite invaliderait la signature de l'app.
+for appex in "$APP/Contents/PlugIns/"*.appex; do
+  [ -e "$appex" ] || continue
+  codesign --force --sign - "$appex"
 done
 codesign --force --sign - "$APP"
 

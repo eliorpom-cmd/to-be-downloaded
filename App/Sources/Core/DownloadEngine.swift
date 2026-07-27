@@ -23,6 +23,10 @@ final class DownloadEngine: @unchecked Sendable {
         /// via CURL_CA_BUNDLE. Corrige "certificate verify failed" y compris
         /// derrière un intercepteur TLS (contrôle parental, antivirus, proxy).
         let trustBundle: URL?
+        /// Motif `-o` complet, extension comprise.
+        var outputPattern: String = "%(title)s.%(ext)s"
+        /// Langues de sous-titres à incruster, par ordre de préférence.
+        var subtitleLanguages: [String] = ["en"]
     }
 
     /// Un téléchargement en cours ; permet la pause, la reprise et l'annulation.
@@ -67,7 +71,12 @@ final class DownloadEngine: @unchecked Sendable {
     }
 
     /// Démarre un téléchargement et renvoie un handle diffusant les événements.
-    func start(url: String, format: DownloadFormat) throws -> Running {
+    ///
+    /// `jobID` détermine le dossier de travail, qui SURVIT à la fermeture de
+    /// l'app : c'est ce qui permet à un téléchargement interrompu de repartir
+    /// de l'octet où il s'était arrêté au lancement suivant, plutôt que de
+    /// zéro. Il n'est effacé qu'en cas de succès ou d'annulation explicite.
+    func start(url: String, format: DownloadFormat, jobID: UUID) throws -> Running {
         try FileManager.default.createDirectory(
             at: config.outputDirectory, withIntermediateDirectories: true)
 
@@ -75,16 +84,13 @@ final class DownloadEngine: @unchecked Sendable {
         let resultFile = FileManager.default.temporaryDirectory
             .appendingPathComponent("dl-\(UUID().uuidString).path")
 
-        // Dossier de travail isolé : yt-dlp y écrit les fichiers partiels
-        // (.part, fragments…). Nettoyé à la fin (succès, échec ou annulation),
-        // ce qui évite tout résidu dans ~/Downloads.
-        let workDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("Downloader-\(UUID().uuidString)", isDirectory: true)
+        let workDir = Self.partialDirectory(for: jobID)
         try? FileManager.default.createDirectory(at: workDir, withIntermediateDirectories: true)
 
         let process = Process()
         process.executableURL = config.ytDlp
-        process.arguments = buildArgs(url: url, format: format, resultFile: resultFile, workDir: workDir)
+        process.arguments = buildArgs(
+            url: url, format: format, resultFile: resultFile, workDir: workDir)
 
         process.environment = trustEnvironment()
 
@@ -120,11 +126,15 @@ final class DownloadEngine: @unchecked Sendable {
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 let fileURL = (path?.isEmpty == false) ? URL(fileURLWithPath: path!) : nil
                 continuation.yield(.completed(fileURL: fileURL))
+                // Succès : les fichiers partiels n'ont plus lieu d'être.
+                try? FileManager.default.removeItem(at: workDir)
             } else {
+                // Échec ou fermeture de l'app : on GARDE le `.part`, sinon la
+                // reprise repartirait de zéro. Le ménage se fait au lancement
+                // suivant pour les dossiers dont plus aucun job ne dépend.
                 continuation.yield(.failed(message: Self.cleanError(errAcc.recentTail, code: code)))
             }
             try? FileManager.default.removeItem(at: resultFile)
-            try? FileManager.default.removeItem(at: workDir)
             continuation.finish()
         }
 
@@ -136,6 +146,35 @@ final class DownloadEngine: @unchecked Sendable {
         }
 
         return Running(process: process, events: stream)
+    }
+
+    // MARK: - Fichiers partiels
+
+    /// Dossier de travail d'un job. Sous Application Support et non dans
+    /// `/tmp` : macOS y fait le ménage tout seul, et un téléchargement de
+    /// plusieurs heures y perdrait ses fragments.
+    static func partialDirectory(for jobID: UUID) -> URL {
+        let support = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Library/Application Support")
+        return support
+            .appendingPathComponent(AppConfig.displayName, isDirectory: true)
+            .appendingPathComponent("partials", isDirectory: true)
+            .appendingPathComponent(jobID.uuidString, isDirectory: true)
+    }
+
+    /// Supprime les dossiers partiels dont aucun job ne dépend plus.
+    static func prunePartials(keeping ids: Set<UUID>) {
+        let root = partialDirectory(for: UUID()).deletingLastPathComponent()
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: root, includingPropertiesForKeys: nil) else { return }
+        for entry in entries {
+            guard let id = UUID(uuidString: entry.lastPathComponent), ids.contains(id) else {
+                try? FileManager.default.removeItem(at: entry)
+                continue
+            }
+        }
     }
 
     // MARK: - Métadonnées (aperçu, sans téléchargement)
@@ -163,6 +202,27 @@ final class DownloadEngine: @unchecked Sendable {
         return MediaMetadata.decode(from: Data(result.stdout.utf8))
     }
 
+    /// Liste les vidéos d'une playlist, sans extraire aucune d'entre elles.
+    func fetchPlaylist(url: String) async -> Playlist? {
+        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        let args = [
+            "--impersonate", "chrome",
+            "--flat-playlist",
+            "--skip-download",
+            "--no-warnings",
+            "--dump-single-json",
+            "--", trimmed,
+        ]
+
+        guard let result = try? await ProcessRunner.run(
+            executable: config.ytDlp, arguments: args, environment: trustEnvironment()
+        ), result.exitCode == 0 else { return nil }
+
+        return Playlist.decode(from: Data(result.stdout.utf8))
+    }
+
     /// Environnement hérité + bundle CA combiné pour la validation SSL derrière
     /// un intercepteur TLS local (contrôle parental, antivirus, proxy).
     private func trustEnvironment() -> [String: String] {
@@ -187,15 +247,17 @@ final class DownloadEngine: @unchecked Sendable {
             "--newline",
             "--no-colors",
             "--no-playlist",
-            "--restrict-filenames",
+            // Pas de `--restrict-filenames` : il remplaçait les espaces par des
+            // soulignés et amputait les accents, d'où des noms illisibles. Sans
+            // lui, yt-dlp ne remplace que ce que le système interdit vraiment.
             "--progress",       // force la progression même si --print active --quiet
             "--no-simulate",    // --print-to-file impliquerait sinon une simulation
             "--progress-template", Self.progressTemplate,
             "--print-to-file", "after_move:filepath", resultFile.path,
-            // Fichiers partiels dans le dossier temporaire, fichier final dans ~/Downloads.
+            // Fichiers partiels dans le dossier de travail, fichier final dans ~/Downloads.
             "-P", "home:\(config.outputDirectory.path)",
             "-P", "temp:\(workDir.path)",
-            "-o", "%(title)s.%(ext)s",
+            "-o", config.outputPattern,
         ]
 
         switch format.kind {
@@ -231,13 +293,39 @@ final class DownloadEngine: @unchecked Sendable {
             }
             args += ["--merge-output-format", "mp4"]
 
+            if format.subtitles {
+                // Incrustés dans le MP4 (piste `mov_text`), pas déposés en
+                // fichiers `.srt` à côté : une piste qu'on active dans le
+                // lecteur est plus utile qu'un fichier de plus dans le dossier.
+                args += [
+                    "--embed-subs",
+                    "--write-subs",
+                    "--write-auto-subs",   // à défaut de sous-titres écrits, ceux générés
+                    "--sub-langs", config.subtitleLanguages.joined(separator: ","),
+                    // Sans quoi yt-dlp laisse aussi les `.vtt` sur le disque.
+                    "--compat-options", "no-keep-subs",
+                ]
+            }
+
         case .audio:
-            args += [
-                "-f", "ba/b",
-                "-x",
-                "--audio-format", "mp3",
-                "--audio-quality", "\(format.audioBitrate.rawValue)K",
-            ]
+            switch format.audioFormat {
+            case .mp3:
+                args += [
+                    "-f", "ba/b",
+                    "-x",
+                    "--audio-format", "mp3",
+                    "--audio-quality", "\(format.audioBitrate.rawValue)K",
+                ]
+            case .m4a:
+                // Piste AAC d'origine préférée : `--audio-format m4a` se
+                // contente alors de la remuxer, sans ré-encodage — plus rapide
+                // et sans perte de génération.
+                args += [
+                    "-f", "ba[ext=m4a]/ba/b",
+                    "-x",
+                    "--audio-format", "m4a",
+                ]
+            }
         }
 
         // `--` puis l'URL en dernier : protège contre une URL commençant par '-'.

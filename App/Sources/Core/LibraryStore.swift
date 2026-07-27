@@ -74,6 +74,20 @@ final class LibraryStore: ObservableObject {
         }
     }
 
+    /// Entrée existante pour la même vidéo et le même type de média.
+    ///
+    /// La comparaison porte sur l'identifiant YouTube, pas sur l'URL : le même
+    /// lien s'écrit de dix façons (`youtu.be`, paramètre `t=`, `si=` de
+    /// partage…) et comparer les chaînes ne détecterait presque jamais rien.
+    func existing(forURL url: String, kind: MediaKind) -> LibraryItem? {
+        guard let videoID = YouTubeLink.videoID(from: url) else { return nil }
+        return sorted.first {
+            $0.kind == kind
+                && $0.fileExists
+                && YouTubeLink.videoID(from: $0.sourceURL) == videoID
+        }
+    }
+
     // MARK: - Écriture
 
     /// Enregistre un job terminé. Idempotent : rejoue sans dupliquer.

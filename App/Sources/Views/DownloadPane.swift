@@ -8,13 +8,15 @@ struct DownloadPane: View {
     @ObservedObject var manager: DownloadManager
     @ObservedObject var settings: AppSettings
     @ObservedObject var updater: EngineUpdater
+    @ObservedObject var library: LibraryStore
     let goToLibrary: () -> Void
 
     init(manager: DownloadManager, settings: AppSettings, updater: EngineUpdater,
-         goToLibrary: @escaping () -> Void) {
+         library: LibraryStore, goToLibrary: @escaping () -> Void) {
         _manager = ObservedObject(wrappedValue: manager)
         _settings = ObservedObject(wrappedValue: settings)
         _updater = ObservedObject(wrappedValue: updater)
+        _library = ObservedObject(wrappedValue: library)
         self.goToLibrary = goToLibrary
         _kind = State(initialValue: settings.defaultKind)
         _videoQuality = State(initialValue: settings.defaultVideoQuality)
@@ -30,6 +32,11 @@ struct DownloadPane: View {
     @State private var clipboardSuggestion: String?
     @State private var pasteHovering = false
     @State private var isDropTargeted = false
+    /// Métadonnées du lien saisi, pour l'estimation de poids. Rien n'en est
+    /// affiché d'autre : l'aperçu titre/miniature n'a pas été redemandé.
+    @State private var preview: MediaMetadata?
+    @State private var playlist: Playlist?
+    @State private var loadingPlaylist = false
     /// Liens déjà collés ou lancés depuis cette session : on ne les repropose
     /// plus, le presse-papier gardant le lien longtemps après.
     @State private var handledLinks: Set<String> = []
@@ -43,7 +50,17 @@ struct DownloadPane: View {
     private var hasInvalidInput: Bool { !trimmedURL.isEmpty && !isValidURL }
 
     private var currentFormat: DownloadFormat {
-        DownloadFormat(kind: kind, videoQuality: videoQuality, audioBitrate: audioBitrate)
+        DownloadFormat(kind: kind,
+                       videoQuality: videoQuality,
+                       audioBitrate: audioBitrate,
+                       audioFormat: settings.audioFormat,
+                       subtitles: settings.embedSubtitles)
+    }
+
+    /// Entrée de bibliothèque correspondant au lien saisi, s'il y en a une.
+    private var alreadyDownloaded: LibraryItem? {
+        guard isValidURL else { return nil }
+        return library.existing(forURL: trimmedURL, kind: kind)
     }
 
     /// Jobs de la session, du plus récent au plus ancien.
@@ -80,6 +97,14 @@ struct DownloadPane: View {
         .onReceive(NotificationCenter.default.publisher(for: .pasteAndDownload)) { _ in
             pasteAndDownload()
         }
+        .task(id: trimmedURL) { await loadPreview() }
+        .sheet(item: $playlist) { list in
+            PlaylistSheet(
+                playlist: list,
+                focusedVideoID: YouTubeLink.videoID(from: trimmedURL),
+                onDownload: downloadFromPlaylist,
+                onCancel: { playlist = nil })
+        }
     }
 
     // MARK: - Contenu
@@ -97,6 +122,17 @@ struct DownloadPane: View {
                 Spacer().frame(height: Theme.Space.s12)
                 InlineNotice(symbol: "exclamationmark.triangle.fill",
                              message: "Only YouTube links are supported.")
+            } else if let existing = alreadyDownloaded {
+                Spacer().frame(height: Theme.Space.s12)
+                InlineNotice(
+                    symbol: "checkmark.circle",
+                    message: "You already have this one.",
+                    actionTitle: "Reveal",
+                    action: { NSWorkspace.shared.activateFileViewerSelecting([existing.fileURL]) })
+                    .frame(maxWidth: 440)
+            } else if !manager.resumable.isEmpty, trimmedURL.isEmpty {
+                Spacer().frame(height: Theme.Space.s12)
+                resumeNotice.frame(maxWidth: 440)
             } else if let kind = engineNoticeKind {
                 Spacer().frame(height: Theme.Space.s12)
                 engineNotice(kind).frame(maxWidth: 440)
@@ -229,16 +265,22 @@ struct DownloadPane: View {
                     Circle()
                         .fill(isValidURL ? Theme.ink : Theme.fillPrimary)
                         .frame(width: 40, height: 40)
-                    // La flèche reste visible en permanence : elle ne cède plus
-                    // la place à un indicateur d'activité au collage.
-                    Image(systemName: "arrow.down")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(isValidURL ? Theme.inkOn : Theme.labelSecondary)
+                    // La flèche reste visible en permanence : elle ne cède la
+                    // place qu'à la lecture d'une playlist, qui prend
+                    // réellement plusieurs secondes.
+                    if loadingPlaylist {
+                        ProgressView().controlSize(.small).scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "arrow.down")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(isValidURL ? Theme.inkOn : Theme.labelSecondary)
+                    }
                 }
             }
             .buttonStyle(.plain)
-            .disabled(!isValidURL || !manager.isReady)
-            .help("Download")
+            .disabled(!isValidURL || !manager.isReady || loadingPlaylist)
+            .help(YouTubeLink.playlistURL(from: trimmedURL) != nil
+                  ? "Choose what to download" : "Download")
         }
         .padding(.leading, 18)
         .padding(.trailing, 4)
@@ -274,7 +316,34 @@ struct DownloadPane: View {
             .background(Theme.fillTertiary, in: RoundedRectangle(cornerRadius: Theme.Radius.control + 2, style: .continuous))
 
             qualityMenu
+
+            // Poids attendu, dès que les formats sont connus. « ≈ » assumé :
+            // yt-dlp lui-même ne connaît qu'approximativement la taille des
+            // flux fragmentés.
+            if let bytes = preview?.estimatedBytes(for: currentFormat), bytes > 0 {
+                Text("≈ \(Format.bytes(bytes))")
+                    .font(Theme.Text.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.labelSecondary)
+                    .transition(.opacity)
+            }
         }
+        .animation(.easeOut(duration: 0.2), value: preview)
+    }
+
+    // MARK: - Reprise après fermeture
+
+    private var resumeNotice: some View {
+        let count = manager.resumable.count
+        return InlineNotice(
+            symbol: "arrow.clockwise",
+            message: count == 1
+                ? "One download was interrupted when the app closed."
+                : "\(count) downloads were interrupted when the app closed.",
+            actionTitle: "Resume",
+            action: { manager.resumeAll() },
+            secondaryTitle: "Discard",
+            secondaryAction: { manager.discardResumable() })
     }
 
     private func formatButton(_ value: MediaKind, symbol: String, label: String) -> some View {
@@ -310,11 +379,19 @@ struct DownloadPane: View {
             .labelsHidden()
             .fixedSize()
         case .audio:
-            Picker("", selection: $audioBitrate) {
-                ForEach(AudioBitrate.allCases) { Text($0.label).tag($0) }
+            // Le débit ne se règle que si l'on ré-encode. En M4A on garde la
+            // piste d'origine : proposer un choix serait mentir.
+            if settings.audioFormat.usesBitrate {
+                Picker("", selection: $audioBitrate) {
+                    ForEach(AudioBitrate.allCases) { Text($0.label).tag($0) }
+                }
+                .labelsHidden()
+                .fixedSize()
+            } else {
+                Text("Original quality")
+                    .font(Theme.Text.body)
+                    .foregroundStyle(Theme.labelSecondary)
             }
-            .labelsHidden()
-            .fixedSize()
         }
     }
 
@@ -403,11 +480,55 @@ struct DownloadPane: View {
     // MARK: - Actions
 
     private func start() {
-        guard isValidURL, manager.isReady else { return }
-        handledLinks.insert(trimmedURL)
-        manager.startDownload(urlString: trimmedURL, format: currentFormat)
+        guard isValidURL, manager.isReady, !loadingPlaylist else { return }
+        // Un lien de playlist ne se télécharge pas tout seul : on demande.
+        if YouTubeLink.playlistURL(from: trimmedURL) != nil {
+            loadPlaylist()
+            return
+        }
+        launch(trimmedURL)
+    }
+
+    private func launch(_ link: String) {
+        handledLinks.insert(link)
+        manager.startDownload(urlString: link, format: currentFormat)
         urlText = ""
+        preview = nil
         refreshClipboard()
+    }
+
+    private func loadPlaylist() {
+        guard let listURL = YouTubeLink.playlistURL(from: trimmedURL) else { return }
+        loadingPlaylist = true
+        Task {
+            let found = await manager.fetchPlaylist(urlString: listURL)
+            loadingPlaylist = false
+            // Playlist illisible (privée, mix, réseau) : plutôt que d'échouer,
+            // on fait ce que l'utilisateur voulait manifestement — la vidéo.
+            guard let found else { launch(trimmedURL); return }
+            playlist = found
+        }
+    }
+
+    private func downloadFromPlaylist(_ entries: [Playlist.Entry]) {
+        playlist = nil
+        handledLinks.insert(trimmedURL)
+        manager.startPlaylist(entries, format: currentFormat)
+        urlText = ""
+        preview = nil
+        refreshClipboard()
+    }
+
+    /// Charge les métadonnées du lien saisi, uniquement pour l'estimation de
+    /// poids. Debounce : on ne lance pas yt-dlp à chaque frappe.
+    private func loadPreview() async {
+        preview = nil
+        guard isValidURL, YouTubeLink.playlistURL(from: trimmedURL) == nil else { return }
+        try? await Task.sleep(nanoseconds: 400_000_000)
+        guard !Task.isCancelled else { return }
+        let found = await manager.fetchMetadata(urlString: trimmedURL)
+        guard !Task.isCancelled else { return }
+        preview = found
     }
 
     private func pasteAndDownload() {

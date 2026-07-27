@@ -29,8 +29,10 @@ struct DownloadJob: Identifiable, Sendable {
     /// Début du post-traitement, pour faire avancer la barre pendant l'assemblage.
     var mergeStartedAt: Date?
 
-    init(url: String, format: DownloadFormat) {
-        self.id = UUID()
+    /// `id` explicite à la restauration : c'est lui qui désigne le dossier de
+    /// fichiers partiels, donc le seul moyen de reprendre là où on en était.
+    init(url: String, format: DownloadFormat, id: UUID = UUID()) {
+        self.id = id
         self.url = url
         self.format = format
         self.state = .queued

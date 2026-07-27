@@ -58,6 +58,30 @@ enum YouTubeLink {
         return id
     }
 
+    /// Identifiant de playlist, si le lien en désigne une.
+    ///
+    /// Un lien peut porter les DEUX : `watch?v=…&list=…` désigne une vidéo
+    /// *dans* une playlist. C'est le cas ambigu — d'où la question posée à
+    /// l'utilisateur plutôt qu'un choix fait à sa place.
+    static func playlistID(from string: String) -> String? {
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let components = URLComponents(string: trimmed),
+              let host = components.host?.lowercased(),
+              allowedHosts.contains(host),
+              let list = components.queryItems?.first(where: { $0.name == "list" })?.value,
+              !list.isEmpty
+        else { return nil }
+        // `RD…` = mix généré à la volée par YouTube, sans contenu stable :
+        // le proposer donnerait une liste différente à chaque ouverture.
+        guard !list.hasPrefix("RD") else { return nil }
+        return list
+    }
+
+    /// URL canonique d'une playlist, débarrassée de la vidéo courante.
+    static func playlistURL(from string: String) -> String? {
+        playlistID(from: string).map { "https://www.youtube.com/playlist?list=\($0)" }
+    }
+
     /// Vignette officielle d'une vidéo, déductible sans aucun appel réseau.
     /// `mqdefault` (320×180) suffit largement aux tailles où on l'affiche.
     static func thumbnailURL(for string: String) -> String? {

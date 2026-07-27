@@ -10,11 +10,22 @@ sans rien installer sur ces appareils.
 
 ## Fonctionnalités
 
-- Téléchargement **MP4 (vidéo)** ou **MP3 (audio)** avec choix de qualité.
-- Progression en temps réel (vitesse, ETA).
+- Téléchargement **MP4 (vidéo)** ou **audio** (M4A sans ré-encodage, ou MP3)
+  avec choix de qualité, et **sous-titres** incrustés en option.
+- Une seule **barre de progression monotone**, de l'ouverture du flux à la fin
+  de l'assemblage.
+- **File d'attente** : deux téléchargements de front par défaut, les autres
+  attendent leur tour.
+- **Playlists** : un lien de playlist ouvre le choix des vidéos à prendre.
+- **Poids estimé** avant de lancer, et détection de ce qui est **déjà dans la
+  bibliothèque**.
+- **Reprise** des téléchargements interrompus par une fermeture de l'app.
 - **Serveur LAN** : ouvre l'UI web depuis un autre appareil, lance un
   téléchargement, puis récupère le fichier fini.
 - **QR code** dans l'app pour ouvrir l'UI web d'un scan.
+- Gestes macOS : glisser un fichier vers le Finder, **Quick Look** à la barre
+  d'espace, progression sur l'icône du Dock, raccourci global ⌥⌘V, entrée
+  **Services** « Download with … » depuis n'importe quelle app.
 - yt-dlp + ffmpeg **embarqués** dans l'app (rien à installer).
 
 ## Prérequis
@@ -166,11 +177,29 @@ les deux ne concordent pas.
 
 ## Utiliser
 
-1. Colle un lien, choisis **Vidéo MP4** ou **Audio MP3** + la qualité, clique
-   **Télécharger**. Les fichiers arrivent dans `~/Downloads/Downloader/`.
-2. Pour piloter depuis le **téléphone** (même Wi-Fi) : scanne le QR code affiché
+1. Colle un lien, choisis **Video** ou **Audio** + la qualité, clique la flèche.
+   Les fichiers arrivent dans `~/Downloads`.
+2. Un lien de **playlist** ouvre une feuille de choix — tout, une sélection, ou
+   la seule vidéo visée par le lien.
+3. Pour piloter depuis le **téléphone** (même Wi-Fi) : scanne le QR code affiché
    dans l'app, ou ouvre l'adresse `http://<ip-du-mac>:8787`.
    - macOS peut demander d'**autoriser les connexions entrantes** → Autoriser.
+
+## Entrées système
+
+| Chemin | État |
+| --- | --- |
+| Menu **Services** → « Download with … » | fonctionne |
+| Schéma d'URL `downloader://download?url=…` | fonctionne |
+| Raccourci global ⌥⌘V | fonctionne (à activer dans les réglages) |
+| **Extension de partage** (menu Partager de Safari) | **inactive sans signature Apple** |
+
+L'extension de partage est construite et embarquée dans
+`Contents/PlugIns/Share.appex`, mais **PlugInKit refuse de l'enregistrer** tant
+que l'app est signée en ad-hoc : `pluginkit -m -A -D` ne la voit pas, là où une
+extension signée Developer ID sur la même machine apparaît. Elle s'activera
+d'elle-même le jour où l'app sera signée avec un compte développeur Apple ;
+d'ici là, le menu **Services** rend le même service depuis n'importe quelle app.
 
 ## Rafraîchir le yt-dlp embarqué
 
@@ -198,7 +227,10 @@ Le nom vit à deux endroits :
   partagée), `TrustStore` (bundle CA système, gère les intercepteurs TLS),
   `BinaryLocator`.
 - `App/Sources/Server/` — serveur `FlyingFox` + page web (`WebUI`).
-- `App/Sources/` — UI SwiftUI native + `QRGenerator`.
+- `App/Sources/Views/` — écrans SwiftUI (Download, Library, Settings, Network).
+- `App/Sources/` — coquille de l'app, `QRGenerator`, gestes macOS
+  (`DockProgress`, `QuickLook`, `GlobalShortcut`, `AppDelegate`).
+- `Extension/Share/` — extension de partage (cf. *Entrées système*).
 - `App/Resources/bin/` — binaires embarqués (yt-dlp, ffmpeg, ffprobe, cacert.pem).
 
 ## Note technique — certificats SSL

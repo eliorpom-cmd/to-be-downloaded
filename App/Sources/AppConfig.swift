@@ -33,9 +33,7 @@ enum AppConfig {
         /// Page de soutien. Ko-fi plutôt que Buy Me a Coffee : la plateforme ne
         /// prélève rien sur les dons en formule gratuite (BMC prend 5 %), et le
         /// versement passe par Stripe, donc directement sur un compte bancaire.
-        ///
-        /// ⚠️ Le pseudo est à confirmer une fois le compte créé.
-        static let support = URL(string: "https://ko-fi.com/elior")!
+        static let support = URL(string: "https://ko-fi.com/eliorpom")!
     }
 
     // MARK: - Mises à jour de l'app

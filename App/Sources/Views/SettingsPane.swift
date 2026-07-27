@@ -25,16 +25,66 @@ struct SettingsPane: View {
                         Button("Choose…", action: chooseFolder).buttonStyle(.push)
                     }
                     divider
+                    row("At the same time",
+                        detail: "More at once is not faster — the bandwidth is the same") {
+                        Picker("", selection: $settings.maxConcurrent) {
+                            ForEach(1...5, id: \.self) { Text("\($0)").tag($0) }
+                        }
+                        .labelsHidden()
+                        .fixedSize()
+                    }
+                    divider
+                    row("File names", detail: filenameDetail) {
+                        picker($settings.filenameTemplate, values: FilenameTemplate.allCases) {
+                            $0.label
+                        }
+                    }
+                    if settings.filenameTemplate == .custom {
+                        divider
+                        row("Pattern", detail: "yt-dlp fields, without the extension") {
+                            TextField("%(title)s", text: $settings.filenameCustom)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 220)
+                        }
+                    }
+                }
+
+                section("Format") {
                     row("Default format") {
                         picker($settings.defaultKind, values: MediaKind.allCases) { $0.label }
                     }
                     divider
-                    row("Default video quality") {
+                    row("Video quality") {
                         picker($settings.defaultVideoQuality, values: VideoQuality.allCases) { $0.label }
                     }
                     divider
-                    row("Default audio bitrate") {
-                        picker($settings.defaultAudioBitrate, values: AudioBitrate.allCases) { $0.label }
+                    row("Subtitles",
+                        detail: "Embedded as a track in the MP4, when the video has them") {
+                        Toggle("", isOn: $settings.embedSubtitles)
+                            .toggleStyle(.switch)
+                            .labelsHidden()
+                    }
+                    divider
+                    row("Audio format", detail: settings.audioFormat.detail) {
+                        picker($settings.audioFormat, values: AudioFormat.allCases) { $0.label }
+                    }
+                    if settings.audioFormat.usesBitrate {
+                        divider
+                        row("Audio bitrate") {
+                            picker($settings.defaultAudioBitrate, values: AudioBitrate.allCases) {
+                                $0.label
+                            }
+                        }
+                    }
+                }
+
+                section("Shortcuts") {
+                    row("Paste and download from anywhere",
+                        detail: "\(GlobalShortcut.label) — works while the app runs, "
+                            + "even with no window open") {
+                        Toggle("", isOn: $settings.globalShortcut)
+                            .toggleStyle(.switch)
+                            .labelsHidden()
                     }
                 }
 
@@ -160,6 +210,11 @@ struct SettingsPane: View {
         .scrollContentBackground(.hidden)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .onAppear { portText = String(settings.port) }
+        // Le motif de nommage vit dans la configuration du moteur : il faut le
+        // reconstruire, sinon le changement n'aurait d'effet qu'au prochain
+        // lancement de l'app.
+        .onChange(of: settings.filenameTemplate) { _ in manager.reconfigure() }
+        .onChange(of: settings.filenameCustom) { _ in manager.reconfigure() }
         .task { await updater.refreshInstalledVersion() }
         .confirmationDialog(
             "Clear the library?",
@@ -171,6 +226,14 @@ struct SettingsPane: View {
         } message: {
             Text("This only empties the list. The downloaded files stay on disk.")
         }
+    }
+
+    /// Exemple concret sous le réglage : un gabarit de nommage ne se comprend
+    /// qu'en voyant ce qu'il produit.
+    private var filenameDetail: String {
+        settings.filenameTemplate == .custom
+            ? "Your own yt-dlp pattern"
+            : settings.filenameTemplate.example
     }
 
     // MARK: - Mise à jour de l'app

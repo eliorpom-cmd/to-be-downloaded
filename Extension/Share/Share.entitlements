@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- L'extension ne fait que transmettre un lien à l'app : elle n'a besoin
+	     d'aucun accès au disque, au réseau, ni à quoi que ce soit d'autre.
+	     Comme l'app hôte, elle n'est pas sandboxée — une extension sandboxée
+	     dans une app qui ne l'est pas ne se charge pas. -->
+</dict>
+</plist>

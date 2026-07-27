@@ -41,6 +41,9 @@ targets:
         buildPhase: resources
     dependencies:
       - package: FlyingFox
+      # « Download with … » dans le menu Partager de Safari.
+      - target: ShareExtension
+        embed: true
     settings:
       base:
         PRODUCT_NAME: Downloader
@@ -57,3 +60,28 @@ targets:
         LD_RUNPATH_SEARCH_PATHS:
           - "$(inherited)"
           - "@executable_path/../Frameworks"
+
+  # Extension de partage : sans interface, elle transmet le lien à l'app par
+  # son schéma d'URL. Elle ne télécharge rien elle-même.
+  ShareExtension:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: Extension/Share
+      # Le validateur de liens est partagé avec l'app : une seule définition
+      # de ce qui est acceptable.
+      - path: App/Sources/Core/YouTubeLink.swift
+    settings:
+      base:
+        PRODUCT_NAME: Share
+        PRODUCT_BUNDLE_IDENTIFIER: com.local.downloader.share
+        INFOPLIST_FILE: Extension/Share/Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: Downloader
+        GENERATE_INFOPLIST_FILE: NO
+        ENABLE_HARDENED_RUNTIME: NO
+        CODE_SIGN_ENTITLEMENTS: Extension/Share/Share.entitlements
+        SKIP_INSTALL: YES
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+        LD_RUNPATH_SEARCH_PATHS:
+          - "$(inherited)"
+          - "@executable_path/../../../../Frameworks"
