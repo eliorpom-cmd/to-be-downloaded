@@ -202,6 +202,9 @@ struct InlineNotice: View {
     var actionTitle: String? = nil
     var actionEnabled: Bool = true
     var action: (() -> Void)? = nil
+    /// Seconde action, plus discrète (ex. « Discard »).
+    var secondaryTitle: String? = nil
+    var secondaryAction: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: Theme.Space.s8) {
@@ -218,6 +221,12 @@ struct InlineNotice: View {
                     .font(Theme.Text.bodyEmphasized)
                     .foregroundStyle(actionEnabled ? Theme.label : Theme.labelTertiary)
                     .disabled(!actionEnabled)
+            }
+            if let secondaryTitle, let secondaryAction {
+                Button(secondaryTitle, action: secondaryAction)
+                    .buttonStyle(.plain)
+                    .font(Theme.Text.body)
+                    .foregroundStyle(Theme.labelSecondary)
             }
         }
         .padding(.vertical, Theme.Space.s8)

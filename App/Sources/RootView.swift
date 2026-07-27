@@ -57,6 +57,10 @@ struct RootView: View {
             server.start()
             Notifier.shared.requestAuthorization()
             library.pruneMissingFiles()
+            // Téléchargements laissés en plan au dernier arrêt : on les propose,
+            // on ne les relance pas — fermer l'app peut vouloir dire « stop ».
+            manager.loadResumable()
+            GlobalShortcut.setEnabled(settings.globalShortcut)
             // Contrôle silencieux de yt-dlp : sans lui, l'app casse à la
             // prochaine parade anti-bot de YouTube. Throttlé à 24 h côté
             // updater, et sans effet si l'utilisateur l'a désactivé.
@@ -127,7 +131,7 @@ struct RootView: View {
             switch route {
             case .download:
                 DownloadPane(manager: manager, settings: settings, updater: updater,
-                             goToLibrary: { route = .library })
+                             library: library, goToLibrary: { route = .library })
             case .library:
                 LibraryPane(manager: manager, library: library, settings: settings)
             case .network:

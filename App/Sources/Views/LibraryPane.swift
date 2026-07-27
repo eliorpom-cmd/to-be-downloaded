@@ -9,6 +9,9 @@ struct LibraryPane: View {
     @ObservedObject var settings: AppSettings
 
     @State private var query = ""
+    /// Ligne sélectionnée : c'est elle que la barre d'espace prévisualise.
+    @State private var selectedID: UUID?
+    @State private var spaceMonitor: Any?
 
     private var active: [DownloadJob] { manager.activeJobs }
     private var items: [LibraryItem] { library.matching(query) }
@@ -60,6 +63,8 @@ struct LibraryPane: View {
                                     ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                                         LibraryRow(
                                             item: item,
+                                            isSelected: selectedID == item.id,
+                                            onSelect: { selectedID = item.id },
                                             onDownloadAgain: { downloadAgain(item) },
                                             onRemove: { library.remove(item.id) }
                                         )
@@ -80,6 +85,32 @@ struct LibraryPane: View {
         .padding(.horizontal, Theme.Space.s24)
         .padding(.top, WindowChrome.trafficLightInset + Theme.Space.s16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear(perform: installSpaceMonitor)
+        .onDisappear {
+            if let spaceMonitor { NSEvent.removeMonitor(spaceMonitor) }
+            spaceMonitor = nil
+        }
+    }
+
+    /// Barre d'espace = aperçu, comme dans le Finder.
+    ///
+    /// Moniteur d'événements local plutôt que `.onKeyPress`, qui demande
+    /// macOS 14 alors que l'app vise macOS 13. On laisse passer la touche dès
+    /// qu'un champ de texte a le focus, sinon on ne pourrait plus taper
+    /// d'espace dans la recherche.
+    private func installSpaceMonitor() {
+        guard spaceMonitor == nil else { return }
+        spaceMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard event.keyCode == 49, event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty
+            else { return event }
+            if NSApp.keyWindow?.firstResponder is NSTextView { return event }
+            guard let id = selectedID,
+                  let item = library.items.first(where: { $0.id == id }),
+                  item.fileExists
+            else { return event }
+            QuickLook.shared.toggle(item.fileURL)
+            return nil
+        }
     }
 
     private var header: some View {
@@ -190,7 +221,7 @@ private struct DownloadRow: View {
     private var meta: String {
         switch job.state {
         case .queued:
-            return "Starting…"
+            return manager.isWaiting(job) ? "Waiting…" : "Starting…"
         case .downloading:
             var parts = ["\(Int(job.overallProgress * 100))%"]
             let eta = Format.eta(job.progress?.eta)
@@ -230,10 +261,17 @@ private struct DownloadRow: View {
 
 private struct LibraryRow: View {
     let item: LibraryItem
+    var isSelected: Bool = false
+    var onSelect: () -> Void = {}
     let onDownloadAgain: () -> Void
     let onRemove: () -> Void
 
     @State private var hovering = false
+
+    private var background: Color {
+        if isSelected { return Theme.sidebarSelected }
+        return hovering ? Theme.sidebarHover : .clear
+    }
 
     var body: some View {
         HStack(spacing: Theme.Space.s12) {
@@ -275,13 +313,24 @@ private struct LibraryRow: View {
         }
         .padding(.horizontal, Theme.Space.s12)
         .padding(.vertical, Theme.Space.s8)
-        .background(hovering ? Theme.sidebarHover : .clear)
+        .background(background)
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
-        // Toute la ligne mène au fichier, comme la capsule côté Download.
+        // Toute la ligne mène au fichier, comme la capsule côté Download. Le
+        // même clic marque la ligne, pour que la barre d'espace sache quoi
+        // prévisualiser ensuite.
         .onTapGesture {
+            onSelect()
             guard item.fileExists else { return }
             NSWorkspace.shared.activateFileViewerSelecting([item.fileURL])
+        }
+        // Glisser la ligne dépose le VRAI fichier : Finder, Messages, Mail,
+        // n'importe quoi qui accepte un fichier.
+        .onDrag {
+            guard item.fileExists,
+                  let provider = NSItemProvider(contentsOf: item.fileURL)
+            else { return NSItemProvider() }
+            return provider
         }
         .contextMenu { menuItems }
     }
@@ -304,6 +353,8 @@ private struct LibraryRow: View {
 
     @ViewBuilder
     private var menuItems: some View {
+        Button("Quick Look") { QuickLook.shared.toggle(item.fileURL) }
+            .disabled(!item.fileExists)
         Button("Play") { FileOpener.play(item.fileURL) }
             .disabled(!item.fileExists)
         Button("Reveal in Finder") {

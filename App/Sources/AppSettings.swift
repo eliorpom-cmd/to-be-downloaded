@@ -52,6 +52,12 @@ final class AppSettings: ObservableObject {
         static let updateChannel = "ytDlpUpdateChannel"
         static let autoUpdateEngine = "ytDlpAutoUpdate"
         static let autoUpdateApp = "appAutoUpdate"
+        static let audioFormat = "defaultAudioFormat"
+        static let subtitles = "embedSubtitles"
+        static let maxConcurrent = "maxConcurrentDownloads"
+        static let filenameTemplate = "filenameTemplate"
+        static let filenameCustom = "filenameCustomPattern"
+        static let globalShortcut = "globalShortcutEnabled"
     }
 
     @Published var outputDirectory: URL {
@@ -105,13 +111,56 @@ final class AppSettings: ObservableObject {
     @Published var autoUpdateApp: Bool {
         didSet { store.set(autoUpdateApp, forKey: Key.autoUpdateApp) }
     }
+    /// Conteneur audio produit (M4A sans ré-encodage par défaut).
+    @Published var audioFormat: AudioFormat {
+        didSet { store.set(audioFormat.rawValue, forKey: Key.audioFormat) }
+    }
+    /// Incruster les sous-titres dans les vidéos.
+    @Published var embedSubtitles: Bool {
+        didSet { store.set(embedSubtitles, forKey: Key.subtitles) }
+    }
+    /// Téléchargements menés de front. Au-delà, ils attendent leur tour.
+    ///
+    /// Deux par défaut : lancer dix téléchargements en même temps ne va pas
+    /// plus vite — la bande passante est la même — mais retarde le premier
+    /// fichier utilisable et rend tous les temps restants faux.
+    @Published var maxConcurrent: Int {
+        didSet { store.set(maxConcurrent, forKey: Key.maxConcurrent) }
+    }
+    @Published var filenameTemplate: FilenameTemplate {
+        didSet { store.set(filenameTemplate.rawValue, forKey: Key.filenameTemplate) }
+    }
+    @Published var filenameCustom: String {
+        didSet { store.set(filenameCustom, forKey: Key.filenameCustom) }
+    }
+    /// Raccourci global ⌥⌘V : coller et télécharger sans passer par la fenêtre.
+    @Published var globalShortcut: Bool {
+        didSet {
+            store.set(globalShortcut, forKey: Key.globalShortcut)
+            GlobalShortcut.setEnabled(globalShortcut)
+        }
+    }
+
+    /// Motif `-o` effectif, extension comprise.
+    var outputPattern: String {
+        FilenameTemplate.outputPattern(filenameTemplate, custom: filenameCustom)
+    }
+
+    /// Langues de sous-titres demandées : celle du système d'abord, puis
+    /// l'anglais — la seule qu'on retrouve à peu près partout.
+    var subtitleLanguages: [String] {
+        let system = Locale.current.language.languageCode?.identifier ?? "en"
+        return system == "en" ? ["en"] : [system, "en"]
+    }
 
     /// Format correspondant aux réglages par défaut, pour les déclencheurs qui
     /// n'ont pas d'UI de choix (menu de la barre des menus, ⌘⇧V).
     var currentDefaultFormat: DownloadFormat {
         DownloadFormat(kind: defaultKind,
                        videoQuality: defaultVideoQuality,
-                       audioBitrate: defaultAudioBitrate)
+                       audioBitrate: defaultAudioBitrate,
+                       audioFormat: audioFormat,
+                       subtitles: embedSubtitles)
     }
 
     /// Fait défiler Système → Clair → Sombre → Système (bouton bascule du header).
@@ -146,5 +195,13 @@ final class AppSettings: ObservableObject {
         updateChannel = UpdateChannel(rawValue: store.string(forKey: Key.updateChannel) ?? "") ?? .stable
         autoUpdateEngine = store.object(forKey: Key.autoUpdateEngine) as? Bool ?? true
         autoUpdateApp = store.object(forKey: Key.autoUpdateApp) as? Bool ?? true
+
+        audioFormat = AudioFormat(rawValue: store.string(forKey: Key.audioFormat) ?? "") ?? .m4a
+        embedSubtitles = store.object(forKey: Key.subtitles) as? Bool ?? false
+        maxConcurrent = min(max(store.object(forKey: Key.maxConcurrent) as? Int ?? 2, 1), 5)
+        filenameTemplate = FilenameTemplate(
+            rawValue: store.string(forKey: Key.filenameTemplate) ?? "") ?? .title
+        filenameCustom = store.string(forKey: Key.filenameCustom) ?? "%(title)s"
+        globalShortcut = store.object(forKey: Key.globalShortcut) as? Bool ?? false
     }
 }

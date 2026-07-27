@@ -18,6 +18,9 @@ final class DownloadManager: ObservableObject {
     /// Anime la barre pendant l'assemblage ; s'arrête dès qu'aucun job n'y est.
     private var mergeTicker: Task<Void, Never>?
 
+    /// Jobs interrompus par une fermeture de l'app, proposés à la reprise.
+    @Published private(set) var resumable: [PendingJob] = []
+
     /// Bibliothèque persistante alimentée à chaque téléchargement réussi.
     let library: LibraryStore
 
@@ -40,6 +43,37 @@ final class DownloadManager: ObservableObject {
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.reconfigure() }
         }
+
+        // Raccourci global : traité ici et non dans une vue, pour qu'il marche
+        // même quand la fenêtre est fermée — c'est tout son intérêt.
+        NotificationCenter.default.addObserver(
+            forName: .globalPasteAndDownload, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { _ = self?.downloadFromClipboard() }
+        }
+
+        // Même raison pour les liens venus de l'extérieur (service macOS,
+        // extension de partage, schéma d'URL) : aucune fenêtre requise.
+        NotificationCenter.default.addObserver(
+            forName: .externalDownloadRequest, object: nil, queue: .main
+        ) { [weak self] note in
+            guard let link = note.userInfo?["url"] as? String else { return }
+            MainActor.assumeIsolated {
+                self?.startDownload(
+                    urlString: link, format: AppSettings.shared.currentDefaultFormat)
+            }
+        }
+    }
+
+    /// Lance le lien du presse-papier avec les réglages par défaut.
+    @discardableResult
+    func downloadFromClipboard() -> UUID? {
+        guard let copied = NSPasteboard.general.string(forType: .string),
+              YouTubeLink.isValid(copied)
+        else { return nil }
+        return startDownload(
+            urlString: copied.trimmingCharacters(in: .whitespacesAndNewlines),
+            format: AppSettings.shared.currentDefaultFormat)
     }
 
     /// (Re)construit le moteur à partir des réglages courants (dossier de sortie).
@@ -59,11 +93,14 @@ final class DownloadManager: ObservableObject {
             let trustBundle = TrustStore.prepareBundle(
                 shippedCACert: BinaryLocator.resourceInBin("cacert.pem"))
 
+            let settings = AppSettings.shared
             engine = DownloadEngine(config: .init(
                 ytDlp: ytDlp,
                 ffmpegDirectory: ffmpeg.deletingLastPathComponent(),
-                outputDirectory: AppSettings.shared.outputDirectory,
-                trustBundle: trustBundle
+                outputDirectory: settings.outputDirectory,
+                trustBundle: trustBundle,
+                outputPattern: settings.outputPattern,
+                subtitleLanguages: settings.subtitleLanguages
             ))
             setupError = nil
         } catch {
@@ -83,9 +120,15 @@ final class DownloadManager: ObservableObject {
         jobs.filter { $0.state.isActive }
     }
 
+    /// Badge + barre de progression sur l'icône du Dock. La fraction est la
+    /// MOYENNE des téléchargements en vol : une seule barre pour un seul
+    /// message, « voilà où en est le lot ».
     private func updateDockBadge() {
-        let n = activeCount
-        NSApp.dockTile.badgeLabel = n > 0 ? "\(n)" : nil
+        let active = jobs.filter { $0.state.isActive }
+        let fraction = active.isEmpty
+            ? nil
+            : active.reduce(0.0) { $0 + $1.overallProgress } / Double(active.count)
+        DockProgress.update(fraction: fraction, badge: active.count)
     }
 
     /// Termine tous les téléchargements en cours (fermeture de l'app).
@@ -93,13 +136,18 @@ final class DownloadManager: ObservableObject {
         for run in running.values { run.cancel() }
     }
 
-    /// Démarre un nouveau téléchargement. Renvoie l'id du job (nil si refusé).
+    /// Met un téléchargement en file. Renvoie l'id du job (nil si refusé).
+    ///
+    /// « En file » et non « démarre » : au-delà de `maxConcurrent`, le job
+    /// attend son tour. Lancer dix transferts de front ne va pas plus vite —
+    /// la bande passante ne change pas — mais retarde le premier fichier
+    /// utilisable et rend tous les temps restants mensongers.
     @discardableResult
-    func startDownload(urlString: String, format: DownloadFormat) -> UUID? {
+    func startDownload(urlString: String, format: DownloadFormat, id: UUID = UUID()) -> UUID? {
         let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let engine else { return nil }
 
-        let job = DownloadJob(url: trimmed, format: format)
+        let job = DownloadJob(url: trimmed, format: format, id: id)
         jobs.insert(job, at: 0)
 
         // Titre et chaîne, en deux temps : oEmbed répond en quelques centaines
@@ -124,17 +172,112 @@ final class DownloadManager: ObservableObject {
             self?.apply(meta, to: jobID, overwrite: true)
         }
 
-        do {
-            let run = try engine.start(url: trimmed, format: format)
-            running[job.id] = run
-            observe(run, jobID: job.id)
-        } catch {
-            update(job.id) {
-                $0.state = .failed
-                $0.errorMessage = error.localizedDescription
+        savePending()
+        pump()
+        return job.id
+    }
+
+    /// Met en file toutes les vidéos choisies d'une playlist, dans l'ordre.
+    func startPlaylist(_ entries: [Playlist.Entry], format: DownloadFormat) {
+        // En sens inverse : `startDownload` insère en tête, donc partir de la
+        // fin laisse la liste dans l'ordre de la playlist à l'écran.
+        for entry in entries.reversed() {
+            startDownload(urlString: entry.url, format: format)
+        }
+    }
+
+    // MARK: - File d'attente
+
+    /// Nombre de jobs qui occupent réellement le moteur.
+    private var activeSlots: Int {
+        jobs.filter { running[$0.id] != nil && $0.state.isActive }.count
+    }
+
+    /// Lance autant de jobs en attente que la limite l'autorise, du plus ancien
+    /// au plus récent — l'ordre dans lequel ils ont été demandés.
+    private func pump() {
+        guard let engine else { return }
+        let limit = max(1, AppSettings.shared.maxConcurrent)
+        while activeSlots < limit {
+            guard let index = jobs.lastIndex(where: {
+                $0.state == .queued && running[$0.id] == nil
+            }) else { return }
+            let job = jobs[index]
+            do {
+                let run = try engine.start(url: job.url, format: job.format, jobID: job.id)
+                running[job.id] = run
+                jobs[index].state = .downloading
+                observe(run, jobID: job.id)
+            } catch {
+                jobs[index].state = .failed
+                jobs[index].errorMessage = error.localizedDescription
             }
         }
-        return job.id
+    }
+
+    /// Un job en attente derrière d'autres, plutôt qu'en train de démarrer.
+    func isWaiting(_ job: DownloadJob) -> Bool {
+        job.state == .queued && running[job.id] == nil
+    }
+
+    // MARK: - Reprise après fermeture
+
+    /// Ce qu'il faut pour relancer un job interrompu.
+    struct PendingJob: Codable, Sendable, Identifiable, Equatable {
+        let id: UUID
+        let url: String
+        let format: DownloadFormat
+        var title: String?
+    }
+
+    private var pendingFileURL: URL {
+        let support = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Library/Application Support")
+        return support
+            .appendingPathComponent(AppConfig.displayName, isDirectory: true)
+            .appendingPathComponent("pending.json")
+    }
+
+    private func savePending() {
+        let pending = jobs.filter { $0.state.isActive }.map {
+            PendingJob(id: $0.id, url: $0.url, format: $0.format, title: $0.metadata?.title)
+        }
+        let directory = pendingFileURL.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        guard let data = try? JSONEncoder().encode(pending) else { return }
+        try? data.write(to: pendingFileURL, options: .atomic)
+    }
+
+    /// Lit les téléchargements laissés en plan au dernier arrêt et fait le
+    /// ménage des fichiers partiels devenus orphelins. N'en relance aucun :
+    /// c'est à l'utilisateur de décider, il vient peut-être de les annuler en
+    /// fermant l'app.
+    func loadResumable() {
+        let data = (try? Data(contentsOf: pendingFileURL)) ?? Data()
+        let decoded = (try? JSONDecoder().decode([PendingJob].self, from: data)) ?? []
+        resumable = decoded
+        DownloadEngine.prunePartials(keeping: Set(decoded.map(\.id)))
+    }
+
+    /// Reprend les téléchargements interrompus. Le même identifiant désigne le
+    /// même dossier de fichiers partiels : yt-dlp repart de l'octet courant.
+    func resumeAll() {
+        let pending = resumable
+        resumable = []
+        for item in pending.reversed() {
+            startDownload(urlString: item.url, format: item.format, id: item.id)
+        }
+    }
+
+    func discardResumable() {
+        let ids = Set(resumable.map(\.id))
+        resumable = []
+        for id in ids {
+            try? FileManager.default.removeItem(at: DownloadEngine.partialDirectory(for: id))
+        }
+        savePending()
     }
 
     /// Enregistre des métadonnées sur un job.
@@ -164,6 +307,12 @@ final class DownloadManager: ObservableObject {
         return await engine.fetchMetadata(url: urlString)
     }
 
+    /// Liste les vidéos d'une playlist, sans en extraire aucune.
+    func fetchPlaylist(urlString: String) async -> Playlist? {
+        guard let engine else { return nil }
+        return await engine.fetchPlaylist(url: urlString)
+    }
+
     // MARK: - Accès pour le serveur HTTP (données Sendable)
 
     /// Instantané JSON de tous les jobs.
@@ -178,6 +327,10 @@ final class DownloadManager: ObservableObject {
     func cancel(_ jobID: UUID) {
         running[jobID]?.cancel()
         update(jobID) { if $0.state.isActive { $0.state = .cancelled } }
+        // Annulation explicite : les fragments ne resserviront pas.
+        try? FileManager.default.removeItem(at: DownloadEngine.partialDirectory(for: jobID))
+        savePending()
+        pump()
     }
 
     /// Suspend le process yt-dlp. Le `.part` reste en place, la reprise
@@ -264,6 +417,7 @@ final class DownloadManager: ObservableObject {
                         if let url { self.library.add(job: job, fileURL: url) }
                         Notifier.shared.downloadFinished(title: job.displayTitle, fileURL: url)
                     }
+                    self.savePending()
                 case .failed(let message):
                     self.update(jobID) {
                         if $0.state != .cancelled {
@@ -271,9 +425,12 @@ final class DownloadManager: ObservableObject {
                             $0.errorMessage = message
                         }
                     }
+                    self.savePending()
                 }
             }
             self.running[jobID] = nil
+            // Une place se libère : le suivant de la file peut partir.
+            self.pump()
         }
     }
 

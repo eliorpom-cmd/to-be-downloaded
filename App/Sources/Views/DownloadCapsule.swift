@@ -9,6 +9,8 @@ import AppKit
 /// « Downloading »).
 struct DownloadCapsule: View {
     let job: DownloadJob
+    /// En file derrière d'autres, plutôt qu'en train de démarrer.
+    var waiting: Bool = false
     let onTogglePause: () -> Void
     let onCancel: () -> Void
     let onRetry: () -> Void
@@ -85,6 +87,13 @@ struct DownloadCapsule: View {
         .onTapGesture {
             if job.state == .completed { onReveal() }
         }
+        // Un fichier terminé se glisse vers le Finder ou n'importe quelle app.
+        .onDrag {
+            guard job.state == .completed, let url = job.fileURL,
+                  let provider = NSItemProvider(contentsOf: url)
+            else { return NSItemProvider() }
+            return provider
+        }
         .contextMenu { menu }
         .help(helpText)
     }
@@ -111,7 +120,7 @@ struct DownloadCapsule: View {
     private var metaText: String {
         switch job.state {
         case .queued:
-            return "Starting…"
+            return waiting ? "Waiting…" : "Starting…"
         case .downloading:
             // Le pourcentage suit la barre unique, pas le flux en cours : les
             // deux doivent raconter la même histoire.
@@ -168,6 +177,7 @@ struct DownloadCapsule: View {
     @ViewBuilder
     private var menu: some View {
         if job.state == .completed, let url = job.fileURL {
+            Button("Quick Look") { QuickLook.shared.toggle(url) }
             Button("Play") { FileOpener.play(url) }
             Button("Reveal in Finder") { FileOpener.reveal(url) }
             Divider()
@@ -203,6 +213,7 @@ extension DownloadCapsule {
     init(job: DownloadJob, manager: DownloadManager) {
         self.init(
             job: job,
+            waiting: manager.isWaiting(job),
             onTogglePause: { manager.togglePause(job.id) },
             onCancel: { manager.cancel(job.id) },
             onRetry: { manager.retry(job.id) },
