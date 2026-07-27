@@ -3,6 +3,9 @@ import Foundation
 /// Événements émis pendant un téléchargement.
 enum DownloadEvent: Sendable {
     case progress(DownloadProgress)
+    /// yt-dlp a fini de télécharger et lance un post-traitement ffmpeg
+    /// (fusion vidéo+audio, extraction MP3, fixup conteneur).
+    case postProcessing
     case completed(fileURL: URL?)
     case failed(message: String)
 }
@@ -22,7 +25,7 @@ final class DownloadEngine: @unchecked Sendable {
         let trustBundle: URL?
     }
 
-    /// Un téléchargement en cours ; permet l'annulation.
+    /// Un téléchargement en cours ; permet la pause, la reprise et l'annulation.
     final class Running: @unchecked Sendable {
         private let process: Process
         let events: AsyncStream<DownloadEvent>
@@ -32,8 +35,28 @@ final class DownloadEngine: @unchecked Sendable {
             self.events = events
         }
 
+        /// Suspend yt-dlp (SIGSTOP). Le fichier `.part` reste sur place et la
+        /// reprise repart de l'octet courant ; si le serveur a coupé la
+        /// connexion entre-temps, yt-dlp reprend le transfert de lui-même
+        /// (`--continue` est actif par défaut).
+        @discardableResult
+        func pause() -> Bool {
+            guard process.isRunning else { return false }
+            return process.suspend()
+        }
+
+        @discardableResult
+        func resume() -> Bool {
+            guard process.isRunning else { return false }
+            return process.resume()
+        }
+
         func cancel() {
-            if process.isRunning { process.terminate() }
+            guard process.isRunning else { return }
+            // Un process suspendu ne traiterait pas SIGTERM : on le réveille
+            // d'abord, sinon il resterait en vie indéfiniment.
+            process.resume()
+            process.terminate()
         }
     }
 
@@ -177,13 +200,36 @@ final class DownloadEngine: @unchecked Sendable {
 
         switch format.kind {
         case .video:
+            // Ordre de préférence : d'abord la résolution demandée, PUIS le
+            // codec H.264/AAC.
+            //
+            // Sans cette préférence de codec, YouTube sert volontiers de l'AV1,
+            // que QuickTime ne sait pas décoder sur la plupart des Mac : le
+            // fichier arrive complet et refuse de s'ouvrir. En H.264 il se lit
+            // partout, y compris dans Aperçu et sur iPhone.
+            //
+            // Au-delà de 1080p, YouTube ne propose plus de H.264 : on retombe
+            // alors sur VP9/AV1, qui demandent un lecteur comme IINA ou VLC.
             if format.videoQuality == .max {
+                // « Best » veut dire la meilleure définition : on ne redescend
+                // pas en 1080p pour du H.264. À définition égale en revanche,
+                // H.264 passe devant.
                 args += ["-f", "bv*+ba/b"]
+                args += ["-S", "res,vcodec:h264,acodec:aac,ext:mp4:m4a"]
             } else {
                 let h = format.videoQuality.rawValue
-                args += ["-f", "bv*[height<=\(h)]+ba/b[height<=\(h)]/bv*+ba/b"]
+                // Le codec est filtré DANS le sélecteur, pas seulement trié :
+                // avec un simple `-S`, yt-dlp retenait le flux HLS muxé (plus
+                // lourd, fragmenté) plutôt que la paire DASH avc1 + m4a.
+                args += ["-f", [
+                    "bv*[vcodec^=avc1][height<=\(h)]+ba[acodec^=mp4a]",
+                    "bv*[height<=\(h)]+ba",
+                    "b[height<=\(h)]",
+                    "bv*+ba/b",
+                ].joined(separator: "/")]
+                args += ["-S", "res:\(h),ext:mp4:m4a"]
             }
-            args += ["--merge-output-format", "mp4", "-S", "ext:mp4:m4a"]
+            args += ["--merge-output-format", "mp4"]
 
         case .audio:
             args += [
@@ -222,11 +268,22 @@ final class DownloadEngine: @unchecked Sendable {
         return message.isEmpty ? "yt-dlp failed (code \(code))" : message
     }
 
+    /// Préfixes des post-processeurs yt-dlp qui suivent le téléchargement.
+    /// Ils arrivent sur stdout sous la forme `[Merger] Merging formats into …`.
+    private static let postProcessingPrefixes = [
+        "[Merger]", "[ExtractAudio]", "[Fixup", "[VideoConvertor]", "[Metadata]",
+    ]
+
     private static func handleLine(_ line: String, continuation: AsyncStream<DownloadEvent>.Continuation) {
-        guard let range = line.range(of: progressMarker) else { return }
-        let payload = String(line[range.upperBound...])
-        if let progress = DownloadProgress.parse(payload) {
-            continuation.yield(.progress(progress))
+        if let range = line.range(of: progressMarker) {
+            let payload = String(line[range.upperBound...])
+            if let progress = DownloadProgress.parse(payload) {
+                continuation.yield(.progress(progress))
+            }
+            return
+        }
+        if postProcessingPrefixes.contains(where: line.hasPrefix) {
+            continuation.yield(.postProcessing)
         }
     }
 }

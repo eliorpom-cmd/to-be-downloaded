@@ -1,0 +1,327 @@
+import SwiftUI
+import AppKit
+
+/// Bibliothèque : ce qui est en cours de téléchargement (capsules, comme sur
+/// l'accueil) puis l'historique persistant des fichiers produits.
+struct LibraryPane: View {
+    @ObservedObject var manager: DownloadManager
+    @ObservedObject var library: LibraryStore
+    @ObservedObject var settings: AppSettings
+
+    @State private var query = ""
+
+    private var active: [DownloadJob] { manager.activeJobs }
+    private var items: [LibraryItem] { library.matching(query) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.s16) {
+            header
+
+            if active.isEmpty && items.isEmpty {
+                Spacer()
+                EmptyState(
+                    symbol: "folder",
+                    title: query.isEmpty ? "Your library is empty" : "No match",
+                    subtitle: query.isEmpty
+                        ? "Finished downloads are collected here, with the file kept in your destination folder."
+                        : "No download matches “\(query)”."
+                )
+                .frame(maxWidth: .infinity)
+                Spacer()
+                Spacer()
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Theme.Space.s20) {
+                        if !active.isEmpty {
+                            VStack(alignment: .leading, spacing: Theme.Space.s6) {
+                                SectionHeader(title: "Downloading", count: active.count)
+                                // Mêmes cartes que les fichiers terminés : dans
+                                // une liste, deux formes différentes pour la
+                                // même chose se lisent comme deux natures
+                                // différentes. Seule la barre distingue.
+                                VStack(spacing: 0) {
+                                    ForEach(Array(active.enumerated()), id: \.element.id) { index, job in
+                                        DownloadRow(job: job, manager: manager)
+                                            .transition(.appearingCapsule)
+                                        if index < active.count - 1 {
+                                            Divider().overlay(Theme.separator)
+                                        }
+                                    }
+                                }
+                                .groupedCard()
+                                .animation(.spring(response: 0.34, dampingFraction: 0.82),
+                                           value: active.map(\.id))
+                            }
+                        }
+
+                        if !items.isEmpty {
+                            VStack(alignment: .leading, spacing: Theme.Space.s6) {
+                                SectionHeader(title: "Downloaded", count: items.count)
+                                VStack(spacing: 0) {
+                                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                                        LibraryRow(
+                                            item: item,
+                                            onDownloadAgain: { downloadAgain(item) },
+                                            onRemove: { library.remove(item.id) }
+                                        )
+                                        if index < items.count - 1 {
+                                            Divider().overlay(Theme.separator)
+                                        }
+                                    }
+                                }
+                                .groupedCard()
+                            }
+                        }
+                    }
+                    .padding(.bottom, Theme.Space.s24)
+                }
+                .scrollContentBackground(.hidden)
+            }
+        }
+        .padding(.horizontal, Theme.Space.s24)
+        .padding(.top, WindowChrome.trafficLightInset + Theme.Space.s16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var header: some View {
+        HStack(spacing: Theme.Space.s12) {
+            Text("Library")
+                .font(Theme.Text.largeTitle)
+                .foregroundStyle(Theme.label)
+
+            Spacer()
+
+            HStack(spacing: 5) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.labelTertiary)
+                TextField("Search", text: $query)
+                    .textFieldStyle(.plain)
+                    .font(Theme.Text.body)
+                    .frame(width: 140)
+                if !query.isEmpty {
+                    IconButton(symbol: "xmark.circle.fill", size: 11, help: "Clear") { query = "" }
+                }
+            }
+            .padding(.horizontal, Theme.Space.s8)
+            .frame(height: 24)
+            .background(Theme.fillTertiary, in: RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous))
+            .opacity(library.items.isEmpty ? 0.4 : 1)
+            .disabled(library.items.isEmpty)
+        }
+    }
+
+    /// Relance le téléchargement avec les réglages par défaut du même type :
+    /// la qualité exacte d'origine n'est pas conservée dans la bibliothèque.
+    private func downloadAgain(_ item: LibraryItem) {
+        let format = DownloadFormat(
+            kind: item.kind,
+            videoQuality: settings.defaultVideoQuality,
+            audioBitrate: settings.defaultAudioBitrate
+        )
+        manager.startDownload(urlString: item.sourceURL, format: format)
+    }
+}
+
+// MARK: - Ligne d'un téléchargement en cours
+
+/// Même carte que `LibraryRow`, avec la progression en plus : dans la
+/// bibliothèque, un téléchargement en cours n'est qu'un fichier pas encore
+/// fini, pas un objet d'une autre nature.
+private struct DownloadRow: View {
+    let job: DownloadJob
+    let manager: DownloadManager
+
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(spacing: Theme.Space.s12) {
+            Thumbnail(urlString: job.thumbnailURL, width: 64, height: 36)
+
+            VStack(alignment: .leading, spacing: 4) {
+                // Tant que le titre n'est pas connu, un trait neutre plutôt que
+                // l'URL brute, qui sauterait ensuite au vrai titre.
+                if job.metadata?.title == nil {
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(Theme.fillSecondary)
+                        .frame(width: 168, height: 9)
+                        .padding(.vertical, 2)
+                } else {
+                    Text(job.displayTitle)
+                        .font(Theme.Text.body)
+                        .foregroundStyle(job.state == .paused ? Theme.labelSecondary : Theme.label)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+
+                progressBar
+
+                Text(meta)
+                    .font(Theme.Text.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.labelSecondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: Theme.Space.s8)
+
+            trailing
+        }
+        .padding(.horizontal, Theme.Space.s12)
+        .padding(.vertical, Theme.Space.s8)
+        .background(hovering ? Theme.sidebarHover : .clear)
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
+        .help(job.displayTitle)
+    }
+
+    private var progressBar: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Theme.fillTertiary)
+                Capsule()
+                    .fill(Theme.fillPrimary)
+                    .frame(width: max(0, min(1, job.overallProgress)) * geo.size.width)
+                    .animation(.easeOut(duration: 0.25), value: job.overallProgress)
+            }
+        }
+        .frame(height: 3)
+    }
+
+    private var meta: String {
+        switch job.state {
+        case .queued:
+            return "Starting…"
+        case .downloading:
+            var parts = ["\(Int(job.overallProgress * 100))%"]
+            let eta = Format.eta(job.progress?.eta)
+            let speed = Format.speed(job.progress?.speed)
+            if !eta.isEmpty { parts.append(eta) } else if !speed.isEmpty { parts.append(speed) }
+            return parts.joined(separator: " · ")
+        case .paused:
+            return "Paused · \(Int(job.overallProgress * 100))%"
+        case .merging:
+            return "Finishing up…"
+        default:
+            return job.format.kind.label
+        }
+    }
+
+    @ViewBuilder
+    private var trailing: some View {
+        HStack(spacing: Theme.Space.s2) {
+            switch job.state {
+            case .paused:
+                IconButton(symbol: "play.circle.fill", size: 15, help: "Resume") {
+                    manager.togglePause(job.id)
+                }
+            case .merging:
+                ProgressView().controlSize(.small).scaleEffect(0.7).frame(width: 22, height: 22)
+            default:
+                IconButton(symbol: "pause.circle.fill", size: 15, help: "Pause") {
+                    manager.togglePause(job.id)
+                }
+            }
+            IconButton(symbol: "xmark", size: 11, help: "Cancel") { manager.cancel(job.id) }
+        }
+    }
+}
+
+// MARK: - Ligne de bibliothèque
+
+private struct LibraryRow: View {
+    let item: LibraryItem
+    let onDownloadAgain: () -> Void
+    let onRemove: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(spacing: Theme.Space.s12) {
+            LibraryThumbnail(item: item, width: 64, height: 36)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title)
+                    .font(Theme.Text.body)
+                    .foregroundStyle(Theme.label)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Text(meta)
+                    .font(Theme.Text.caption)
+                    .foregroundStyle(Theme.labelSecondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: Theme.Space.s8)
+
+            if !item.fileExists {
+                Image(systemName: "questionmark.circle")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.labelSecondary)
+                    .help("The file is no longer at its recorded location")
+            }
+
+            Menu {
+                menuItems
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.labelSecondary)
+                    .frame(width: 24, height: 22)
+                    .contentShape(Rectangle())
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+        }
+        .padding(.horizontal, Theme.Space.s12)
+        .padding(.vertical, Theme.Space.s8)
+        .background(hovering ? Theme.sidebarHover : .clear)
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
+        // Toute la ligne mène au fichier, comme la capsule côté Download.
+        .onTapGesture {
+            guard item.fileExists else { return }
+            NSWorkspace.shared.activateFileViewerSelecting([item.fileURL])
+        }
+        .contextMenu { menuItems }
+    }
+
+    private var meta: String {
+        var parts: [String] = []
+        if let channel = item.channel, !channel.isEmpty { parts.append(channel) }
+        parts.append(item.formatLabel)
+        if let size = item.fileSize { parts.append(Format.bytes(size)) }
+        parts.append(Self.dateFormatter.string(from: item.addedAt))
+        return parts.joined(separator: " · ")
+    }
+
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .none
+        return f
+    }()
+
+    @ViewBuilder
+    private var menuItems: some View {
+        Button("Play") { FileOpener.play(item.fileURL) }
+            .disabled(!item.fileExists)
+        Button("Reveal in Finder") {
+            NSWorkspace.shared.activateFileViewerSelecting([item.fileURL])
+        }
+        .disabled(!item.fileExists)
+        Divider()
+        Button("Copy Link") {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(item.sourceURL, forType: .string)
+        }
+        Button("Copy Title") {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(item.title, forType: .string)
+        }
+        Divider()
+        Button("Download Again", action: onDownloadAgain)
+        Button("Remove from Library", action: onRemove)
+    }
+}

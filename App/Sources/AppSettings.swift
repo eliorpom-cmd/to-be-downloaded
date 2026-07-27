@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// Préférence d'apparence de l'app, indépendante du réglage système.
 enum AppearancePreference: String, CaseIterable, Identifiable {
@@ -48,6 +49,9 @@ final class AppSettings: ObservableObject {
         static let audioBitrate = "defaultAudioBitrate"
         static let port = "serverPort"
         static let appearance = "appearancePreference"
+        static let updateChannel = "ytDlpUpdateChannel"
+        static let autoUpdateEngine = "ytDlpAutoUpdate"
+        static let autoUpdateApp = "appAutoUpdate"
     }
 
     @Published var outputDirectory: URL {
@@ -66,7 +70,48 @@ final class AppSettings: ObservableObject {
         didSet { store.set(Int(port), forKey: Key.port) }
     }
     @Published var appearance: AppearancePreference {
-        didSet { store.set(appearance.rawValue, forKey: Key.appearance) }
+        didSet {
+            store.set(appearance.rawValue, forKey: Key.appearance)
+            Self.applyAppearance(appearance)
+        }
+    }
+
+    /// Applique l'apparence à l'application entière.
+    ///
+    /// On passe par `NSApp.appearance` et NON par `.preferredColorScheme` :
+    /// une fois qu'une fenêtre SwiftUI a été forcée en clair ou en sombre,
+    /// repasser `nil` ne la rend PAS au réglage système — elle reste figée.
+    /// `NSApp.appearance = nil` le fait, lui.
+    static func applyAppearance(_ preference: AppearancePreference) {
+        let appearance: NSAppearance?
+        switch preference {
+        case .system: appearance = nil
+        case .light:  appearance = NSAppearance(named: .aqua)
+        case .dark:   appearance = NSAppearance(named: .darkAqua)
+        }
+        NSApplication.shared.appearance = appearance
+    }
+    /// Canal yt-dlp suivi par le mécanisme de mise à jour.
+    @Published var updateChannel: UpdateChannel {
+        didSet { store.set(updateChannel.rawValue, forKey: Key.updateChannel) }
+    }
+    /// Vérification quotidienne, au lancement puis toutes les heures tant que
+    /// l'app tourne. Activée par défaut : sans elle, l'app casse dès la
+    /// prochaine parade anti-bot de YouTube.
+    @Published var autoUpdateEngine: Bool {
+        didSet { store.set(autoUpdateEngine, forKey: Key.autoUpdateEngine) }
+    }
+    /// Mise à jour automatique de l'app elle-même (releases GitHub signées).
+    @Published var autoUpdateApp: Bool {
+        didSet { store.set(autoUpdateApp, forKey: Key.autoUpdateApp) }
+    }
+
+    /// Format correspondant aux réglages par défaut, pour les déclencheurs qui
+    /// n'ont pas d'UI de choix (menu de la barre des menus, ⌘⇧V).
+    var currentDefaultFormat: DownloadFormat {
+        DownloadFormat(kind: defaultKind,
+                       videoQuality: defaultVideoQuality,
+                       audioBitrate: defaultAudioBitrate)
     }
 
     /// Fait défiler Système → Clair → Sombre → Système (bouton bascule du header).
@@ -81,10 +126,12 @@ final class AppSettings: ObservableObject {
         if let path = store.string(forKey: Key.output), !path.isEmpty {
             outputDirectory = URL(fileURLWithPath: path, isDirectory: true)
         } else {
-            let downloads = FileManager.default
+            // Directement ~/Downloads : pas de sous-dossier au nom de l'app,
+            // les fichiers atterrissent là où les gens les cherchent.
+            outputDirectory = FileManager.default
                 .urls(for: .downloadsDirectory, in: .userDomainMask).first
-                ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
-            outputDirectory = downloads.appendingPathComponent(AppConfig.displayName, isDirectory: true)
+                ?? FileManager.default.homeDirectoryForCurrentUser
+                    .appendingPathComponent("Downloads", isDirectory: true)
         }
 
         defaultKind = MediaKind(rawValue: store.string(forKey: Key.kind) ?? "") ?? .video
@@ -95,5 +142,9 @@ final class AppSettings: ObservableObject {
         port = UInt16(storedPort ?? Int(AppConfig.defaultPort))
 
         appearance = AppearancePreference(rawValue: store.string(forKey: Key.appearance) ?? "") ?? .system
+
+        updateChannel = UpdateChannel(rawValue: store.string(forKey: Key.updateChannel) ?? "") ?? .stable
+        autoUpdateEngine = store.object(forKey: Key.autoUpdateEngine) as? Bool ?? true
+        autoUpdateApp = store.object(forKey: Key.autoUpdateApp) as? Bool ?? true
     }
 }

@@ -8,6 +8,10 @@ struct DownloadProgress: Sendable, Equatable {
     var totalBytes: Int64?
     var speed: Double?   // octets/seconde
     var eta: Double?     // secondes restantes
+    /// Fichier en cours d'écriture. Sert à repérer le passage d'un flux au
+    /// suivant : une vidéo YouTube se télécharge en DEUX temps (piste vidéo,
+    /// puis piste audio), et chacun repart de 0 %.
+    var filename: String?
 
     /// Fraction téléchargée [0...1], ou nil si la taille totale est inconnue.
     var fraction: Double? {
@@ -25,6 +29,9 @@ struct DownloadProgress: Sendable, Equatable {
         "%(progress.total_bytes_estimate)s",
         "%(progress.speed)s",
         "%(progress.eta)s",
+        // En dernier : un nom de fichier peut contenir à peu près n'importe
+        // quoi, on ne veut pas qu'il décale les champs suivants.
+        "%(progress.filename)s",
     ]
 
     /// Parse la charge utile (après le marqueur) : champs séparés par tabulation.
@@ -44,12 +51,17 @@ struct DownloadProgress: Sendable, Equatable {
         let downloaded = number(parts[1]).map { Int64($0) }
         let total = (number(parts[2]) ?? number(parts[3])).map { Int64($0) }
 
+        let filename = parts.count > 6
+            ? parts[6].trimmingCharacters(in: .whitespaces)
+            : ""
+
         return DownloadProgress(
             status: status,
             downloadedBytes: downloaded,
             totalBytes: total,
             speed: number(parts[4]),
-            eta: number(parts[5])
+            eta: number(parts[5]),
+            filename: (filename.isEmpty || filename == "NA") ? nil : filename
         )
     }
 }

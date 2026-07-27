@@ -5,16 +5,13 @@ import SwiftUI
 /// redessine rien : la silhouette est celle du dessin d'origine, au pixel près.
 ///
 /// Monochrome : la silhouette est peinte en `Theme.ink`, l'œil (trou du tracé)
-/// et la bouche-flèche laissent voir le fond `Theme.canvas` (à placer sur un
-/// fond `canvas`). L'animation ne fait que la faire vivre légèrement
-/// (balancement + respiration, un peu plus vif pendant un téléchargement) sans
-/// déformer le tracé.
+/// et la bouche-flèche laissent voir le fond.
+///
+/// Volontairement IMMOBILE : le balancement permanent attirait l'œil sans rien
+/// dire. `isActive` est conservé pour les appelants, mais n'anime plus rien.
 struct MascotView: View {
     var size: CGFloat = 44
     var isActive: Bool = false
-
-    @State private var bob = false
-    @State private var breathe = false
 
     // Ratio exact de l'image source (930×920) pour ne pas déformer.
     private var height: CGFloat { size * 920.0 / 930.0 }
@@ -23,22 +20,86 @@ struct MascotView: View {
         MascotShape()
             .fill(Theme.ink)
             .frame(width: size, height: height)
-            .scaleEffect(x: breathe ? 1.012 : 0.992,
-                         y: breathe ? 0.992 : 1.012,
-                         anchor: .bottom)
-            .rotationEffect(.degrees(bob ? 2 : -2), anchor: .bottom)
-            .offset(y: bob ? -size * 0.025 : size * 0.015)
-            .task(id: isActive) { await animate() }
+    }
+}
+
+/// Rendu AppKit de la mascotte, pour les endroits qui exigent une `NSImage` :
+/// barre des menus, icône d'app, notifications.
+enum MascotImage {
+
+    /// Données de tracé SVG (`d="…"`) du logo, dans un carré `viewBox` 100×100.
+    ///
+    /// Généré depuis le MÊME `MascotShape` que l'app : le logo n'existe qu'à un
+    /// seul endroit. Sur la page web il est peint en `currentColor`, donc il
+    /// s'inverse tout seul en thème sombre — contrairement à un PNG.
+    static func svgPathData(viewBox: CGFloat = 100) -> String {
+        let rect = CGRect(x: 0, y: 0, width: viewBox, height: viewBox * 920.0 / 930.0)
+        var commands: [String] = []
+        func n(_ value: CGFloat) -> String { String(format: "%.2f", value) }
+
+        MascotShape().path(in: rect).cgPath.applyWithBlock { element in
+            let points = element.pointee.points
+            switch element.pointee.type {
+            case .moveToPoint:
+                commands.append("M\(n(points[0].x)) \(n(points[0].y))")
+            case .addLineToPoint:
+                commands.append("L\(n(points[0].x)) \(n(points[0].y))")
+            case .addQuadCurveToPoint:
+                commands.append("Q\(n(points[0].x)) \(n(points[0].y)) \(n(points[1].x)) \(n(points[1].y))")
+            case .addCurveToPoint:
+                commands.append("C\(n(points[0].x)) \(n(points[0].y)) "
+                                + "\(n(points[1].x)) \(n(points[1].y)) "
+                                + "\(n(points[2].x)) \(n(points[2].y))")
+            case .closeSubpath:
+                commands.append("Z")
+            @unknown default:
+                break
+            }
+        }
+        return commands.joined(separator: " ")
     }
 
-    @MainActor
-    private func animate() async {
-        withAnimation(.easeInOut(duration: isActive ? 0.55 : 1.1).repeatForever(autoreverses: true)) {
-            bob = true
+    /// Glyphe de barre des menus : le tracé ORIGINAL du logo, sans redessin.
+    ///
+    /// Rendu dans un bitmap HORS ÉCRAN plutôt que via
+    /// `NSImage(size:flipped:drawingHandler:)` : ce dernier peint directement
+    /// dans le contexte de destination, où l'on ne maîtrise ni le suréchantil-
+    /// lonnage ni les modes de fusion. Ici on choisit l'échelle (3×) pour que
+    /// l'œil et l'encoche de la flèche survivent à la réduction.
+    ///
+    /// Image *template* : macOS la recolore selon le thème de la barre des
+    /// menus (clair, sombre, inversion au clic).
+    static func menuBar(size: CGFloat = 18) -> NSImage {
+        let scale: CGFloat = 3
+        let pixels = Int((size * scale).rounded())
+        guard let context = CGContext(
+            data: nil, width: pixels, height: pixels, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return NSImage(size: NSSize(width: size, height: size)) }
+
+        context.scaleBy(x: scale, y: scale)
+        // Repère y vers le bas, pour raisonner comme dans le reste de l'UI.
+        context.translateBy(x: 0, y: size)
+        context.scaleBy(x: 1, y: -1)
+        context.setShouldAntialias(true)
+
+        // Ratio d'origine 930×920, centré verticalement dans le carré.
+        let height = size * 920.0 / 930.0
+        let rect = CGRect(x: 0, y: (size - height) / 2, width: size, height: height)
+
+        context.addPath(MascotShape().path(in: rect).cgPath)
+        context.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
+        // Non-zero : l'œil et la flèche sont des sous-tracés inverses, donc des
+        // trous — c'est ce qui rend le logo lisible plutôt qu'un disque plein.
+        context.fillPath(using: .winding)
+
+        guard let cgImage = context.makeImage() else {
+            return NSImage(size: NSSize(width: size, height: size))
         }
-        withAnimation(.easeInOut(duration: isActive ? 0.7 : 1.6).repeatForever(autoreverses: true)) {
-            breathe = true
-        }
+        let image = NSImage(cgImage: cgImage, size: NSSize(width: size, height: size))
+        image.isTemplate = true
+        return image
     }
 }
 
