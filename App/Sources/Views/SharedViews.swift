@@ -77,9 +77,14 @@ struct LibraryThumbnail: View {
     }
 }
 
-/// Vignette ronde en tête de capsule (miniature de la vidéo, à défaut un glyphe).
+/// Pastille ronde en tête de capsule : la PHOTO DE PROFIL de la chaîne.
+///
+/// Elle demande une résolution réseau (cf. `ChannelAvatars`), donc elle n'est
+/// pas là dès la première image. En attendant, l'initiale de la chaîne — pas
+/// la miniature de la vidéo, qui ferait croire à un avatar puis changerait.
 struct ChannelAvatar: View {
     let urlString: String?
+    var channelName: String?
     var size: CGFloat = 28
 
     var body: some View {
@@ -89,16 +94,38 @@ struct ChannelAvatar: View {
             .overlay {
                 if let urlString, let url = URL(string: urlString) {
                     AsyncImage(url: url) { phase in
-                        if case .success(let image) = phase {
-                            image.resizable().aspectRatio(contentMode: .fill)
-                        } else {
-                            Color.clear
+                        switch phase {
+                        case .success(let image): image.resizable().aspectRatio(contentMode: .fill)
+                        default: placeholder
                         }
                     }
+                } else {
+                    placeholder
                 }
             }
             .frame(width: size, height: size)
             .clipShape(Circle())
+            .animation(.easeOut(duration: 0.2), value: urlString)
+    }
+
+    @ViewBuilder
+    private var placeholder: some View {
+        if let initial {
+            Text(initial)
+                .font(.system(size: size * 0.42, weight: .medium))
+                .foregroundStyle(Theme.labelSecondary)
+        } else {
+            Image(systemName: "person.fill")
+                .font(.system(size: size * 0.4))
+                .foregroundStyle(Theme.labelTertiary)
+        }
+    }
+
+    private var initial: String? {
+        guard let first = channelName?.trimmingCharacters(in: .whitespaces).first,
+              first.isLetter || first.isNumber
+        else { return nil }
+        return String(first).uppercased()
     }
 }
 
@@ -108,13 +135,16 @@ extension AnyTransition {
     /// Apparition d'une ligne de téléchargement : elle se déplie depuis le haut.
     /// Asymétrique — une disparition doit être plus discrète qu'une arrivée,
     /// puisque l'utilisateur en est déjà à autre chose.
+    /// Pas de décalage vertical ni de ressort : les deux se cumulaient à la
+    /// remise en page de la liste, et l'arrivée se terminait par un à-coup.
+    /// Une mise à l'échelle courte et sans rebond suffit à faire remarquer
+    /// l'apparition.
+    ///
     /// Propriété calculée : `AnyTransition` n'est pas `Sendable`, donc pas
     /// partageable en `static let` sous Swift 6.
     static var appearingCapsule: AnyTransition {
         .asymmetric(
-            insertion: .opacity
-                .combined(with: .scale(scale: 0.96, anchor: .top))
-                .combined(with: .offset(y: -8)),
+            insertion: .opacity.combined(with: .scale(scale: 0.97, anchor: .top)),
             removal: .opacity
         )
     }

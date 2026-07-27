@@ -49,8 +49,7 @@ struct LibraryPane: View {
                                     }
                                 }
                                 .groupedCard()
-                                .animation(.spring(response: 0.34, dampingFraction: 0.82),
-                                           value: active.map(\.id))
+                                .animation(.easeOut(duration: 0.2), value: active.map(\.id))
                             }
                         }
 

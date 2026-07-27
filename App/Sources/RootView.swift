@@ -47,6 +47,11 @@ struct RootView: View {
             detail
         }
         .frame(minWidth: 820, minHeight: 620)
+        // La barre de titre est masquée, mais SwiftUI continue d'en réserver la
+        // hauteur en zone sûre. Elle s'AJOUTAIT au dégagement qu'on pose
+        // nous-mêmes pour les feux tricolores, d'où le grand vide au-dessus de
+        // « Download ». En l'ignorant, nos marges redeviennent la seule vérité.
+        .ignoresSafeArea(.container, edges: .top)
         .background(Theme.window)
         .task {
             server.start()

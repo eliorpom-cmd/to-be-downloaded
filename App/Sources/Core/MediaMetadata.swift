@@ -8,8 +8,12 @@ struct MediaMetadata: Codable, Sendable, Equatable {
     var channel: String?
     /// Durée en secondes.
     var duration: Double?
-    /// URL absolue de la miniature (chargée directement par le client).
+    /// URL absolue de la miniature de la vidéo (chargée par le client).
     var thumbnailURL: String?
+    /// Page de la chaîne, quand on la connaît (`https://youtube.com/@handle`).
+    var channelURL: String?
+    /// Photo de profil de la chaîne, résolue à part (cf. `ChannelAvatars`).
+    var channelAvatarURL: String?
 
     /// Décode la sortie `--dump-single-json` de yt-dlp en ne gardant que les
     /// champs utiles. La charge complète est énorme : on ignore tout le reste.
@@ -59,6 +63,7 @@ struct MediaMetadata: Codable, Sendable, Equatable {
         struct Payload: Decodable {
             let title: String?
             let author_name: String?
+            let author_url: String?
             let thumbnail_url: String?
         }
         guard let (data, response) = try? await URLSession.shared.data(for: request),
@@ -72,7 +77,16 @@ struct MediaMetadata: Codable, Sendable, Equatable {
             title: title,
             channel: payload.author_name,
             duration: nil,
-            thumbnailURL: payload.thumbnail_url
+            thumbnailURL: payload.thumbnail_url,
+            channelURL: payload.author_url
         )
+    }
+
+    /// Clé de cache d'une chaîne : le `@handle` ou l'identifiant `UC…` extrait
+    /// de l'URL de la chaîne. Stable, contrairement au nom affiché.
+    var channelKey: String? {
+        guard let channelURL, let url = URL(string: channelURL) else { return nil }
+        let last = url.lastPathComponent
+        return last.isEmpty ? nil : last
     }
 }

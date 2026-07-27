@@ -35,9 +35,8 @@ struct DownloadCapsule: View {
             }
 
             HStack(spacing: Theme.Space.s10) {
-                // Vignette déduite du lien : elle est là dès la première image,
-                // sans attendre la moindre réponse réseau.
-                ChannelAvatar(urlString: job.thumbnailURL)
+                ChannelAvatar(urlString: job.metadata?.channelAvatarURL,
+                              channelName: job.metadata?.channel)
 
                 // Tant que le titre n'est pas connu, un trait neutre plutôt que
                 // l'URL brute : elle s'affichait puis sautait au vrai titre.
