@@ -415,9 +415,12 @@ final class DownloadManager: ObservableObject {
                 switch event {
                 case .progress(let p):
                     self.update(jobID) { job in
-                        // Ne pas écraser une pause : yt-dlp peut avoir émis une
-                        // dernière ligne de progression avant de se suspendre.
-                        if job.state != .cancelled && job.state != .paused { job.state = .downloading }
+                        // Une ligne de progression peut arriver APRÈS la mise en
+                        // pause : yt-dlp en avait écrit une avant de recevoir le
+                        // signal. La prendre ferait avancer la barre d'un
+                        // téléchargement à l'arrêt. On la jette.
+                        guard job.state != .cancelled, job.state != .paused else { return }
+                        job.state = .downloading
                         job.progress = p
                         Self.advance(&job, with: p)
                     }

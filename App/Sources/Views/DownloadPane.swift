@@ -144,8 +144,11 @@ struct DownloadPane: View {
 
             Spacer().frame(height: Theme.Space.s24)
 
+            // Plus large que les 320 pt d'origine : le débit et le temps
+            // restant sont partis en info-bulle, c'est au titre de récupérer
+            // la place, pas au vide.
             sessionList
-                .frame(maxWidth: 320)
+                .frame(maxWidth: 440)
         }
         // L'animation vit ICI, sur le conteneur, et non sur la seule liste :
         // ajouter une capsule pousse tout ce qui est au-dessus (logo, champ,
