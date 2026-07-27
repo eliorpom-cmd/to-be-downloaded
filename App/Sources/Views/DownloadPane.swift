@@ -365,11 +365,9 @@ struct DownloadPane: View {
                     .padding(.top, Theme.Space.s2)
                 }
             }
-            // Un lancement se voit : la capsule se déplie depuis le haut au
-            // lieu d'apparaître d'un coup. Ressort peu élastique — l'effet doit
-            // se remarquer sans se faire attendre.
-            .animation(.spring(response: 0.34, dampingFraction: 0.82),
-                       value: sessionJobs.map(\.id))
+            // Un lancement se voit, sans se faire attendre : courbe amortie et
+            // brève, la même qui remet la liste en page.
+            .animation(.easeOut(duration: 0.2), value: sessionJobs.map(\.id))
         }
     }
 

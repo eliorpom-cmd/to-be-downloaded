@@ -110,6 +110,14 @@ final class DownloadManager: ObservableObject {
         Task { [weak self] in
             guard let quick = await MediaMetadata.oEmbed(for: trimmed) else { return }
             self?.apply(quick, to: jobID, overwrite: false)
+            // La photo de profil de la chaîne demande une résolution à part, et
+            // n'est en cache qu'à partir du deuxième téléchargement de la même
+            // chaîne. Elle arrive donc APRÈS le nom, ce qui est l'ordre utile.
+            guard let key = quick.channelKey,
+                  let avatar = await ChannelAvatars.shared.avatarURL(
+                    channelKey: key, videoURL: trimmed)
+            else { return }
+            self?.update(jobID) { $0.metadata?.channelAvatarURL = avatar }
         }
         Task { [weak self] in
             guard let meta = await engine.fetchMetadata(url: trimmed) else { return }
@@ -141,6 +149,10 @@ final class DownloadManager: ObservableObject {
             var merged = metadata
             merged.thumbnailURL = YouTubeLink.thumbnailURL(for: job.url)
                 ?? job.metadata?.thumbnailURL ?? metadata.thumbnailURL
+            // yt-dlp ne connaît ni l'un ni l'autre : sans ces deux lignes, son
+            // arrivée effacerait l'avatar déjà résolu.
+            merged.channelURL = metadata.channelURL ?? job.metadata?.channelURL
+            merged.channelAvatarURL = metadata.channelAvatarURL ?? job.metadata?.channelAvatarURL
             job.metadata = merged
         }
     }
