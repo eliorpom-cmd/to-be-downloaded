@@ -9,16 +9,24 @@ import AppKit
 /// « Downloading »).
 struct DownloadCapsule: View {
     let job: DownloadJob
-    /// En file derrière d'autres, plutôt qu'en train de démarrer.
+    /// En file derrière d'autres, plutôt qu'en train de se préparer.
     var waiting: Bool = false
     let onTogglePause: () -> Void
     let onCancel: () -> Void
     let onRetry: () -> Void
-    let onReveal: () -> Void
+    /// Clic sur la ligne terminée.
+    let onOpen: () -> Void
+    /// Clic sur la coche : retire la ligne de la liste de la session.
+    var onDismiss: () -> Void = {}
 
     @State private var hovering = false
+    @State private var sweep = false
 
     private var isFailed: Bool { job.state == .failed }
+
+    /// yt-dlp est lancé mais n'a encore rien émis : il se déballe et interroge
+    /// YouTube. Rien à mesurer, mais il faut que ça se voie.
+    private var isPreparing: Bool { job.state == .queued && !waiting }
 
     var body: some View {
         ZStack(alignment: .leading) {
@@ -34,6 +42,25 @@ struct DownloadCapsule: View {
                         .animation(.easeOut(duration: 0.25), value: fraction)
                 }
                 .clipShape(Capsule())
+            }
+
+            // Balayage indéterminé pendant la préparation : la seule façon
+            // honnête de dire « ça travaille » quand on ne peut rien mesurer.
+            if isPreparing {
+                GeometryReader { geo in
+                    LinearGradient(
+                        colors: [.clear, Theme.fillPrimary, .clear],
+                        startPoint: .leading, endPoint: .trailing)
+                        .frame(width: geo.size.width * 0.45)
+                        .offset(x: sweep ? geo.size.width : -geo.size.width * 0.45)
+                }
+                .clipShape(Capsule())
+                .allowsHitTesting(false)
+                .onAppear {
+                    withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
+                        sweep = true
+                    }
+                }
             }
 
             HStack(spacing: Theme.Space.s10) {
@@ -84,8 +111,10 @@ struct DownloadCapsule: View {
         .contentShape(Capsule())
         .onHover { hovering = $0 }
         // Toute la capsule est cliquable une fois le fichier là.
+        // Une ligne terminée mène à la bibliothèque, pas au Finder : on reste
+        // dans l'app, où la vidéo a une fiche, une vignette et un menu.
         .onTapGesture {
-            if job.state == .completed { onReveal() }
+            if job.state == .completed { onOpen() }
         }
         // Un fichier terminé se glisse vers le Finder ou n'importe quelle app.
         .onDrag {
@@ -98,21 +127,39 @@ struct DownloadCapsule: View {
         .help(helpText)
     }
 
+    /// Le débit et le temps restant ne tiennent plus dans la ligne : ils
+    /// mangeaient la place du titre, qui est la seule information qu'on
+    /// cherche vraiment du regard. Ils vivent ici, comme le libellé d'un
+    /// bouton — visibles quand on les demande.
     private var helpText: String {
         switch job.state {
-        case .failed:    return job.errorMessage ?? "Failed"
-        case .completed: return "Show in Finder — \(job.displayTitle)"
-        default:         return job.displayTitle
+        case .failed:
+            return job.errorMessage ?? "Failed"
+        case .completed:
+            return "Show in Library — \(job.displayTitle)"
+        case .queued:
+            return waiting ? "Waiting for a free slot" : "Starting the download engine…"
+        case .downloading, .paused:
+            var parts = [job.displayTitle]
+            let speed = Format.speed(job.progress?.speed)
+            let eta = Format.eta(job.progress?.eta)
+            if !speed.isEmpty { parts.append(speed) }
+            if !eta.isEmpty { parts.append(eta) }
+            if let total = job.progress?.totalBytes { parts.append(Format.bytes(total)) }
+            return parts.joined(separator: " · ")
+        default:
+            return job.displayTitle
         }
     }
 
     // MARK: - Meta
 
-    /// Place réservée à la meta pendant qu'elle bouge. Les états figés
-    /// (terminé, annulé) n'en ont pas besoin et laissent la place au titre.
+    /// Place réservée à la meta pendant qu'elle bouge. Étroite : elle ne porte
+    /// plus qu'un pourcentage, le reste est passé en info-bulle.
     private var metaWidth: CGFloat? {
         switch job.state {
-        case .queued, .downloading, .paused, .merging: return 92
+        case .downloading, .paused: return 38
+        case .queued, .merging:     return 74
         case .completed, .failed, .cancelled: return nil
         }
     }
@@ -120,17 +167,13 @@ struct DownloadCapsule: View {
     private var metaText: String {
         switch job.state {
         case .queued:
-            return waiting ? "Waiting…" : "Starting…"
+            return waiting ? "Waiting…" : "Preparing…"
         case .downloading:
             // Le pourcentage suit la barre unique, pas le flux en cours : les
             // deux doivent raconter la même histoire.
-            var parts = ["\(Int(job.overallProgress * 100))%"]
-            let eta = Format.eta(job.progress?.eta)
-            let speed = Format.speed(job.progress?.speed)
-            if !eta.isEmpty { parts.append(eta) } else if !speed.isEmpty { parts.append(speed) }
-            return parts.joined(separator: " · ")
+            return "\(Int(job.overallProgress * 100))%"
         case .paused:
-            return "Paused · \(Int(job.overallProgress * 100))%"
+            return "\(Int(job.overallProgress * 100))%"
         case .merging:
             return "Finishing up…"
         case .completed:
@@ -147,26 +190,21 @@ struct DownloadCapsule: View {
     @ViewBuilder
     private var trailing: some View {
         switch job.state {
-        case .queued, .downloading:
-            // Au survol on propose d'annuler, sinon de mettre en pause.
-            if hovering {
-                IconButton(symbol: "xmark.circle.fill", size: 15, help: "Cancel", action: onCancel)
-            } else {
-                IconButton(symbol: "pause.circle.fill", size: 15, help: "Pause", action: onTogglePause)
-            }
-        case .paused:
-            if hovering {
-                IconButton(symbol: "xmark.circle.fill", size: 15, help: "Cancel", action: onCancel)
-            } else {
-                IconButton(symbol: "play.circle.fill", size: 15, help: "Resume", action: onTogglePause)
-            }
+        case .queued, .downloading, .paused:
+            // Une seule affordance, toujours la même : annuler. La pause reste
+            // au menu contextuel — un bouton qui change de sens selon le survol
+            // fait hésiter, et personne ne met un téléchargement en pause aussi
+            // souvent qu'il l'abandonne.
+            IconButton(symbol: "xmark.circle.fill", size: 15, help: "Cancel", action: onCancel)
         case .merging:
             ProgressView()
                 .controlSize(.small)
                 .scaleEffect(0.7)
                 .frame(width: 22, height: 22)
         case .completed:
-            IconButton(symbol: "checkmark.circle.fill", size: 15, help: "Show in Finder", action: onReveal)
+            IconButton(symbol: "checkmark.circle.fill", size: 15,
+                       help: "Remove from this list — the file stays on disk",
+                       action: onDismiss)
         case .failed, .cancelled:
             IconButton(symbol: "arrow.clockwise", size: 13, help: "Try again", action: onRetry)
         }
@@ -210,16 +248,19 @@ struct DownloadCapsule: View {
 
 extension DownloadCapsule {
     /// Raccourci : câble les actions sur le manager pour un job donné.
-    init(job: DownloadJob, manager: DownloadManager) {
+    /// `onOpen` par défaut révèle dans le Finder ; l'écran Download le
+    /// remplace par un passage à la bibliothèque.
+    init(job: DownloadJob, manager: DownloadManager, onOpen: (() -> Void)? = nil) {
         self.init(
             job: job,
             waiting: manager.isWaiting(job),
             onTogglePause: { manager.togglePause(job.id) },
             onCancel: { manager.cancel(job.id) },
             onRetry: { manager.retry(job.id) },
-            onReveal: {
+            onOpen: onOpen ?? {
                 if let url = job.fileURL { NSWorkspace.shared.activateFileViewerSelecting([url]) }
-            }
+            },
+            onDismiss: { manager.remove(job.id) }
         )
     }
 }

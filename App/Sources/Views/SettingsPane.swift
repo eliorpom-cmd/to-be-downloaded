@@ -80,11 +80,16 @@ struct SettingsPane: View {
 
                 section("Shortcuts") {
                     row("Paste and download from anywhere",
-                        detail: "\(GlobalShortcut.label) — works while the app runs, "
-                            + "even with no window open") {
+                        detail: "Works while the app runs, even with no window open") {
                         Toggle("", isOn: $settings.globalShortcut)
                             .toggleStyle(.switch)
                             .labelsHidden()
+                    }
+                    divider
+                    row("Shortcut", detail: shortcutDetail) {
+                        ShortcutRecorder(settings: settings)
+                            .disabled(!settings.globalShortcut)
+                            .opacity(settings.globalShortcut ? 1 : 0.4)
                     }
                 }
 
@@ -226,6 +231,15 @@ struct SettingsPane: View {
         } message: {
             Text("This only empties the list. The downloaded files stay on disk.")
         }
+    }
+
+    /// Un raccourci refusé ne se voit pas autrement : Carbon rend une erreur,
+    /// mais rien ne se passe à l'écran si on ne la dit pas.
+    private var shortcutDetail: String {
+        if settings.shortcutRejected {
+            return "Already taken by another app — pick another one"
+        }
+        return settings.globalShortcut ? "Click to change it" : "Turn the shortcut on first"
     }
 
     /// Exemple concret sous le réglage : un gabarit de nommage ne se comprend

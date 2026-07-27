@@ -21,6 +21,10 @@ final class DownloadManager: ObservableObject {
     /// Jobs interrompus par une fermeture de l'app, proposés à la reprise.
     @Published private(set) var resumable: [PendingJob] = []
 
+    /// Métadonnées déjà extraites, par identifiant vidéo, et extractions en vol.
+    private var metadataCache: [String: MediaMetadata] = [:]
+    private var metadataTasks: [String: Task<MediaMetadata?, Never>] = [:]
+
     /// Bibliothèque persistante alimentée à chaque téléchargement réussi.
     let library: LibraryStore
 
@@ -161,14 +165,16 @@ final class DownloadManager: ObservableObject {
             // La photo de profil de la chaîne demande une résolution à part, et
             // n'est en cache qu'à partir du deuxième téléchargement de la même
             // chaîne. Elle arrive donc APRÈS le nom, ce qui est l'ordre utile.
-            guard let key = quick.channelKey,
+            guard let key = quick.channelKey, let channelURL = quick.channelURL,
                   let avatar = await ChannelAvatars.shared.avatarURL(
-                    channelKey: key, videoURL: trimmed)
+                    channelKey: key, channelURL: channelURL)
             else { return }
             self?.update(jobID) { $0.metadata?.channelAvatarURL = avatar }
         }
+        // Passe par le cache : si l'aperçu du poids a déjà extrait cette vidéo
+        // pendant que l'utilisateur hésitait, on ne relance rien.
         Task { [weak self] in
-            guard let meta = await engine.fetchMetadata(url: trimmed) else { return }
+            guard let meta = await self?.fetchMetadata(urlString: trimmed) else { return }
             self?.apply(meta, to: jobID, overwrite: true)
         }
 
@@ -206,7 +212,11 @@ final class DownloadManager: ObservableObject {
             do {
                 let run = try engine.start(url: job.url, format: job.format, jobID: job.id)
                 running[job.id] = run
-                jobs[index].state = .downloading
+                // L'état reste `queued` : yt-dlp doit d'abord se lancer et
+                // interroger YouTube, ce qui prend un temps très visible.
+                // Annoncer « downloading » à cet instant afficherait 0 % et une
+                // barre morte pendant tout ce temps. C'est le premier événement
+                // de progression qui fera basculer l'état.
                 observe(run, jobID: job.id)
             } catch {
                 jobs[index].state = .failed
@@ -302,9 +312,25 @@ final class DownloadManager: ObservableObject {
 
     /// Aperçu (titre/chaîne/durée/miniature) sans démarrer de téléchargement.
     /// Utilisé par la barre d'aperçu de l'UI et l'endpoint /api/metadata.
+    /// Métadonnées d'une vidéo, extraites AU PLUS UNE FOIS.
+    ///
+    /// Chaque lancement de yt-dlp coûte cher : le binaire est un exécutable
+    /// PyInstaller qui se déballe et réimporte tout Python à chaque appel.
+    /// L'app en lançait trois pour un seul téléchargement — l'aperçu du poids
+    /// au collage, les métadonnées du job, puis le téléchargement lui-même.
+    /// Le cache et la déduplication des appels en vol ramènent cela à un seul.
     func fetchMetadata(urlString: String) async -> MediaMetadata? {
+        let key = YouTubeLink.videoID(from: urlString) ?? urlString
+        if let cached = metadataCache[key] { return cached }
+        if let running = metadataTasks[key] { return await running.value }
         guard let engine else { return nil }
-        return await engine.fetchMetadata(url: urlString)
+
+        let task = Task<MediaMetadata?, Never> { await engine.fetchMetadata(url: urlString) }
+        metadataTasks[key] = task
+        let found = await task.value
+        metadataTasks[key] = nil
+        if let found { metadataCache[key] = found }
+        return found
     }
 
     /// Liste les vidéos d'une playlist, sans en extraire aucune.
@@ -369,6 +395,8 @@ final class DownloadManager: ObservableObject {
         running[jobID]?.cancel()
         running[jobID] = nil
         jobs.removeAll { $0.id == jobID }
+        savePending()
+        pump()
     }
 
     /// Relance un téléchargement échoué/annulé avec la même URL et le même format.

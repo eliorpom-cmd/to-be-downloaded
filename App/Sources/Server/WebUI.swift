@@ -36,7 +36,7 @@ enum WebUI {
         <meta name="color-scheme" content="light dark">
         <title>\(appName)</title>
         <link rel="manifest" href="/manifest.webmanifest">
-        <link rel="icon" href="/icon-512.png">
+        <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
         <link rel="apple-touch-icon" href="/icon-512.png">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="mobile-web-app-capable" content="yes">

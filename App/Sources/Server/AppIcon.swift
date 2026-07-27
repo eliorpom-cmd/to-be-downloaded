@@ -10,7 +10,19 @@ import SwiftUI
 /// téléphone est donc la même que celle du Dock.
 enum AppIcon {
 
+    /// Icône d'écran d'accueil : mêmes proportions que celle du Dock.
     static func png(size: Int) -> Data? {
+        render(size: size, marginRatio: 100.0 / 1024.0, logoRatio: 0.58)
+    }
+
+    /// Icône d'onglet. La marge et le rapport du Dock sont calculés pour une
+    /// icône de 128 px ; à 16 px dans un onglet, ils réduisent le logo à un
+    /// point. On colle donc la pastille au bord et on grossit le tracé.
+    static func favicon(size: Int) -> Data? {
+        render(size: size, marginRatio: 0, logoRatio: 0.74)
+    }
+
+    private static func render(size: Int, marginRatio: CGFloat, logoRatio: CGFloat) -> Data? {
         let s = CGFloat(size)
         guard let ctx = CGContext(
             data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0,
@@ -18,16 +30,15 @@ enum AppIcon {
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else { return nil }
 
-        // Pastille : proportions des icônes macOS (marge 100/1024, rayon 185/1024).
-        let margin = s * 100.0 / 1024.0
+        // Pastille : proportions des icônes macOS (rayon 185/1024).
+        let margin = s * marginRatio
         let body = CGRect(x: margin, y: margin, width: s - 2 * margin, height: s - 2 * margin)
-        let radius = s * 185.0 / 1024.0
+        let radius = body.width * 185.0 / 824.0
         ctx.addPath(CGPath(roundedRect: body, cornerWidth: radius, cornerHeight: radius, transform: nil))
         ctx.setFillColor(CGColor(red: 0.98, green: 0.98, blue: 0.98, alpha: 1))
         ctx.fillPath()
 
-        // Logo centré, à 58 % de la pastille.
-        let target = body.width * 0.58
+        let target = body.width * logoRatio
         let height = target * 920.0 / 930.0
         let logoRect = CGRect(x: body.midX - target / 2,
                               y: body.midY - height / 2,

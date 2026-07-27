@@ -221,8 +221,10 @@ private struct DownloadRow: View {
     private var meta: String {
         switch job.state {
         case .queued:
-            return manager.isWaiting(job) ? "Waiting…" : "Starting…"
+            return manager.isWaiting(job) ? "Waiting…" : "Preparing…"
         case .downloading:
+            // Ici la carte est large : le débit et le temps restant tiennent,
+            // contrairement à la capsule de l'accueil.
             var parts = ["\(Int(job.overallProgress * 100))%"]
             let eta = Format.eta(job.progress?.eta)
             let speed = Format.speed(job.progress?.speed)
@@ -240,6 +242,8 @@ private struct DownloadRow: View {
     @ViewBuilder
     private var trailing: some View {
         HStack(spacing: Theme.Space.s2) {
+            // Comme sur l'accueil : une seule affordance, annuler. Le bouton de
+            // reprise n'apparaît que si le job a réellement été mis en pause.
             switch job.state {
             case .paused:
                 IconButton(symbol: "play.circle.fill", size: 15, help: "Resume") {
@@ -248,9 +252,7 @@ private struct DownloadRow: View {
             case .merging:
                 ProgressView().controlSize(.small).scaleEffect(0.7).frame(width: 22, height: 22)
             default:
-                IconButton(symbol: "pause.circle.fill", size: 15, help: "Pause") {
-                    manager.togglePause(job.id)
-                }
+                EmptyView()
             }
             IconButton(symbol: "xmark", size: 11, help: "Cancel") { manager.cancel(job.id) }
         }
