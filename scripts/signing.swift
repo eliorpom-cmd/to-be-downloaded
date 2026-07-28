@@ -9,8 +9,8 @@
 //  elle joue exactement le rôle que joue le Developer ID chez Sparkle.
 //
 //  Les clés privées ne quittent jamais cette machine :
-//      ~/.config/downloader-release/ed25519.key          (0600)  — signature courante
-//      ~/.config/downloader-release/ed25519-backup.key   (0600)  — secours
+//      ~/.config/tbd-release/ed25519.key          (0600)  — signature courante
+//      ~/.config/tbd-release/ed25519-backup.key   (0600)  — secours
 //
 //  DEUX clés, et les deux clés publiques sont acceptées par l'app. C'est ce qui
 //  évite l'impasse : si la clé courante est perdue, on signe la version suivante
@@ -32,12 +32,12 @@ import CryptoKit
 let useBackupKey = CommandLine.arguments.dropFirst().contains("backup")
 
 let keyPath: URL = {
-    if let override = ProcessInfo.processInfo.environment["DOWNLOADER_RELEASE_KEY"] {
+    if let override = ProcessInfo.processInfo.environment["TBD_RELEASE_KEY"] {
         return URL(fileURLWithPath: override)
     }
     let name = useBackupKey ? "ed25519-backup.key" : "ed25519.key"
     return FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent(".config/downloader-release/\(name)")
+        .appendingPathComponent(".config/tbd-release/\(name)")
 }()
 
 func fail(_ message: String) -> Never {

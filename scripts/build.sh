@@ -7,7 +7,11 @@
 #
 set -euo pipefail
 
-APP_NAME="Downloader"
+# APP_NAME = PRODUCT_NAME du project.yml : le nom du schéma, du .app et du DMG.
+APP_NAME="TBD"
+# Nom du volume monté dans le Finder, seul endroit du build où le sigle est
+# développé — c'est ce que voit quelqu'un qui ouvre le DMG.
+VOLUME_NAME="TBD - To be downloaded"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DERIVED="$ROOT/build/ReleaseDerivedData"
 DIST="$ROOT/dist"
@@ -49,7 +53,7 @@ cp -R "$APP" "$STAGING/"
 ln -s /Applications "$STAGING/Applications"
 DMG="$DIST/$APP_NAME.dmg"
 rm -f "$DMG"
-hdiutil create -volname "$APP_NAME" -srcfolder "$STAGING" -ov -format UDZO "$DMG" >/dev/null
+hdiutil create -volname "$VOLUME_NAME" -srcfolder "$STAGING" -ov -format UDZO "$DMG" >/dev/null
 rm -rf "$STAGING"
 
 echo ""

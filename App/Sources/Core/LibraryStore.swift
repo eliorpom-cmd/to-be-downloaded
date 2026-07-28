@@ -51,13 +51,7 @@ final class LibraryStore: ObservableObject {
     private let fileURL: URL
 
     init() {
-        let support = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Library/Application Support")
-        let directory = support.appendingPathComponent(AppConfig.displayName, isDirectory: true)
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        fileURL = directory.appendingPathComponent("library.json")
+        fileURL = AppConfig.supportDirectory.appendingPathComponent("library.json")
         load()
     }
 

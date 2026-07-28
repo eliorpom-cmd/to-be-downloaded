@@ -241,13 +241,7 @@ final class DownloadManager: ObservableObject {
     }
 
     private var pendingFileURL: URL {
-        let support = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Library/Application Support")
-        return support
-            .appendingPathComponent(AppConfig.displayName, isDirectory: true)
-            .appendingPathComponent("pending.json")
+        AppConfig.supportDirectory.appendingPathComponent("pending.json")
     }
 
     private func savePending() {

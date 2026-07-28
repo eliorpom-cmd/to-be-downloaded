@@ -10,8 +10,11 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<!-- Le menu de l'app, à côté de la pomme : « To be downloaded », « Quit To
+	     be downloaded ». Distinct du nom de fichier ($(PRODUCT_NAME) = TBD). -->
 	<key>CFBundleName</key>
-	<string>$(PRODUCT_NAME)</string>
+	<string>$(INFOPLIST_KEY_CFBundleName)</string>
+	<!-- Finder et Spotlight : le sigle seul ne dirait rien à qui cherche. -->
 	<key>CFBundleDisplayName</key>
 	<string>$(INFOPLIST_KEY_CFBundleDisplayName)</string>
 	<key>CFBundlePackageType</key>
@@ -40,7 +43,7 @@
 			<string>Viewer</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>downloader</string>
+				<string>tbd</string>
 			</array>
 		</dict>
 	</array>
@@ -49,15 +52,19 @@
 	<key>NSServices</key>
 	<array>
 		<dict>
+			<!-- Le sigle et non le nom complet : l'entrée s'insère dans un
+			     menu déjà chargé, « Download with To be downloaded » s'y
+			     lirait mal. -->
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>
-				<string>Download with $(INFOPLIST_KEY_CFBundleDisplayName)</string>
+				<string>Download with $(PRODUCT_NAME)</string>
 			</dict>
 			<key>NSMessage</key>
 			<string>downloadYouTubeLink</string>
+			<!-- Doit désigner l'exécutable, donc PRODUCT_NAME. -->
 			<key>NSPortName</key>
-			<string>$(INFOPLIST_KEY_CFBundleDisplayName)</string>
+			<string>$(PRODUCT_NAME)</string>
 			<key>NSSendTypes</key>
 			<array>
 				<string>public.url</string>

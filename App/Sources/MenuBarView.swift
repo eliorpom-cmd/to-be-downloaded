@@ -88,7 +88,9 @@ struct MenuBarView: View {
             Divider()
 
             HStack(spacing: Theme.Space.s12) {
-                Button("Open \(AppConfig.displayName)", action: openMainWindow)
+                // Le sigle : la fenêtre de la barre des menus est étroite et
+                // ce bouton partage sa ligne avec Quit.
+                Button("Open \(AppConfig.shortName)", action: openMainWindow)
                 Spacer(minLength: 0)
                 Button("Quit") { NSApp.terminate(nil) }
             }

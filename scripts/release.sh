@@ -27,7 +27,11 @@ fi
 
 KEY_KIND="${2:-}"   # "" (clé courante) ou "backup"
 
-APP_NAME="Downloader"
+APP_NAME="TBD"
+# Token du cask = ce que l'utilisateur tape après le tap. Développé, parce
+# qu'on ne le tape qu'une fois et qu'il doit être devinable :
+#   brew install --cask --no-quarantine eliorpom-cmd/tap/to-be-downloaded
+CASK_TOKEN="to-be-downloaded"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$ROOT/dist"
 ZIP_NAME="$APP_NAME-$VERSION-macos.zip"
@@ -98,14 +102,15 @@ fi
 SHA="$(/usr/bin/shasum -a 256 "$DIST/$ZIP_NAME" | /usr/bin/awk '{print $1}')"
 
 echo "▶ Cask Homebrew…"
-cat > "$DIST/downloader.rb" <<CASK
-cask "downloader" do
+cat > "$DIST/$CASK_TOKEN.rb" <<CASK
+cask "$CASK_TOKEN" do
   version "$VERSION"
   sha256 "$SHA"
 
   url "https://github.com/$REPO/releases/download/v#{version}/$APP_NAME-#{version}-macos.zip",
       verified: "github.com/$REPO/"
-  name "$APP_NAME"
+  name "TBD - To be downloaded"
+  name "TBD"
   desc "Downloads YouTube video and audio, with a LAN web remote"
   homepage "https://github.com/$REPO"
 
@@ -114,13 +119,16 @@ cask "downloader" do
   auto_updates true
   depends_on macos: ">= :ventura"
 
-  app "$APP_NAME.app"
+  # Installé sous le nom complet : Spotlight indexe une app par son nom de
+  # FICHIER et ignore CFBundleDisplayName. Sous « TBD.app », l'app serait
+  # introuvable en cherchant « to be downloaded ».
+  app "$APP_NAME.app", target: "TBD - To be downloaded.app"
 
   caveats <<~EOS
     This app is signed ad-hoc, not notarised by Apple, so install it with
     --no-quarantine (otherwise macOS refuses to open it):
 
-      brew install --cask --no-quarantine eliorpom-cmd/tap/downloader
+      brew install --cask --no-quarantine eliorpom-cmd/tap/$CASK_TOKEN
 
     Updates afterwards are automatic and are verified against the developer's
     Ed25519 key before anything is installed.
@@ -128,8 +136,8 @@ cask "downloader" do
 
   zap trash: [
     "~/Library/Application Support/$APP_NAME",
-    "~/Library/Preferences/com.local.downloader.plist",
-    "~/Library/Saved Application State/com.local.downloader.savedState",
+    "~/Library/Preferences/com.byelior.tbd.plist",
+    "~/Library/Saved Application State/com.byelior.tbd.savedState",
   ]
 end
 CASK
@@ -138,7 +146,7 @@ echo ""
 echo "✅ Prêt dans dist/"
 echo "   $ZIP_NAME        ($(/usr/bin/du -h "$DIST/$ZIP_NAME" | /usr/bin/awk '{print $1}'))"
 echo "   $ZIP_NAME.sig    (signature Ed25519)"
-echo "   downloader.rb    (cask Homebrew, sha256 $SHA)"
+echo "   $CASK_TOKEN.rb    (cask Homebrew, sha256 $SHA)"
 echo ""
 echo "1) Publier la release :"
 echo ""
@@ -149,7 +157,7 @@ echo "     --repo $REPO --title \"v$VERSION\" --notes \"…\""
 echo ""
 echo "2) Mettre à jour le tap (repo eliorpom-cmd/homebrew-tap) :"
 echo ""
-echo "   cp \"$DIST/downloader.rb\" <clone-du-tap>/Casks/downloader.rb"
+echo "   cp \"$DIST/$CASK_TOKEN.rb\" <clone-du-tap>/Casks/$CASK_TOKEN.rb"
 echo "   # puis commit + push"
 echo ""
 echo "ℹ️  Les deux fichiers ZIP et .sig doivent être attachés à la release :"

@@ -2,11 +2,14 @@ import Foundation
 
 enum WebUI {
     /// Manifest PWA : permet « Ajouter à l'écran d'accueil » en plein écran.
-    static func manifestJSON(appName: String) -> String {
+    ///
+    /// `shortName` est le libellé sous l'icône une fois la page ajoutée à
+    /// l'écran d'accueil : iOS y coupe au-delà d'une douzaine de caractères.
+    static func manifestJSON(appName: String, shortName: String) -> String {
         """
         {
           "name": "\(appName)",
-          "short_name": "\(appName)",
+          "short_name": "\(shortName)",
           "start_url": "/",
           "display": "standalone",
           "background_color": "#FFFFFF",
@@ -30,7 +33,8 @@ enum WebUI {
     /// d'origine est conservée, il n'y a pas de débit à choisir. La page web
     /// proposait encore la liste des débits alors que l'app ne la montrait
     /// plus — deux interfaces qui promettent des choses différentes.
-    static func indexHTML(appName: String, audioBitrateSelectable: Bool) -> String {
+    static func indexHTML(appName: String, shortName: String,
+                          audioBitrateSelectable: Bool) -> String {
         """
         <!doctype html>
         <html lang="en">
@@ -44,7 +48,7 @@ enum WebUI {
         <link rel="apple-touch-icon" href="/icon-512.png">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-title" content="\(appName)">
+        <meta name="apple-mobile-web-app-title" content="\(shortName)">
         <meta name="apple-mobile-web-app-status-bar-style" content="default">
         <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
         <meta name="theme-color" content="#1E1E1E" media="(prefers-color-scheme: dark)">

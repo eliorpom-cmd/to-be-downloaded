@@ -76,7 +76,7 @@ final class AppUpdater: ObservableObject {
     /// Pourquoi ce contexte interdit la mise à jour automatique, le cas échéant.
     ///
     /// Le garde-fou « build de développement » est essentiel : sans lui, lancer
-    /// le build local remplacerait `build/…/Downloader.app` par la release
+    /// le build local remplacerait `build/…/TBD.app` par la release
     /// publiée, ce qui détruirait le binaire en cours de test.
     private static var unavailableReason: String? {
         let path = Bundle.main.bundleURL.path
@@ -204,7 +204,7 @@ final class AppUpdater: ObservableObject {
         let endpoint = URL(string: "https://api.github.com/repos/\(AppConfig.updateRepository)/releases/latest")!
         var request = URLRequest(url: endpoint)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        request.setValue("\(AppConfig.displayName)/\(AppConfig.version)", forHTTPHeaderField: "User-Agent")
+        request.setValue("\(AppConfig.shortName)/\(AppConfig.version)", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 20
         request.cachePolicy = .reloadIgnoringLocalCacheData
 
@@ -235,7 +235,7 @@ final class AppUpdater: ObservableObject {
     /// bundle extrait ne traînent jamais dans un dossier partagé.
     private static var workDirectory: URL {
         FileManager.default.temporaryDirectory
-            .appendingPathComponent("\(AppConfig.displayName)-update", isDirectory: true)
+            .appendingPathComponent("\(AppConfig.shortName)-update", isDirectory: true)
     }
 
     private func cleanUpWorkDirectory() {

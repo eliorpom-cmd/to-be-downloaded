@@ -8,7 +8,7 @@ extension Notification.Name {
 }
 
 @main
-struct DownloaderApp: App {
+struct TBDApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var manager: DownloadManager
     @StateObject private var server: ServerController

@@ -1,7 +1,7 @@
 import AppKit
 
 extension Notification.Name {
-    /// Lien reçu de l'extérieur : schéma `downloader://`, service macOS,
+    /// Lien reçu de l'extérieur : schéma `tbd://`, service macOS,
     /// extension de partage.
     static let externalDownloadRequest = Notification.Name("externalDownloadRequest")
 }
@@ -26,9 +26,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for url in urls { Self.handle(url) }
     }
 
-    /// `downloader://download?url=<lien encodé>`
+    /// `tbd://download?url=<lien encodé>`
     static func handle(_ url: URL) {
-        guard url.scheme?.lowercased() == "downloader",
+        guard url.scheme?.lowercased() == AppConfig.urlScheme,
               let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               let link = components.queryItems?.first(where: { $0.name == "url" })?.value,
               YouTubeLink.isValid(link)

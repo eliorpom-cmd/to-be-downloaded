@@ -257,7 +257,7 @@ final class EngineUpdater: ObservableObject {
         let endpoint = URL(string: "https://api.github.com/repos/\(channel.repository)/releases/latest")!
         var request = URLRequest(url: endpoint)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        request.setValue("\(AppConfig.displayName)/\(AppConfig.version)", forHTTPHeaderField: "User-Agent")
+        request.setValue("\(AppConfig.shortName)/\(AppConfig.version)", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 20
         // Le cache HTTP renverrait une release périmée juste après une sortie.
         request.cachePolicy = .reloadIgnoringLocalCacheData

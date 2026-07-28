@@ -124,7 +124,7 @@ struct MediaMetadata: Codable, Sendable, Equatable {
 
         var request = URLRequest(url: endpoint)
         request.timeoutInterval = 5
-        request.setValue("\(AppConfig.displayName)/\(AppConfig.version)",
+        request.setValue("\(AppConfig.shortName)/\(AppConfig.version)",
                          forHTTPHeaderField: "User-Agent")
 
         struct Payload: Decodable {
