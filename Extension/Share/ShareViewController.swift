@@ -43,7 +43,7 @@ final class ShareViewController: NSViewController {
     private func hand(over link: String?) {
         guard let link = link?.trimmingCharacters(in: .whitespacesAndNewlines),
               !link.isEmpty,
-              var components = URLComponents(string: "downloader://download")
+              var components = URLComponents(string: "\(AppConfig.urlScheme)://download")
         else { return finish() }
 
         components.queryItems = [URLQueryItem(name: "url", value: link)]

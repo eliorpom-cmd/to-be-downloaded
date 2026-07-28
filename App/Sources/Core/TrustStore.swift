@@ -14,17 +14,7 @@ enum TrustStore {
     /// Génère le bundle combiné dans Application Support et renvoie son URL.
     /// En cas d'échec, retombe sur le bundle Mozilla embarqué.
     static func prepareBundle(shippedCACert: URL?) -> URL? {
-        let fm = FileManager.default
-        guard let appSupport = try? fm.url(for: .applicationSupportDirectory,
-                                           in: .userDomainMask,
-                                           appropriateFor: nil,
-                                           create: true) else {
-            return shippedCACert
-        }
-
-        let dir = appSupport.appendingPathComponent(AppConfig.displayName, isDirectory: true)
-        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
-        let dest = dir.appendingPathComponent("trust.pem")
+        let dest = AppConfig.supportDirectory.appendingPathComponent("trust.pem")
 
         var pem = Data()
         if let shipped = shippedCACert, let data = try? Data(contentsOf: shipped) {

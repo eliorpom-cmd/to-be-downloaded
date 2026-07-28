@@ -11,12 +11,7 @@ import AppKit
 enum PosterFrame {
 
     private static var directory: URL {
-        let support = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Library/Application Support")
-        return support
-            .appendingPathComponent(AppConfig.displayName, isDirectory: true)
+        AppConfig.supportDirectory
             .appendingPathComponent("thumbnails", isDirectory: true)
     }
 

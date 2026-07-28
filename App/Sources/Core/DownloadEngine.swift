@@ -154,12 +154,7 @@ final class DownloadEngine: @unchecked Sendable {
     /// `/tmp` : macOS y fait le ménage tout seul, et un téléchargement de
     /// plusieurs heures y perdrait ses fragments.
     static func partialDirectory(for jobID: UUID) -> URL {
-        let support = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Library/Application Support")
-        return support
-            .appendingPathComponent(AppConfig.displayName, isDirectory: true)
+        AppConfig.supportDirectory
             .appendingPathComponent("partials", isDirectory: true)
             .appendingPathComponent(jobID.uuidString, isDirectory: true)
     }

@@ -25,12 +25,7 @@ actor ChannelAvatars {
     private var inFlight: [String: Task<String?, Never>] = [:]
 
     private var fileURL: URL {
-        let support = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Library/Application Support")
-        return support
-            .appendingPathComponent(AppConfig.displayName, isDirectory: true)
+        AppConfig.supportDirectory
             // `-v2` : les entrées de la v1 étaient lues sur la page de la vidéo
             // et désignaient souvent une chaîne recommandée, pas la bonne. Un
             // nom de fichier neuf les met au rebut sans code de migration.

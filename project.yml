@@ -1,15 +1,21 @@
 # =============================================================================
-#  NOM DE L'APP — PLACEHOLDER
-#  Pour renommer l'app plus tard, change ces 3 valeurs puis relance `xcodegen`:
-#    - name: (nom du projet)
-#    - PRODUCT_NAME
-#    - INFOPLIST_KEY_CFBundleDisplayName
-#  Le nom affiché dans le code vit dans App/Sources/AppConfig.swift.
+#  NOM DE L'APP — « TBD - To be downloaded »
+#
+#  Trois formes, chacune pour une largeur d'affichage :
+#    - PRODUCT_NAME (TBD)                       → TBD.app, l'exécutable, le
+#                                                 module Swift. Court et sans
+#                                                 espace : chemins, scripts,
+#                                                 Homebrew, Terminal.
+#    - CFBundleName (To be downloaded)          → le menu de l'app, à côté de
+#                                                 la pomme (16 car. max).
+#    - CFBundleDisplayName (TBD - To be…)       → Finder et Spotlight, là où le
+#                                                 sigle seul ne dirait rien.
+#  Les mêmes formes existent côté code dans App/Sources/AppConfig.swift.
 # =============================================================================
-name: Downloader
+name: TBD
 
 options:
-  bundleIdPrefix: com.local
+  bundleIdPrefix: com.byelior
   deploymentTarget:
     macOS: "13.0"
   createIntermediateGroups: true
@@ -28,7 +34,7 @@ packages:
     from: "0.27.0"
 
 targets:
-  Downloader:
+  TBD:
     type: application
     platform: macOS
     sources:
@@ -46,12 +52,13 @@ targets:
         embed: true
     settings:
       base:
-        PRODUCT_NAME: Downloader
-        PRODUCT_BUNDLE_IDENTIFIER: com.local.downloader
+        PRODUCT_NAME: TBD
+        PRODUCT_BUNDLE_IDENTIFIER: com.byelior.tbd
         INFOPLIST_FILE: App/Info.plist
-        CODE_SIGN_ENTITLEMENTS: App/Downloader.entitlements
+        CODE_SIGN_ENTITLEMENTS: App/TBD.entitlements
         GENERATE_INFOPLIST_FILE: NO
-        INFOPLIST_KEY_CFBundleDisplayName: Downloader
+        INFOPLIST_KEY_CFBundleName: To be downloaded
+        INFOPLIST_KEY_CFBundleDisplayName: TBD - To be downloaded
         # Hardened runtime OFF : requis seulement pour la notarisation Apple
         # (compte développeur payant). Sans lui, le yt-dlp figé s'exécute sans souci.
         # → Repasser à YES le jour où une notarisation Developer ID est mise en place.
@@ -71,12 +78,17 @@ targets:
       # Le validateur de liens est partagé avec l'app : une seule définition
       # de ce qui est acceptable.
       - path: App/Sources/Core/YouTubeLink.swift
+      # Et le schéma d'URL, pour la même raison : l'extension écrit le lien que
+      # l'app doit reconnaître.
+      - path: App/Sources/AppConfig.swift
     settings:
       base:
         PRODUCT_NAME: Share
-        PRODUCT_BUNDLE_IDENTIFIER: com.local.downloader.share
+        PRODUCT_BUNDLE_IDENTIFIER: com.byelior.tbd.share
         INFOPLIST_FILE: Extension/Share/Info.plist
-        INFOPLIST_KEY_CFBundleDisplayName: Downloader
+        # Le sigle seul : c'est le libellé de l'entrée dans le menu Partager,
+        # à côté de l'icône de l'app. Le nom complet y serait interminable.
+        INFOPLIST_KEY_CFBundleDisplayName: TBD
         GENERATE_INFOPLIST_FILE: NO
         ENABLE_HARDENED_RUNTIME: NO
         CODE_SIGN_ENTITLEMENTS: Extension/Share/Share.entitlements

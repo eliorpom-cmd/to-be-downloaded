@@ -3,7 +3,7 @@
 # Rafraîchit le yt-dlp EMBARQUÉ dans le bundle (l'amorce livrée avec l'app).
 #
 # À l'usage, l'app se met à jour toute seule : elle installe la dernière version
-# dans ~/Library/Application Support/Downloader/bin et l'exécute en priorité.
+# dans ~/Library/Application Support/TBD/bin et l'exécute en priorité.
 # Ce script ne sert donc qu'à ne pas distribuer un .app dont l'amorce a six mois
 # — à lancer avant chaque build de release.
 #

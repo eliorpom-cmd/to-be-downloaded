@@ -84,6 +84,7 @@ final class ServerController: ObservableObject {
     ) async {
         let downloads = self.downloads
         let appName = AppConfig.displayName
+        let shortName = AppConfig.shortName
 
         // Page web
         await server.appendRoute("GET /") { _ in
@@ -93,7 +94,8 @@ final class ServerController: ObservableObject {
                 AppSettings.shared.audioFormat.usesBitrate
             }
             let html = WebUI.indexHTML(
-                appName: appName, audioBitrateSelectable: audioBitrateSelectable)
+                appName: appName, shortName: shortName,
+                audioBitrateSelectable: audioBitrateSelectable)
             return HTTPResponse(statusCode: .ok,
                                 headers: [.contentType: "text/html; charset=utf-8"],
                                 body: Data(html.utf8))
@@ -103,7 +105,8 @@ final class ServerController: ObservableObject {
         await server.appendRoute("GET /manifest.webmanifest") { _ in
             HTTPResponse(statusCode: .ok,
                          headers: [.contentType: "application/manifest+json"],
-                         body: Data(WebUI.manifestJSON(appName: appName).utf8))
+                         body: Data(WebUI.manifestJSON(appName: appName,
+                                                       shortName: shortName).utf8))
         }
 
         // Icône d'écran d'accueil (PWA + apple-touch-icon).

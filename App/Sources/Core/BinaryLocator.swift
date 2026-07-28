@@ -49,13 +49,7 @@ enum BinaryLocator {
     /// la signature du `.app`, et `/Applications` n'est pas toujours accessible
     /// en écriture à l'utilisateur.
     static var managedDirectory: URL {
-        let fm = FileManager.default
-        let base = (try? fm.url(for: .applicationSupportDirectory, in: .userDomainMask,
-                                appropriateFor: nil, create: true))
-            ?? fm.homeDirectoryForCurrentUser
-                .appendingPathComponent("Library/Application Support", isDirectory: true)
-        return base
-            .appendingPathComponent(AppConfig.displayName, isDirectory: true)
+        AppConfig.supportDirectory
             .appendingPathComponent("bin", isDirectory: true)
     }
 

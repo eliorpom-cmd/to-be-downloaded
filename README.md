@@ -1,12 +1,34 @@
-# Downloader
+# TBD — To be downloaded
 
 App macOS native (SwiftUI) qui télécharge des vidéos/audios via **yt-dlp** et
 expose un petit **serveur HTTP local** pour piloter les téléchargements depuis
 n'importe quel appareil du réseau (téléphone, tablette…) via une page web —
 sans rien installer sur ces appareils.
 
-> Outil personnel, distribué hors App Store. Le nom « Downloader » est un
-> placeholder (voir *Renommer* plus bas).
+> Outil personnel, distribué hors App Store.
+
+Le nom a trois formes, chacune pour une largeur d'affichage :
+
+| Forme | Où | Porté par |
+| --- | --- | --- |
+| `TBD` | barre des menus, menu Partager, Terminal, produit de build `TBD.app` | `PRODUCT_NAME`, `AppConfig.shortName` |
+| `To be downloaded` | menu de l'app à côté de la pomme, interface | `CFBundleName`, `AppConfig.displayName` |
+| `TBD - To be downloaded` | Finder, Spotlight, Réglages → Application | **nom du bundle installé**, `CFBundleDisplayName`, `AppConfig.fullName` |
+
+**Le bundle ne porte pas le même nom selon qu'il est construit ou installé**, et
+c'est délibéré : le build produit `TBD.app` (chemins courts dans le dépôt, les
+scripts et le Terminal), mais il s'installe en
+`/Applications/TBD - To be downloaded.app`. Raison : **Spotlight indexe une app
+par son nom de FICHIER et ignore `CFBundleDisplayName`** — installée sous
+`TBD.app`, l'app resterait introuvable en cherchant « to be downloaded »
+(vérifié : `mdls` renvoie alors `kMDItemDisplayName = "TBD"`).
+
+Renommer le dossier d'un bundle est sans conséquence : la signature couvre le
+contenu, pas le nom, et l'exécutable reste `Contents/MacOS/TBD`. La mise à jour
+automatique passe par `FileManager.replaceItemAt`, qui conserve le nom de la
+destination — le nom installé survit donc aux mises à jour, et `install.sh`
+comme le cask Homebrew (`app "TBD.app", target: "TBD - To be downloaded.app"`)
+installent tous deux sous ce nom.
 
 ## Fonctionnalités
 
@@ -41,17 +63,69 @@ sans rien installer sur ces appareils.
 ```
 
 Produit :
-- `dist/Downloader.app` — l'application,
-- `dist/Downloader.dmg` — l'image disque distribuable.
+- `dist/TBD.app` — l'application,
+- `dist/TBD.dmg` — l'image disque distribuable (volume « TBD - To be downloaded »).
 
 L'app est signée en **ad-hoc** (gratuit, sans compte Apple Developer).
 
-## Installer / lancer
+## Installer la version des sources sur ce Mac
+
+```bash
+./scripts/install.sh
+```
+
+Construit, puis remplace `/Applications/TBD.app`. C'est **la** commande à lancer
+après avoir modifié le code, si tu veux utiliser l'app pour de vrai.
+
+### Pourquoi Spotlight propose parfois une vieille version
+
+Deux registres distincts, et c'est la clé du malentendu :
+
+- **Launch Services** décide qui ouvre quoi (schéma `tbd://`, menu « Ouvrir
+  avec », menu Services). On y ajoute et retire des entrées avec `lsregister`.
+- **Spotlight** indexe le **système de fichiers**. Un bundle désinscrit de
+  Launch Services mais toujours présent sur le disque **ressort quand même**
+  dans la recherche. Le seul remède est qu'il n'existe plus.
+
+
+macOS n'a pas de base des « logiciels installés » : une app est un dossier, la
+copier suffit à l'installer. Mais **Launch Services** référence toutes les `.app`
+qu'il a croisées, où qu'elles soient — et Xcode y inscrit lui-même chaque
+compilation (phase `RegisterWithLaunchServices`, visible dans le log de build).
+Chaque `xcodebuild` laisse donc une entrée de plus, dans `build/` ou dans
+`~/Library/Developer/Xcode/DerivedData/`. Ces copies ne périment jamais : ce
+sont des apps complètes qui se lancent très bien, avec leur code d'alors.
+
+`install.sh` s'en occupe : il désinscrit **toute copie autre que celle de
+`/Applications`** — bundles disparus comme produits de build encore présents,
+que la compilation vient elle-même d'enregistrer. La purge a lieu *après* le
+build, pas avant : au sortir du script, Spotlight ne connaît qu'une seule copie
+de l'app. Pour repartir de zéro à la main :
+
+```bash
+rm -r build                       # produits de build (regénérables)
+"/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/\
+LaunchServices.framework/Versions/A/Support/lsregister" -u <chemin.app>
+```
+
+Note : `lsregister -kill` (qu'on trouve dans les vieux tutoriels) **n'existe
+plus** sur macOS récent — la désinscription se fait chemin par chemin avec `-u`.
+
+Deux détails qui ont chacun coûté une séance de débogage :
+
+- **Toujours supprimer puis `ditto`, jamais un `cp` par-dessus.** Le cache
+  d'icônes de Launch Services reste collé à l'ancienne icône tant que le bundle
+  garde le même inode. Un dossier neuf le force à relire le `.icns`.
+- **Remplacer le bundle d'une app qui tourne ne la met pas à jour.** Le
+  processus en vol garde son ancien code mappé en mémoire (POSIX) ; `install.sh`
+  quitte donc l'app d'abord.
+
+## Installer / lancer (distribution)
 
 ### Via Homebrew (la voie recommandée)
 
 ```bash
-brew install --cask --no-quarantine eliorpom-cmd/tap/downloader
+brew install --cask --no-quarantine eliorpom-cmd/tap/to-be-downloaded
 ```
 
 `--no-quarantine` est **nécessaire** : l'app est signée en ad-hoc, pas notarisée
@@ -60,13 +134,13 @@ l'ouvrir. Le drapeau ne désactive rien d'autre, et ne concerne que cette app.
 
 ### À la main
 
-Glisse `Downloader.app` dans `/Applications`, puis lance-la.
+Glisse `TBD.app` dans `/Applications`, puis lance-la.
 
 **Premier lancement sur un autre Mac** (l'app n'étant pas notarisée, macOS la
 met en quarantaine) :
 
 - **clic droit** sur l'app → **Ouvrir** → **Ouvrir**, ou
-- en Terminal : `xattr -dr com.apple.quarantine /Applications/Downloader.app`
+- en Terminal : `xattr -dr com.apple.quarantine /Applications/TBD.app`
 
 Sur le Mac qui a servi à la construire, elle se lance directement.
 
@@ -78,7 +152,7 @@ Deux mécanismes indépendants, tous deux **activés par défaut** et réglables
 | | Quoi | Où | Rythme |
 |---|---|---|---|
 | **App** | releases GitHub de ce dépôt | remplace le bundle | 1×/jour |
-| **yt-dlp** | releases du projet yt-dlp | `~/Library/Application Support/Downloader/bin` | 1×/jour |
+| **yt-dlp** | releases du projet yt-dlp | `~/Library/Application Support/TBD/bin` | 1×/jour |
 
 Le contrôle a lieu au lancement puis toutes les heures tant que l'app tourne
 (chaque updater porte son propre intervalle de 24 h, donc le réveil horaire ne
@@ -96,7 +170,7 @@ L'app n'est pas notarisée : macOS n'apporte donc **aucune** garantie sur ce que
 l'updater télécharge. La garantie vient d'une signature **Ed25519** dont les clés
 publiques sont compilées dans le binaire (`AppConfig.updatePublicKeys`) et dont
 les clés privées ne quittent jamais la machine du développeur
-(`~/.config/downloader-release/`, `0600`, hors du dépôt).
+(`~/.config/tbd-release/`, `0600`, hors du dépôt).
 
 Il y a **deux** clés, et une signature valide pour l'une des deux suffit : la
 clé courante, et une clé de secours rangée ailleurs. Sans ce second jeu, perdre
@@ -143,8 +217,8 @@ remplacement est atomique et sans effet sur un téléchargement en cours.
 
 Le tap Homebrew est un dépôt à part, à créer une seule fois : un repo GitHub
 nommé `homebrew-tap` (donc `eliorpom-cmd/homebrew-tap`) contenant
-`Casks/downloader.rb`. `release.sh` régénère ce fichier à chaque version, il n'y
-a plus qu'à le copier et le pousser.
+`Casks/to-be-downloaded.rb`. `release.sh` régénère ce fichier à chaque version,
+il n'y a plus qu'à le copier et le pousser.
 
 Le script ne publie rien : il prépare `dist/` et affiche la commande
 `gh release create` à lancer. Les **deux** fichiers (`.zip` et `.zip.sig`)
@@ -162,7 +236,8 @@ ne pourrait installer.
    nouvelle clé de secours.
 2. **Les deux clés perdues** → la mise à jour automatique s'arrête là, mais la
    distribution non : les utilisateurs restent joignables par Homebrew
-   (`brew upgrade --cask downloader`), qui vérifie le `sha256` du cask. Il suffit
+   (`brew upgrade --cask to-be-downloaded`), qui vérifie le `sha256` du cask. Il
+   suffit
    de publier une version portant de nouvelles clés. C'est pénible, pas fatal.
 
 Autrement dit, la clé n'est un point unique de défaillance que pour la mise à
@@ -190,7 +265,7 @@ les deux ne concordent pas.
 | Chemin | État |
 | --- | --- |
 | Menu **Services** → « Download with … » | fonctionne |
-| Schéma d'URL `downloader://download?url=…` | fonctionne |
+| Schéma d'URL `tbd://download?url=…` | fonctionne |
 | Raccourci global ⌥⌘V | fonctionne (à activer dans les réglages) |
 | **Extension de partage** (menu Partager de Safari) | **inactive sans signature Apple** |
 
@@ -212,13 +287,6 @@ Ce script ne sert qu'à ne pas **distribuer** un `.app` dont l'amorce est vieill
 ```
 
 `scripts/release.sh` le lance déjà pour toi.
-
-## Renommer l'app
-
-Le nom vit à deux endroits :
-- `project.yml` : `name`, `PRODUCT_NAME`, `INFOPLIST_KEY_CFBundleDisplayName`
-  (puis relancer `xcodegen generate`),
-- `App/Sources/AppConfig.swift` : `displayName` (nom affiché dans l'UI).
 
 ## Architecture
 

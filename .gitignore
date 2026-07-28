@@ -5,7 +5,7 @@ DerivedData/
 *.xcuserstate
 
 # Projet généré par XcodeGen (source de vérité = project.yml)
-Downloader.xcodeproj/
+TBD.xcodeproj/
 
 # macOS
 .DS_Store

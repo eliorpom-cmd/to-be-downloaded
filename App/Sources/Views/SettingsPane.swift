@@ -94,7 +94,9 @@ struct SettingsPane: View {
                 }
 
                 section("Application") {
-                    row("\(AppConfig.displayName) \(appUpdater.currentVersion)",
+                    // Le nom complet : c'est la ligne où l'on vient vérifier ce
+                    // qu'on a installé, le sigle seul n'y suffirait pas.
+                    row("\(AppConfig.fullName) \(appUpdater.currentVersion)",
                         detail: appUpdateDetail) {
                         appUpdateControl
                     }
