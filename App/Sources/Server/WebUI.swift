@@ -91,10 +91,13 @@ enum WebUI {
 
           /* --- En-tête : logo, champ, contrôles (comme l'écran Download) --- */
           .hero { display:flex; flex-direction:column; align-items:center; padding:22px 0 6px; }
-          /* Le logo est un tracé, peint en currentColor : il s'inverse tout seul
-             en thème sombre, là où un PNG resterait noir sur noir. */
-          /* Largeur et non hauteur : la mascotte est plus haute que large, 56px
-             de large la posent à ~76px de haut. */
+          /* Le logo est l'ICÔNE de l'app, pastille comprise — la même que le
+             favicon de l'onglet et que l'icône ajoutée à l'écran d'accueil.
+             C'est un tracé peint en currentColor : il s'inverse tout seul en
+             thème sombre, là où un PNG resterait noir sur noir. L'évidement
+             laisse passer le fond de la page, comme dans l'app. */
+          /* Carrée : 56px de côté, une pastille pleine pesant plus qu'un glyphe
+             évidé de même hauteur. */
           .logo { width:56px; color:var(--ink); margin-bottom:26px; }
           .logo svg { width:100%; height:auto; display:block; fill:currentColor; }
 
@@ -202,8 +205,8 @@ enum WebUI {
         <div class="wrap">
           <div class="hero">
             <div class="logo">
-              <svg viewBox="\(MascotImage.svgViewBox)" role="img" aria-label="\(appName)">
-                <path fill-rule="nonzero" d="\(MascotImage.svgPathData())"/>
+              <svg viewBox="\(MascotImage.iconSvgViewBox)" role="img" aria-label="\(appName)">
+                <path fill-rule="nonzero" d="\(MascotImage.iconSvgPathData())"/>
               </svg>
             </div>
 
