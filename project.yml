@@ -42,8 +42,11 @@ targets:
       - path: App/Resources/bin
         type: folder
         buildPhase: resources
-      # Icône générée par ./scripts/make-icon.sh à partir du tracé du logo.
-      - path: App/Resources/AppIcon.icns
+      # Icône Icon Composer : `actool` en tire le rendu Liquid Glass de macOS 26
+      # ET les bitmaps classiques pour les versions antérieures, le tout dans
+      # Assets.car. C'est la SOURCE unique de l'icône — le SVG qu'elle contient
+      # sert aussi de référence aux tracés de App/Sources/Mascot.swift.
+      - path: App/Resources/AppIcon.icon
         buildPhase: resources
     dependencies:
       - package: FlyingFox
@@ -54,6 +57,7 @@ targets:
       base:
         PRODUCT_NAME: TBD
         PRODUCT_BUNDLE_IDENTIFIER: com.byelior.tbd
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_FILE: App/Info.plist
         CODE_SIGN_ENTITLEMENTS: App/TBD.entitlements
         GENERATE_INFOPLIST_FILE: NO

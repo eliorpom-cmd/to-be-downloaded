@@ -1,39 +1,45 @@
 import SwiftUI
 
-/// Mascotte de l'app — tracé vectoriel EXACT du dessin d'Elior (`image.png`),
-/// obtenu par vectorisation (potrace) puis converti en `Path` SwiftUI. On NE
-/// redessine rien : la silhouette est celle du dessin d'origine, au pixel près.
+/// Mascotte de l'app — la flèche de téléchargement et ses deux yeux.
 ///
-/// Monochrome : la silhouette est peinte en `Theme.ink`, l'œil (trou du tracé)
-/// et la bouche-flèche laissent voir le fond.
+/// Le tracé vient du SVG de `App/Resources/AppIcon.icon`, la source unique de
+/// l'identité : l'icône du Dock est ce même dessin creusé dans une pastille
+/// (`AppIconShape`), la mascotte seule en est la forme pleine. Modifier le SVG
+/// et régénérer les deux tracés plutôt que retoucher l'un des deux ici.
+///
+/// Monochrome : peinte en `Theme.ink`, sans aucun trou — les yeux sont des
+/// formes pleines et non des évidements.
 ///
 /// Volontairement IMMOBILE : le balancement permanent attirait l'œil sans rien
 /// dire. `isActive` est conservé pour les appelants, mais n'anime plus rien.
 struct MascotView: View {
+    /// Côté de la boîte carrée où la mascotte s'inscrit. Plus haute que large,
+    /// elle occupe toute la hauteur et se centre horizontalement.
     var size: CGFloat = 44
     var isActive: Bool = false
-
-    // Ratio exact de l'image source (930×920) pour ne pas déformer.
-    private var height: CGFloat { size * 920.0 / 930.0 }
 
     var body: some View {
         MascotShape()
             .fill(Theme.ink)
-            .frame(width: size, height: height)
+            .frame(width: size * MascotShape.aspectRatio, height: size)
     }
 }
 
 /// Rendu AppKit de la mascotte, pour les endroits qui exigent une `NSImage` :
-/// barre des menus, icône d'app, notifications.
+/// barre des menus, notifications.
 enum MascotImage {
 
-    /// Données de tracé SVG (`d="…"`) du logo, dans un carré `viewBox` 100×100.
+    /// `viewBox` du SVG produit par `svgPathData()`, dans les mêmes unités.
+    static let svgViewBox = "0 0 100 135.02"
+
+    /// Données de tracé SVG (`d="…"`) de la mascotte, dans une boîte de 100 de
+    /// large (cf. `svgViewBox` pour la hauteur).
     ///
     /// Généré depuis le MÊME `MascotShape` que l'app : le logo n'existe qu'à un
     /// seul endroit. Sur la page web il est peint en `currentColor`, donc il
     /// s'inverse tout seul en thème sombre — contrairement à un PNG.
-    static func svgPathData(viewBox: CGFloat = 100) -> String {
-        let rect = CGRect(x: 0, y: 0, width: viewBox, height: viewBox * 920.0 / 930.0)
+    static func svgPathData(width: CGFloat = 100) -> String {
+        let rect = CGRect(x: 0, y: 0, width: width, height: width / MascotShape.aspectRatio)
         var commands: [String] = []
         func n(_ value: CGFloat) -> String { String(format: "%.2f", value) }
 
@@ -59,108 +65,189 @@ enum MascotImage {
         return commands.joined(separator: " ")
     }
 
-    /// Glyphe de barre des menus : le tracé ORIGINAL du logo, sans redessin.
+    /// Glyphe de barre des menus : la mascotte seule, pas la pastille — un carré
+    /// noir plein serait assommant à côté des glyphes fins du système.
     ///
     /// Rendu dans un bitmap HORS ÉCRAN plutôt que via
     /// `NSImage(size:flipped:drawingHandler:)` : ce dernier peint directement
     /// dans le contexte de destination, où l'on ne maîtrise ni le suréchantil-
     /// lonnage ni les modes de fusion. Ici on choisit l'échelle (3×) pour que
-    /// l'œil et l'encoche de la flèche survivent à la réduction.
+    /// les yeux et l'encoche de la flèche survivent à la réduction.
     ///
     /// Image *template* : macOS la recolore selon le thème de la barre des
     /// menus (clair, sombre, inversion au clic).
-    static func menuBar(size: CGFloat = 18) -> NSImage {
+    static func menuBar(height: CGFloat = 17) -> NSImage {
         let scale: CGFloat = 3
-        let pixels = Int((size * scale).rounded())
+        let width = (height * MascotShape.aspectRatio).rounded()
+        let size = NSSize(width: width, height: height)
         guard let context = CGContext(
-            data: nil, width: pixels, height: pixels, bitsPerComponent: 8, bytesPerRow: 0,
+            data: nil, width: Int(width * scale), height: Int(height * scale),
+            bitsPerComponent: 8, bytesPerRow: 0,
             space: CGColorSpaceCreateDeviceRGB(),
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return NSImage(size: NSSize(width: size, height: size)) }
+        ) else { return NSImage(size: size) }
 
         context.scaleBy(x: scale, y: scale)
         // Repère y vers le bas, pour raisonner comme dans le reste de l'UI.
-        context.translateBy(x: 0, y: size)
+        context.translateBy(x: 0, y: height)
         context.scaleBy(x: 1, y: -1)
         context.setShouldAntialias(true)
 
-        // Ratio d'origine 930×920, centré verticalement dans le carré.
-        let height = size * 920.0 / 930.0
-        let rect = CGRect(x: 0, y: (size - height) / 2, width: size, height: height)
-
-        context.addPath(MascotShape().path(in: rect).cgPath)
+        context.addPath(MascotShape().path(in: CGRect(origin: .zero, size: size)).cgPath)
         context.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
-        // Non-zero : l'œil et la flèche sont des sous-tracés inverses, donc des
-        // trous — c'est ce qui rend le logo lisible plutôt qu'un disque plein.
         context.fillPath(using: .winding)
 
-        guard let cgImage = context.makeImage() else {
-            return NSImage(size: NSSize(width: size, height: size))
-        }
-        let image = NSImage(cgImage: cgImage, size: NSSize(width: size, height: size))
+        guard let cgImage = context.makeImage() else { return NSImage(size: size) }
+        let image = NSImage(cgImage: cgImage, size: size)
         image.isTemplate = true
         return image
     }
 }
 
-/// Silhouette exacte de `image.png` (vectorisée). Coordonnées normalisées 0…1,
-/// remises à l'échelle du `rect` fourni. Rempli en non-zero : l'œil (sous-tracé
-/// d'orientation inverse) reste bien un trou.
+/// La mascotte seule : la flèche et les deux yeux, sans la pastille.
+///
+/// Coordonnées normalisées 0…1 sur sa propre boîte englobante, remises à
+/// l'échelle du `rect` fourni — respecter `aspectRatio` sous peine de la
+/// déformer. Généré depuis `App/Resources/AppIcon.icon/Assets/mascot.svg`.
 struct MascotShape: Shape {
+
+    /// Largeur / hauteur du dessin. La mascotte est plus haute que large.
+    static let aspectRatio: CGFloat = 0.7406
+
     func path(in rect: CGRect) -> Path {
         func p(_ x: Double, _ y: Double) -> CGPoint {
             CGPoint(x: rect.minX + x * rect.width, y: rect.minY + y * rect.height)
         }
         var path = Path()
-        path.move(to: p(0.4731, 0.0104))
-        path.addCurve(to: p(0.1863, 0.1279), control1: p(0.3628, 0.0187), control2: p(0.2680, 0.0575))
-        path.addCurve(to: p(0.1072, 0.2154), control1: p(0.1599, 0.1508), control2: p(0.1280, 0.1861))
-        path.addCurve(to: p(0.0575, 0.6934), control1: p(0.0095, 0.3539), control2: p(-0.0095, 0.5360))
-        path.addCurve(to: p(0.1047, 0.7787), control1: p(0.0686, 0.7196), control2: p(0.0880, 0.7546))
-        path.addCurve(to: p(0.2242, 0.8997), control1: p(0.1359, 0.8237), control2: p(0.1798, 0.8680))
-        path.addCurve(to: p(0.4231, 0.9814), control1: p(0.2822, 0.9410), control2: p(0.3517, 0.9696))
-        path.addCurve(to: p(0.5016, 0.9874), control1: p(0.4519, 0.9862), control2: p(0.4670, 0.9874))
-        path.addCurve(to: p(0.5801, 0.9814), control1: p(0.5362, 0.9874), control2: p(0.5513, 0.9862))
-        path.addCurve(to: p(0.9191, 0.7461), control1: p(0.7219, 0.9579), control2: p(0.8456, 0.8721))
-        path.addCurve(to: p(0.9461, 0.6918), control1: p(0.9269, 0.7328), control2: p(0.9469, 0.6926))
-        path.addCurve(to: p(0.8247, 0.7793), control1: p(0.9459, 0.6916), control2: p(0.8913, 0.7311))
-        path.addCurve(to: p(0.7030, 0.8671), control1: p(0.7582, 0.8277), control2: p(0.7034, 0.8672))
-        path.addCurve(to: p(0.3916, 0.5842), control1: p(0.7018, 0.8667), control2: p(0.3912, 0.5846))
-        path.addCurve(to: p(0.5202, 0.5910), control1: p(0.3918, 0.5841), control2: p(0.4497, 0.5871))
-        path.addCurve(to: p(0.6491, 0.5974), control1: p(0.5908, 0.5949), control2: p(0.6488, 0.5977))
-        path.addCurve(to: p(0.6790, 0.0437), control1: p(0.6499, 0.5967), control2: p(0.6797, 0.0443))
-        path.addCurve(to: p(0.6600, 0.0367), control1: p(0.6788, 0.0435), control2: p(0.6703, 0.0403))
-        path.addCurve(to: p(0.5522, 0.0124), control1: p(0.6265, 0.0250), control2: p(0.5887, 0.0165))
-        path.addCurve(to: p(0.4731, 0.0104), control1: p(0.5377, 0.0109), control2: p(0.4858, 0.0096))
+        path.move(to: p(0.4138, 0.7523))
+        path.addLine(to: p(0.0709, 0.6773))
+        path.addCurve(to: p(0.0486, 0.7068), control1: p(0.0470, 0.6721), control2: p(0.0301, 0.6945))
+        path.addLine(to: p(0.4812, 0.9955))
+        path.addCurve(to: p(0.5106, 0.9967), control1: p(0.4894, 1.0010), control2: p(0.5017, 1.0015))
+        path.addLine(to: p(0.9830, 0.7442))
+        path.addCurve(to: p(0.9652, 0.7131), control1: p(1.0032, 0.7335), control2: p(0.9897, 0.7099))
+        path.addLine(to: p(0.6059, 0.7610))
+        path.addLine(to: p(0.6616, 0.0000))
+        path.addLine(to: p(0.4688, 0.0000))
         path.closeSubpath()
-        path.move(to: p(0.4559, 0.2279))
-        path.addCurve(to: p(0.4661, 0.3185), control1: p(0.4559, 0.2285), control2: p(0.4605, 0.2691))
-        path.addCurve(to: p(0.4760, 0.4083), control1: p(0.4716, 0.3677), control2: p(0.4761, 0.4082))
-        path.addCurve(to: p(0.3835, 0.4184), control1: p(0.4754, 0.4087), control2: p(0.3839, 0.4188))
-        path.addCurve(to: p(0.3634, 0.2390), control1: p(0.3831, 0.4178), control2: p(0.3633, 0.2417))
-        path.addCurve(to: p(0.4057, 0.2324), control1: p(0.3634, 0.2376), control2: p(0.3703, 0.2365))
-        path.addCurve(to: p(0.4559, 0.2279), control1: p(0.4499, 0.2272), control2: p(0.4559, 0.2266))
+        path.move(to: p(0.1298, 0.2202))
+        path.addCurve(to: p(0.0860, 0.2208), control1: p(0.1205, 0.2177), control2: p(0.1090, 0.2187))
+        path.addLine(to: p(0.0605, 0.2232))
+        path.addCurve(to: p(0.0177, 0.2304), control1: p(0.0375, 0.2252), control2: p(0.0260, 0.2263))
+        path.addCurve(to: p(0.0020, 0.2453), control1: p(0.0105, 0.2340), control2: p(0.0050, 0.2392))
+        path.addCurve(to: p(0.0028, 0.2778), control1: p(-0.0014, 0.2522), control2: p(0.0000, 0.2608))
+        path.addLine(to: p(0.0241, 0.4061))
+        path.addCurve(to: p(0.0339, 0.4377), control1: p(0.0269, 0.4231), control2: p(0.0283, 0.4316))
+        path.addCurve(to: p(0.0540, 0.4494), control1: p(0.0388, 0.4431), control2: p(0.0458, 0.4472))
+        path.addCurve(to: p(0.0979, 0.4488), control1: p(0.0634, 0.4519), control2: p(0.0749, 0.4509))
+        path.addLine(to: p(0.1234, 0.4465))
+        path.addCurve(to: p(0.1661, 0.4392), control1: p(0.1464, 0.4444), control2: p(0.1579, 0.4433))
+        path.addCurve(to: p(0.1818, 0.4243), control1: p(0.1733, 0.4356), control2: p(0.1789, 0.4304))
+        path.addCurve(to: p(0.1810, 0.3918), control1: p(0.1852, 0.4174), control2: p(0.1838, 0.4089))
+        path.addLine(to: p(0.1597, 0.2635))
+        path.addCurve(to: p(0.1499, 0.2319), control1: p(0.1569, 0.2465), control2: p(0.1555, 0.2380))
+        path.addCurve(to: p(0.1298, 0.2202), control1: p(0.1451, 0.2265), control2: p(0.1380, 0.2224))
         path.closeSubpath()
-        path.move(to: p(0.8108, 0.1258))
-        path.addCurve(to: p(0.7980, 0.3668), control1: p(0.8108, 0.1274), control2: p(0.8049, 0.2359))
-        path.addCurve(to: p(0.7855, 0.6052), control1: p(0.7909, 0.4977), control2: p(0.7853, 0.6050))
-        path.addCurve(to: p(0.9714, 0.6151), control1: p(0.7861, 0.6059), control2: p(0.9709, 0.6158))
-        path.addCurve(to: p(0.9818, 0.5587), control1: p(0.9726, 0.6139), control2: p(0.9796, 0.5758))
-        path.addCurve(to: p(0.9840, 0.4612), control1: p(0.9847, 0.5361), control2: p(0.9858, 0.4852))
-        path.addCurve(to: p(0.9687, 0.3712), control1: p(0.9817, 0.4322), control2: p(0.9761, 0.3990))
-        path.addCurve(to: p(0.9542, 0.3264), control1: p(0.9654, 0.3586), control2: p(0.9547, 0.3258))
-        path.addCurve(to: p(0.9477, 0.3728), control1: p(0.9540, 0.3265), control2: p(0.9511, 0.3475))
-        path.addCurve(to: p(0.9414, 0.4193), control1: p(0.9444, 0.3983), control2: p(0.9415, 0.4191))
-        path.addCurve(to: p(0.8969, 0.4137), control1: p(0.9412, 0.4196), control2: p(0.9212, 0.4170))
-        path.addCurve(to: p(0.8511, 0.4076), control1: p(0.8726, 0.4103), control2: p(0.8520, 0.4076))
-        path.addCurve(to: p(0.8495, 0.4046), control1: p(0.8500, 0.4076), control2: p(0.8495, 0.4066))
-        path.addCurve(to: p(0.8733, 0.2265), control1: p(0.8496, 0.4002), control2: p(0.8727, 0.2272))
-        path.addCurve(to: p(0.8892, 0.2283), control1: p(0.8737, 0.2263), control2: p(0.8809, 0.2271))
-        path.addCurve(to: p(0.9052, 0.2299), control1: p(0.8977, 0.2295), control2: p(0.9048, 0.2302))
-        path.addCurve(to: p(0.8651, 0.1761), control1: p(0.9065, 0.2286), control2: p(0.8810, 0.1945))
-        path.addCurve(to: p(0.8165, 0.1274), control1: p(0.8544, 0.1639), control2: p(0.8257, 0.1351))
-        path.addLine(to: p(0.8108, 0.1226))
-        path.addLine(to: p(0.8108, 0.1258))
+        path.move(to: p(0.9146, 0.2205))
+        path.addCurve(to: p(0.8708, 0.2195), control1: p(0.8916, 0.2182), control2: p(0.8801, 0.2171))
+        path.addCurve(to: p(0.8504, 0.2310), control1: p(0.8625, 0.2216), control2: p(0.8554, 0.2257))
+        path.addCurve(to: p(0.8401, 0.2626), control1: p(0.8448, 0.2370), control2: p(0.8432, 0.2455))
+        path.addLine(to: p(0.8169, 0.3906))
+        path.addCurve(to: p(0.8155, 0.4231), control1: p(0.8138, 0.4077), control2: p(0.8122, 0.4162))
+        path.addCurve(to: p(0.8310, 0.4382), control1: p(0.8184, 0.4292), control2: p(0.8238, 0.4345))
+        path.addCurve(to: p(0.8736, 0.4458), control1: p(0.8392, 0.4424), control2: p(0.8507, 0.4435))
+        path.addLine(to: p(0.8991, 0.4483))
+        path.addCurve(to: p(0.9429, 0.4493), control1: p(0.9221, 0.4506), control2: p(0.9335, 0.4518))
+        path.addCurve(to: p(0.9632, 0.4378), control1: p(0.9512, 0.4472), control2: p(0.9583, 0.4432))
+        path.addCurve(to: p(0.9735, 0.4063), control1: p(0.9689, 0.4318), control2: p(0.9704, 0.4233))
+        path.addLine(to: p(0.9968, 0.2782))
+        path.addCurve(to: p(0.9982, 0.2457), control1: p(0.9999, 0.2612), control2: p(1.0015, 0.2527))
+        path.addCurve(to: p(0.9827, 0.2307), control1: p(0.9953, 0.2396), control2: p(0.9898, 0.2343))
+        path.addCurve(to: p(0.9400, 0.2230), control1: p(0.9745, 0.2265), control2: p(0.9630, 0.2253))
+        path.addLine(to: p(0.9146, 0.2205))
+        path.closeSubpath()
+        return path
+    }
+}
+
+/// L'icône de l'app : la pastille dont la mascotte est ÉVIDÉE.
+///
+/// Le rendu du Dock vient de `App/Resources/AppIcon.icon` (Liquid Glass, compilé
+/// par `actool`). Ce tracé est là pour les endroits que le bundle ne couvre pas
+/// — l'icône PWA et le favicon servis par le serveur web, cf. `Server/AppIcon`.
+///
+/// Rempli en non-zero : la flèche et les yeux sont des sous-tracés d'orientation
+/// inverse, donc des trous. En even-odd la pastille devient un carré plein.
+/// Carrée : lui donner un `rect` non carré la déforme.
+struct AppIconShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        func p(_ x: Double, _ y: Double) -> CGPoint {
+            CGPoint(x: rect.minX + x * rect.width, y: rect.minY + y * rect.height)
+        }
+        var path = Path()
+        path.move(to: p(0.4489, 0.6534))
+        path.addLine(to: p(0.2283, 0.5883))
+        path.addCurve(to: p(0.2140, 0.6139), control1: p(0.2130, 0.5838), control2: p(0.2021, 0.6032))
+        path.addLine(to: p(0.4923, 0.8647))
+        path.addCurve(to: p(0.5112, 0.8657), control1: p(0.4976, 0.8694), control2: p(0.5055, 0.8699))
+        path.addLine(to: p(0.8151, 0.6464))
+        path.addCurve(to: p(0.8037, 0.6194), control1: p(0.8281, 0.6370), control2: p(0.8194, 0.6166))
+        path.addLine(to: p(0.5726, 0.6610))
+        path.addLine(to: p(0.6084, 0.0000))
+        path.addLine(to: p(0.6537, 0.0000))
+        path.addCurve(to: p(0.8818, 0.0236), control1: p(0.7749, 0.0000), control2: p(0.8355, 0.0000))
+        path.addCurve(to: p(0.9764, 0.1182), control1: p(0.9225, 0.0443), control2: p(0.9557, 0.0775))
+        path.addCurve(to: p(1.0000, 0.3463), control1: p(1.0000, 0.1645), control2: p(1.0000, 0.2251))
+        path.addLine(to: p(1.0000, 0.6537))
+        path.addCurve(to: p(0.9764, 0.8818), control1: p(1.0000, 0.7749), control2: p(1.0000, 0.8355))
+        path.addCurve(to: p(0.8818, 0.9764), control1: p(0.9557, 0.9225), control2: p(0.9225, 0.9557))
+        path.addCurve(to: p(0.6537, 1.0000), control1: p(0.8355, 1.0000), control2: p(0.7749, 1.0000))
+        path.addLine(to: p(0.3463, 1.0000))
+        path.addCurve(to: p(0.1182, 0.9764), control1: p(0.2251, 1.0000), control2: p(0.1645, 1.0000))
+        path.addCurve(to: p(0.0236, 0.8818), control1: p(0.0775, 0.9557), control2: p(0.0443, 0.9225))
+        path.addCurve(to: p(0.0000, 0.6537), control1: p(0.0000, 0.8355), control2: p(0.0000, 0.7749))
+        path.addLine(to: p(0.0000, 0.3463))
+        path.addCurve(to: p(0.0236, 0.1182), control1: p(0.0000, 0.2251), control2: p(0.0000, 0.1645))
+        path.addCurve(to: p(0.1182, 0.0236), control1: p(0.0443, 0.0775), control2: p(0.0775, 0.0443))
+        path.addCurve(to: p(0.3463, 0.0000), control1: p(0.1645, 0.0000), control2: p(0.2251, 0.0000))
+        path.addLine(to: p(0.4844, 0.0000))
+        path.addLine(to: p(0.4489, 0.6534))
+        path.closeSubpath()
+        path.move(to: p(0.2663, 0.1913))
+        path.addCurve(to: p(0.2381, 0.1918), control1: p(0.2603, 0.1891), control2: p(0.2529, 0.1900))
+        path.addLine(to: p(0.2217, 0.1938))
+        path.addCurve(to: p(0.1942, 0.2001), control1: p(0.2069, 0.1956), control2: p(0.1995, 0.1965))
+        path.addCurve(to: p(0.1840, 0.2131), control1: p(0.1895, 0.2033), control2: p(0.1860, 0.2078))
+        path.addCurve(to: p(0.1846, 0.2413), control1: p(0.1819, 0.2191), control2: p(0.1828, 0.2265))
+        path.addLine(to: p(0.1983, 0.3527))
+        path.addCurve(to: p(0.2046, 0.3802), control1: p(0.2001, 0.3675), control2: p(0.2010, 0.3749))
+        path.addCurve(to: p(0.2175, 0.3903), control1: p(0.2077, 0.3849), control2: p(0.2123, 0.3884))
+        path.addCurve(to: p(0.2457, 0.3898), control1: p(0.2235, 0.3925), control2: p(0.2309, 0.3916))
+        path.addLine(to: p(0.2621, 0.3878))
+        path.addCurve(to: p(0.2896, 0.3815), control1: p(0.2769, 0.3860), control2: p(0.2843, 0.3851))
+        path.addCurve(to: p(0.2997, 0.3685), control1: p(0.2943, 0.3783), control2: p(0.2978, 0.3738))
+        path.addCurve(to: p(0.2992, 0.3403), control1: p(0.3019, 0.3625), control2: p(0.3010, 0.3551))
+        path.addLine(to: p(0.2855, 0.2289))
+        path.addCurve(to: p(0.2792, 0.2014), control1: p(0.2837, 0.2141), control2: p(0.2828, 0.2067))
+        path.addCurve(to: p(0.2663, 0.1913), control1: p(0.2761, 0.1967), control2: p(0.2715, 0.1932))
+        path.closeSubpath()
+        path.move(to: p(0.7711, 0.1915))
+        path.addCurve(to: p(0.7429, 0.1906), control1: p(0.7563, 0.1895), control2: p(0.7489, 0.1885))
+        path.addCurve(to: p(0.7298, 0.2006), control1: p(0.7376, 0.1925), control2: p(0.7330, 0.1960))
+        path.addCurve(to: p(0.7232, 0.2280), control1: p(0.7262, 0.2059), control2: p(0.7252, 0.2133))
+        path.addLine(to: p(0.7082, 0.3393))
+        path.addCurve(to: p(0.7074, 0.3675), control1: p(0.7062, 0.3541), control2: p(0.7052, 0.3615))
+        path.addCurve(to: p(0.7173, 0.3806), control1: p(0.7092, 0.3728), control2: p(0.7127, 0.3774))
+        path.addCurve(to: p(0.7448, 0.3872), control1: p(0.7226, 0.3842), control2: p(0.7300, 0.3852))
+        path.addLine(to: p(0.7611, 0.3894))
+        path.addCurve(to: p(0.7893, 0.3903), control1: p(0.7759, 0.3914), control2: p(0.7833, 0.3924))
+        path.addCurve(to: p(0.8024, 0.3803), control1: p(0.7946, 0.3884), control2: p(0.7992, 0.3849))
+        path.addCurve(to: p(0.8090, 0.3529), control1: p(0.8060, 0.3750), control2: p(0.8070, 0.3676))
+        path.addLine(to: p(0.8240, 0.2416))
+        path.addCurve(to: p(0.8249, 0.2134), control1: p(0.8260, 0.2268), control2: p(0.8270, 0.2194))
+        path.addCurve(to: p(0.8149, 0.2003), control1: p(0.8230, 0.2081), control2: p(0.8195, 0.2035))
+        path.addCurve(to: p(0.7875, 0.1937), control1: p(0.8096, 0.1967), control2: p(0.8022, 0.1957))
+        path.addLine(to: p(0.7711, 0.1915))
         path.closeSubpath()
         return path
     }
@@ -169,7 +256,7 @@ struct MascotShape: Shape {
 #Preview {
     HStack(spacing: 30) {
         MascotView(size: 96)
-        MascotView(size: 96, isActive: true)
+        AppIconShape().fill(Theme.ink).frame(width: 96, height: 96)
     }
     .padding(40)
     .background(Theme.canvas)

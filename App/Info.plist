@@ -19,7 +19,9 @@
 	<string>$(INFOPLIST_KEY_CFBundleDisplayName)</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
-	<key>CFBundleIconFile</key>
+	<!-- L'icône vit dans Assets.car (compilée depuis App/Resources/AppIcon.icon)
+	     et non plus en .icns à côté : c'est CFBundleIconName qui la désigne. -->
+	<key>CFBundleIconName</key>
 	<string>AppIcon</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
