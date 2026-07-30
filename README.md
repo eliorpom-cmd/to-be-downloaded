@@ -1,38 +1,116 @@
+<div align="center">
+
+<img src="docs/assets/icon.png" width="120" alt="TBD app icon">
+
 # TBD — To be downloaded
 
-A native macOS app (SwiftUI) that downloads video and audio with **yt-dlp**, and
-serves a small **local web UI** so you can start downloads from any device on
-the same Wi-Fi — phone, tablet, another laptop — without installing anything on
-them.
+**Paste a link. Get the file.**
 
-macOS 13+ · Apple Silicon · not sandboxed · distributed outside the App Store.
+A native macOS downloader built on yt-dlp — that your phone can drive too.
 
-> **Status:** pre-release (`0.1.0`). No GitHub release has been published yet.
+[![macOS 13+](https://img.shields.io/badge/macOS-13%2B-0A0A0A?style=flat-square&logo=apple&logoColor=white)](#system-requirements)
+[![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-arm64-0A0A0A?style=flat-square)](#system-requirements)
+[![Swift](https://img.shields.io/badge/Swift-SwiftUI-0A0A0A?style=flat-square&logo=swift&logoColor=white)](#how-it-works)
+[![yt-dlp](https://img.shields.io/badge/engine-yt--dlp-0A0A0A?style=flat-square)](https://github.com/yt-dlp/yt-dlp)
+[![FFmpeg](https://img.shields.io/badge/FFmpeg-downloaded%20on%20first%20launch-0A0A0A?style=flat-square)](#first-launch)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-0A0A0A?style=flat-square)](LICENSE)
+
+<!-- À activer une fois le dépôt public et la première release publiée :
+[![Latest release](https://img.shields.io/github/v/release/eliorpom-cmd/to-be-downloaded?style=flat-square&color=0A0A0A)](https://github.com/eliorpom-cmd/to-be-downloaded/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/eliorpom-cmd/to-be-downloaded/total?style=flat-square&color=0A0A0A)](https://github.com/eliorpom-cmd/to-be-downloaded/releases)
+[![Stars](https://img.shields.io/github/stars/eliorpom-cmd/to-be-downloaded?style=flat-square&color=0A0A0A)](https://github.com/eliorpom-cmd/to-be-downloaded/stargazers)
+-->
+
+<!-- CAPTURE À FAIRE — hero.png : la fenêtre entière, écran Download, thème clair,
+     un téléchargement en cours (capsule à ~60 %) + un terminé. Fenêtre détachée
+     du fond (⌘⇧4 puis Espace sur la fenêtre, l'ombre est conservée). -->
+<img src="docs/assets/hero.png" width="820" alt="The TBD window: one URL field, and downloads filling up as capsules">
+
+</div>
 
 ---
 
-## Features
+## What is TBD?
 
-- **MP4 video** or **audio** (M4A remuxed without re-encoding, MP3 as a
-  fallback), with quality selection and optional burned-in subtitles.
-- A single **monotonic progress bar** covering the whole job — video stream,
-  audio stream, and muxing — instead of yt-dlp's per-stream 0→100 cycles.
-- **Queue**: two concurrent downloads by default, the rest wait their turn.
-- **Playlists**: a playlist link opens a picker (all, a selection, or just the
-  one video the link points at).
-- **Estimated size** before starting, and detection of what is **already in
-  your library**.
-- **Resume** of downloads interrupted by quitting the app.
-- **LAN server**: open the web UI from another device, start a download, then
-  pull the finished file.
-- **QR code** in the app to open that web UI by scanning.
-- macOS integration: drag a finished file to the Finder, **Quick Look** with the
-  space bar, Dock icon progress, the ⌥⌘V global shortcut, and a **Services**
-  entry ("Download with TBD") available from any app.
-- yt-dlp is **bundled**; FFmpeg is fetched once on first launch (see
-  [First launch](#first-launch)). Nothing to install by hand either way.
-- **Self-updating**: the app, yt-dlp and FFmpeg each check for updates once a
-  day.
+yt-dlp is the best downloader there is, and it is a command line. TBD is a small
+native Mac app wrapped around it: one field, one button, files in `~/Downloads`.
+
+It also runs a tiny web server on your Wi-Fi. Scan the QR code with your phone,
+paste a link there, and your **Mac** does the downloading — then you pull the
+finished file to the phone if you want it. Nothing to install on the phone.
+
+No account, no telemetry, no ads, no subscription. Monochrome on purpose.
+
+## Highlights
+
+### One field, and it already knows what you copied
+
+Paste and press return. If a video link is sitting in your clipboard, the field
+says so and offers it in one click. The thumbnail and title appear in about
+200 ms — before yt-dlp has even finished looking at the page.
+
+<!-- CAPTURE À FAIRE — clipboard.png : champ URL avec l'icône presse-papier
+     visible, thème clair, gros plan sur le champ (pas la fenêtre entière). -->
+<img src="docs/assets/clipboard.png" width="700" alt="The URL field offering a link found in the clipboard">
+
+### A progress bar that means something
+
+yt-dlp downloads the video stream 0→100 %, then the audio stream 0→100 %, then
+muxes. Most front-ends show you that raw and the bar bounces. TBD weighs the
+phases into **one bar that only ever goes forward**, with a countdown that
+doesn't jitter — and the bar *is* the row, filling the capsule as it goes.
+
+<!-- CAPTURE À FAIRE — progress.png : deux ou trois capsules empilées, une en
+     cours (~40 %), une en « Merging », une terminée. Thème sombre de préférence,
+     ça met le remplissage en valeur. -->
+<img src="docs/assets/progress.png" width="700" alt="Download rows whose background fills up as the download progresses">
+
+### Your phone drives, your Mac works
+
+Open **Network Access**, scan the QR code, and the same engine is reachable from
+any device on the same Wi-Fi — phone, tablet, someone else's laptop. The web UI
+is the same design as the app, installable as a PWA, and it can hand you the
+finished file over HTTP.
+
+<!-- CAPTURE À FAIRE — network.png : l'écran Network Access avec le QR code.
+     Idéalement à côté, une capture de la page web sur iPhone (docs/assets/webui.png). -->
+<img src="docs/assets/network.png" width="700" alt="The Network Access screen with its QR code">
+
+### It behaves like a Mac app
+
+Drag a finished file into the Finder. Hit space for Quick Look. Watch the Dock
+icon fill up. Hit ⌥⌘V from anywhere to download whatever is in your clipboard.
+Right-click a link in Safari → **Services** → *Download with TBD*.
+
+<!-- CAPTURE À FAIRE — library.png : l'écran Library avec quelques entrées et
+     leurs vignettes. Bonus : menubar.png, le menu de la barre des menus ouvert. -->
+<img src="docs/assets/library.png" width="700" alt="The Library screen listing downloaded files with thumbnails">
+
+## Everything else
+
+**Formats**
+- MP4 video with quality selection, H.264 preferred so QuickTime can actually
+  play it (YouTube serves AV1 that most Macs can't decode).
+- Audio as **M4A**, remuxed without re-encoding — MP3 if you'd rather.
+- Subtitles embedded as a track, when the video has them.
+
+**Downloading**
+- **Queue** — two at a time by default, the rest wait.
+- **Playlists** — a playlist link opens a picker: all of it, a selection, or just
+  the one video the link pointed at.
+- **Estimated size** before you start, and a warning if it's already in your
+  library.
+- **Resume** — quit mid-download, come back, it picks up where it stopped.
+- Pause and resume any job.
+
+**Living with it**
+- **Library** that survives restarts, with thumbnails, reveal in Finder, and
+  "download again".
+- Filename patterns (title, channel, date, or your own yt-dlp template).
+- Light, dark, or system. Menu bar item. Notifications you can click.
+- **Self-updating**: the app, yt-dlp and FFmpeg each check once a day. yt-dlp
+  matters more than it sounds — YouTube changes its defenses constantly, and a
+  frozen yt-dlp goes stale on its own.
 
 ## Install
 
@@ -64,6 +142,16 @@ brew install xcodegen
 
 See [docs/BUILDING.md](docs/BUILDING.md) for the full build story.
 
+## System requirements
+
+| | |
+| --- | --- |
+| **macOS** | 13 Ventura or later |
+| **Chip** | Apple Silicon (arm64) — no Intel build |
+| **Disk** | ~43 MB for the app, ~56 MB more once FFmpeg is fetched |
+| **Network** | Needed once on first launch (FFmpeg), then only to download |
+| **Account** | None. Ever. |
+
 ## First launch
 
 The app downloads **FFmpeg** once (~56 MB) before the first download can run,
@@ -89,6 +177,22 @@ has the full reasoning.
    app, or open `http://<mac-ip>:8787`.
    - macOS may ask to **allow incoming connections** → Allow.
 
+## How it works
+
+SwiftUI app → `DownloadEngine` spawns `yt-dlp` as a subprocess (never a shell)
+and parses its JSON progress → the same engine backs both the native UI and the
+LAN HTTP server, so there is no duplicated logic and no second source of truth.
+
+- **UI**: SwiftUI, macOS 13 target, monochrome design system in `Theme.swift`.
+- **Server**: [FlyingFox](https://github.com/swhitty/FlyingFox), statically
+  linked — no framework in the bundle.
+- **Engine**: `yt-dlp` bundled as a seed, then self-updated into
+  `~/Library/Application Support/TBD/bin`. FFmpeg lives next to it.
+- **Project file**: generated by XcodeGen from `project.yml`, which is the
+  source of truth — `.xcodeproj` is gitignored.
+
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) goes further.
+
 ## Documentation
 
 | Document | What's in it |
@@ -112,13 +216,45 @@ your responsibility, not the app's.
 
 ## License
 
-[MIT](LICENSE) for this project's own source. Bundled third-party components
-keep their own licenses — see [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md).
+**[AGPL-3.0](LICENSE)** for this project's own source. In plain terms:
+
+- **Fork it, change it, use it** — for anything, including at work. No permission
+  needed.
+- **Ship your fork and you ship your source too**, under the same license. Same
+  if you run a modified version as a network service.
+- **Credit stays legible** — keep the [NOTICE](NOTICE) file, and name the
+  original in your own about screen.
+- **The icon isn't yours to reuse.** It is the author's own work, licensed to
+  this app only; a fork ships its own.
+
+That combination is deliberate: it keeps TBD free and forkable, while making a
+closed paid clone of it impossible. Nothing stops you charging for a fork — you
+just have to hand your users the source, which is usually the end of that idea.
+
+Copyright stays with the author, so other arrangements are possible: if the AGPL
+doesn't fit your use, ask (eliorpom@gmail.com, subject `[TBD licensing]`).
+
+Bundled and downloaded third-party components keep their own licenses — see
+[docs/THIRD-PARTY.md](docs/THIRD-PARTY.md).
 
 ## Credits
 
-Built by [Elior Pommier](https://byelior.com). Standing on
-[yt-dlp](https://github.com/yt-dlp/yt-dlp), [FFmpeg](https://ffmpeg.org) and
-[FlyingFox](https://github.com/swhitty/FlyingFox).
+Built by [Elior Pommier](https://byelior.com).
 
-If it saves you time, [buy me a coffee](https://ko-fi.com/eliorpom).
+- **App icon** by **Saint**, aka *System Settings* —
+  [@app_settings](https://x.com/app_settings). The app would have no face
+  without him.
+- **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** does the actual downloading.
+  TBD is a face on top of it.
+- **[FFmpeg](https://ffmpeg.org)** joins the streams, extracts the audio and
+  embeds the subtitles.
+- **[FlyingFox](https://github.com/swhitty/FlyingFox)** serves the web UI on your
+  Wi-Fi.
+
+The same credits live inside the app, in **Settings → Credits**.
+
+<div align="center">
+
+If it saves you time — [buy me a coffee ☕](https://ko-fi.com/eliorpom)
+
+</div>
