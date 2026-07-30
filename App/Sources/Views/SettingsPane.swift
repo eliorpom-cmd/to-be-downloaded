@@ -9,6 +9,7 @@ struct SettingsPane: View {
     @ObservedObject var library: LibraryStore
     @ObservedObject var updater: EngineUpdater
     @ObservedObject var appUpdater: AppUpdater
+    @ObservedObject var ffmpeg: FFmpegInstaller
 
     @State private var portText = ""
     @State private var showClearConfirm = false
@@ -137,6 +138,27 @@ struct SettingsPane: View {
                             .toggleStyle(.switch)
                             .labelsHidden()
                     }
+                    divider
+                    // FFmpeg est téléchargé, jamais livré : le build qu'on
+                    // embarquait n'était pas redistribuable. Cette ligne dit
+                    // d'où il vient — c'est le seul composant que l'app va
+                    // chercher ailleurs que chez elle-même ou chez yt-dlp.
+                    row("FFmpeg", detail: ffmpegDetail) {
+                        HStack(spacing: Theme.Space.s8) {
+                            if ffmpeg.status.isBusy {
+                                ProgressView().controlSize(.small)
+                            }
+                            Button(ffmpeg.isInstalled ? "Check Now" : "Install") {
+                                Task {
+                                    ffmpeg.isInstalled
+                                        ? await ffmpeg.checkForUpdate(userInitiated: true)
+                                        : await ffmpeg.installIfMissing()
+                                }
+                            }
+                            .buttonStyle(.push)
+                            .disabled(ffmpeg.status.isBusy)
+                        }
+                    }
                 }
 
                 section("Appearance") {
@@ -223,6 +245,7 @@ struct SettingsPane: View {
         .onChange(of: settings.filenameTemplate) { _ in manager.reconfigure() }
         .onChange(of: settings.filenameCustom) { _ in manager.reconfigure() }
         .task { await updater.refreshInstalledVersion() }
+        .task { await ffmpeg.refreshInstalledVersion() }
         .confirmationDialog(
             "Clear the library?",
             isPresented: $showClearConfirm,
@@ -328,6 +351,29 @@ struct SettingsPane: View {
             parts.append(message)
         case .idle, .checking, .downloading:
             if let last = updater.lastCheck { parts.append("checked \(Format.relative(last))") }
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    /// Même esprit que `engineDetail`, avec la provenance en plus : c'est le
+    /// seul binaire que l'app va chercher hors de GitHub, autant que ça se lise.
+    private var ffmpegDetail: String {
+        var parts: [String] = []
+        if let version = ffmpeg.installedVersion {
+            parts.append("Version \(version)")
+        } else {
+            parts.append(ffmpeg.isInstalled ? "Version unknown" : "Not installed yet")
+        }
+        parts.append("downloaded from \(AppConfig.FFmpegSource.homepage.host ?? "its publisher")")
+
+        switch ffmpeg.status {
+        case .installed(let version):  parts.append("just installed \(version)")
+        case .upToDate:                parts.append("up to date")
+        case .downloading(let f):      parts.append("downloading… \(Int(f * 100))%")
+        case .installing:              parts.append("verifying signature")
+        case .failed(let message):     parts.append(message)
+        case .idle, .checking:
+            if let last = ffmpeg.lastCheck { parts.append("checked \(Format.relative(last))") }
         }
         return parts.joined(separator: " · ")
     }

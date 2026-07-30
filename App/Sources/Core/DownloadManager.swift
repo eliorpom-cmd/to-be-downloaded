@@ -13,6 +13,11 @@ final class DownloadManager: ObservableObject {
     /// Erreur de configuration au démarrage (binaire manquant, etc.).
     @Published private(set) var setupError: String?
 
+    /// FFmpeg manque encore. Ce n'est pas une erreur mais une étape
+    /// d'installation : l'app le télécharge au premier lancement, et
+    /// l'interface montre l'avancement au lieu d'un message d'échec.
+    @Published private(set) var needsFFmpeg = false
+
     private var engine: DownloadEngine?
     private var running: [UUID: DownloadEngine.Running] = [:]
     /// Anime la barre pendant l'assemblage ; s'arrête dès qu'aucun job n'y est.
@@ -88,9 +93,10 @@ final class DownloadManager: ObservableObject {
         do {
             // Copie mise à jour si elle existe, amorce du bundle sinon.
             let ytDlp = try BinaryLocator.effectiveYtDlp()
-            let ffmpeg = try BinaryLocator.url(for: AppConfig.ffmpegBinaryName)
-            // ffprobe vit dans le même dossier ; on s'assure qu'il est exécutable.
-            _ = try? BinaryLocator.url(for: "ffprobe")
+            // FFmpeg, lui, n'a pas d'amorce : il est téléchargé au premier
+            // lancement (le build qu'on embarquait n'était pas redistribuable).
+            // ffprobe vit dans le même dossier et est vérifié en même temps.
+            let ffmpeg = try BinaryLocator.effectiveFFmpeg()
 
             // Bundle CA combiné (Mozilla + trousseau système macOS) généré au
             // démarrage : gère les intercepteurs TLS locaux (Qustodio, AV, VPN…).
@@ -107,8 +113,15 @@ final class DownloadManager: ObservableObject {
                 subtitleLanguages: settings.subtitleLanguages
             ))
             setupError = nil
+            needsFFmpeg = false
+        } catch BinaryLocator.BinaryError.notInstalled {
+            engine = nil
+            setupError = nil
+            needsFFmpeg = true
         } catch {
+            engine = nil
             setupError = error.localizedDescription
+            needsFFmpeg = false
         }
     }
 

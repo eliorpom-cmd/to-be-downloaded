@@ -8,14 +8,17 @@ struct DownloadPane: View {
     @ObservedObject var manager: DownloadManager
     @ObservedObject var settings: AppSettings
     @ObservedObject var updater: EngineUpdater
+    @ObservedObject var ffmpeg: FFmpegInstaller
     @ObservedObject var library: LibraryStore
     let goToLibrary: () -> Void
 
     init(manager: DownloadManager, settings: AppSettings, updater: EngineUpdater,
-         library: LibraryStore, goToLibrary: @escaping () -> Void) {
+         ffmpeg: FFmpegInstaller, library: LibraryStore,
+         goToLibrary: @escaping () -> Void) {
         _manager = ObservedObject(wrappedValue: manager)
         _settings = ObservedObject(wrappedValue: settings)
         _updater = ObservedObject(wrappedValue: updater)
+        _ffmpeg = ObservedObject(wrappedValue: ffmpeg)
         _library = ObservedObject(wrappedValue: library)
         self.goToLibrary = goToLibrary
         _kind = State(initialValue: settings.defaultKind)
@@ -73,6 +76,10 @@ struct DownloadPane: View {
 
             if let error = manager.setupError {
                 engineError(error)
+            } else if manager.needsFFmpeg {
+                // Pas une erreur : l'app se complète. Le champ URL n'a aucun
+                // sens tant qu'aucun téléchargement ne peut aboutir.
+                ffmpegSetup
             } else {
                 content
             }
@@ -450,6 +457,88 @@ struct DownloadPane: View {
                     .padding(.top, Theme.Space.s2)
                 }
             }
+        }
+    }
+
+    // MARK: - Installation de FFmpeg (premier lancement)
+
+    /// FFmpeg n'est pas livré avec l'app : le build statique qu'on embarquait
+    /// était compilé `--enable-nonfree`, donc juridiquement non redistribuable.
+    /// Il se télécharge une fois, depuis chez celui qui a le droit de le
+    /// distribuer. Cet écran remplace l'accueil tant que c'est en cours — mieux
+    /// vaut une étape assumée qu'un champ URL qui échouerait sans dire pourquoi.
+    private var ffmpegSetup: some View {
+        VStack(spacing: 0) {
+            MascotView(size: 96, isActive: ffmpeg.status.isBusy)
+
+            Spacer().frame(height: Theme.Space.s40)
+
+            Text(ffmpegSetupTitle)
+                .font(Theme.Text.title3)
+                .foregroundStyle(Theme.label)
+
+            Spacer().frame(height: Theme.Space.s8)
+
+            Text(ffmpegSetupMessage)
+                .font(Theme.Text.body)
+                .foregroundStyle(Theme.labelSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 400)
+
+            Spacer().frame(height: Theme.Space.s20)
+
+            switch ffmpeg.status {
+            case .downloading(let fraction):
+                ProgressView(value: fraction)
+                    .progressViewStyle(.linear)
+                    .tint(Theme.label)
+                    .frame(width: 260)
+            case .checking, .installing:
+                ProgressView().controlSize(.small)
+            case .failed:
+                HStack(spacing: Theme.Space.s8) {
+                    Button("Try Again") {
+                        Task { await ffmpeg.installIfMissing() }
+                    }
+                    .buttonStyle(.push)
+                    Button("Where it comes from") {
+                        NSWorkspace.shared.open(AppConfig.FFmpegSource.homepage)
+                    }
+                    .buttonStyle(.plain)
+                    .font(Theme.Text.body)
+                    .foregroundStyle(Theme.labelSecondary)
+                }
+            default:
+                Button("Download FFmpeg") {
+                    Task { await ffmpeg.installIfMissing() }
+                }
+                .buttonStyle(.push)
+            }
+        }
+    }
+
+    private var ffmpegSetupTitle: String {
+        switch ffmpeg.status {
+        case .downloading, .checking: return "Getting FFmpeg"
+        case .installing:             return "Checking the signature"
+        case .failed:                 return "FFmpeg didn't install"
+        default:                      return "One thing to set up"
+        }
+    }
+
+    private var ffmpegSetupMessage: String {
+        switch ffmpeg.status {
+        case .downloading(let fraction):
+            return "About 56 MB, once. \(Int(fraction * 100))% done."
+        case .installing:
+            return "Making sure it really comes from its publisher."
+        case .failed(let message):
+            return message
+        default:
+            return "\(AppConfig.displayName) uses FFmpeg to join video and audio. "
+                + "It isn't bundled — its license doesn't allow passing that build on — "
+                + "so it's downloaded once from its publisher."
         }
     }
 

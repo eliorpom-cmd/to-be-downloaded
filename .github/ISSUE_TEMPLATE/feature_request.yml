@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest something the app should do
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is a small app maintained by one person, deliberately minimal. A
+        well-argued request can absolutely be turned down for not fitting — that
+        isn't a judgment on the idea.
+
+        Two constraints worth knowing before writing: the UI is **monochrome**
+        (state is shown by borders, glyphs and text weight, never color), and new
+        third-party dependencies are avoided.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: The situation, not the solution. This is the part that matters.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you'd like it to do
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do today instead
+      description: Workarounds, other apps, manual steps.

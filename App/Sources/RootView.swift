@@ -37,6 +37,7 @@ struct RootView: View {
     @ObservedObject var library: LibraryStore
     @ObservedObject var updater: EngineUpdater
     @ObservedObject var appUpdater: AppUpdater
+    @ObservedObject var ffmpeg: FFmpegInstaller
 
     @State private var route: AppRoute = .download
 
@@ -71,6 +72,12 @@ struct RootView: View {
             // on ne les relance pas — fermer l'app peut vouloir dire « stop ».
             manager.loadResumable()
             settings.applyGlobalShortcut()
+            // FFmpeg n'est pas livré avec l'app (le build qu'on embarquait
+            // n'était pas redistribuable) : sans lui, rien ne s'assemble et
+            // aucun téléchargement n'aboutit. C'est donc le seul téléchargement
+            // que l'app lance d'elle-même, une fois, au premier démarrage —
+            // l'écran d'accueil en montre l'avancement.
+            await ffmpeg.installIfMissing()
             // Contrôle silencieux de yt-dlp : sans lui, l'app casse à la
             // prochaine parade anti-bot de YouTube. Throttlé à 24 h côté
             // updater, et sans effet si l'utilisateur l'a désactivé.
@@ -91,6 +98,10 @@ struct RootView: View {
                 if Task.isCancelled { break }
                 await updater.checkForUpdate(userInitiated: false)
                 await appUpdater.checkForUpdate(userInitiated: false)
+                // FFmpeg sort quelques versions par an : le contrôle quotidien
+                // ne coûte qu'une requête de redirection, et ne télécharge que
+                // si la version publiée a changé.
+                await ffmpeg.checkForUpdate(userInitiated: false)
             }
         }
         // ⌘, remplace la fenêtre Réglages : la destination vit dans la sidebar.
@@ -141,14 +152,16 @@ struct RootView: View {
             switch route {
             case .download:
                 DownloadPane(manager: manager, settings: settings, updater: updater,
-                             library: library, goToLibrary: { route = .library })
+                             ffmpeg: ffmpeg, library: library,
+                             goToLibrary: { route = .library })
             case .library:
                 LibraryPane(manager: manager, library: library, settings: settings)
             case .network:
                 NetworkPane(server: server, settings: settings)
             case .settings:
                 SettingsPane(settings: settings, manager: manager, server: server,
-                             library: library, updater: updater, appUpdater: appUpdater)
+                             library: library, updater: updater, appUpdater: appUpdater,
+                             ffmpeg: ffmpeg)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

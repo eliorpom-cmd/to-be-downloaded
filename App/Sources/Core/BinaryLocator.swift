@@ -8,11 +8,17 @@ enum BinaryLocator {
 
     enum BinaryError: LocalizedError {
         case notFound(String)
+        /// FFmpeg n'est pas livré avec l'app : il s'installe au premier
+        /// lancement (cf. `FFmpegInstaller`). Cas normal, pas une anomalie —
+        /// l'interface le traite comme une étape d'installation, pas une erreur.
+        case notInstalled(String)
 
         var errorDescription: String? {
             switch self {
             case .notFound(let name):
                 return "Binary not found in bundle: \(name)"
+            case .notInstalled(let name):
+                return "\(name) is not installed yet."
             }
         }
     }
@@ -70,6 +76,38 @@ enum BinaryLocator {
             return managedYtDlp
         }
         return try url(for: AppConfig.ytDlpBinaryName)
+    }
+
+    // MARK: - FFmpeg (jamais embarqué)
+
+    static var managedFFmpeg: URL {
+        managedDirectory.appendingPathComponent(AppConfig.ffmpegBinaryName)
+    }
+
+    static var managedFFprobe: URL {
+        managedDirectory.appendingPathComponent("ffprobe")
+    }
+
+    /// Les DEUX exécutables sont nécessaires : yt-dlp sonde les flux avec
+    /// ffprobe avant de demander l'assemblage à ffmpeg. N'en avoir qu'un
+    /// (installation interrompue) équivaut à n'en avoir aucun.
+    static var hasManagedFFmpeg: Bool {
+        let fm = FileManager.default
+        return fm.isExecutableFile(atPath: managedFFmpeg.path)
+            && fm.isExecutableFile(atPath: managedFFprobe.path)
+    }
+
+    /// FFmpeg réellement exécuté. Contrairement à yt-dlp, il n'y a PAS d'amorce
+    /// dans le bundle : le build qu'on y mettait n'était pas redistribuable
+    /// (cf. `FFmpegInstaller`). Tant qu'il n'est pas installé, l'app le dit et
+    /// propose de le télécharger.
+    static func effectiveFFmpeg() throws -> URL {
+        guard hasManagedFFmpeg else {
+            throw BinaryError.notInstalled(AppConfig.ffmpegBinaryName)
+        }
+        try? ensureExecutable(at: managedFFmpeg)
+        try? ensureExecutable(at: managedFFprobe)
+        return managedFFmpeg
     }
 
     /// Chemin d'une resource (non exécutable) dans `bin`, si elle existe.

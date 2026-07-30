@@ -69,7 +69,9 @@ enum PosterFrame {
     /// Extrait une image à 10 s avec le ffmpeg embarqué. Arguments en tableau,
     /// jamais de shell.
     private static func extractFrameWithFFmpeg(from file: URL, to destination: URL) async -> Bool {
-        guard let ffmpeg = try? BinaryLocator.url(for: AppConfig.ffmpegBinaryName) else { return false }
+        // Pas de FFmpeg installé (premier lancement en cours) : pas de vignette,
+        // et surtout pas d'erreur — elle se fabriquera à la prochaine demande.
+        guard let ffmpeg = try? BinaryLocator.effectiveFFmpeg() else { return false }
         let arguments = [
             "-y",
             "-ss", "10",          // avant l'entrée : décodage rapide, sans lire tout le fichier
