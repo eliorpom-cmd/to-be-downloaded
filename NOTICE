@@ -1,0 +1,61 @@
+TBD — To be downloaded
+Copyright (C) 2026 Elior Pommier
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License along
+with this program. If not, see <https://www.gnu.org/licenses/>.
+
+Source: https://github.com/eliorpom-cmd/to-be-downloaded
+
+
+ATTRIBUTION
+-----------
+
+Fork it, change it, ship it — the license already allows all of that. What it
+asks in return is that the credit stays legible:
+
+- keep this NOTICE file and the copyright line above in your source tree;
+- if your build has an about/credits screen, name the original there, with a
+  link back to the repository above. TBD credits its own dependencies that
+  way, in Settings -> Credits;
+- if you rename it, do not imply the original author endorses or maintains your
+  build.
+
+The name "TBD - To be downloaded" is not licensed with the code. Call your fork
+something else — that is also how a user tells two builds apart.
+
+
+NOT COVERED BY THE AGPL
+-----------------------
+
+The license above covers the source code of this repository. It does not cover:
+
+- the app icon (App/Resources/AppIcon.icon, including mascot.svg), which is the
+  copyrighted work of its author, Saint (https://x.com/app_settings), used here
+  with permission and NOT relicensed. A fork must ship its own icon;
+
+- yt-dlp and the Mozilla CA bundle, bundled under App/Resources/bin/, each
+  under its own license (Unlicense, MPL-2.0);
+
+- FFmpeg and ffprobe, which are not bundled at all — they are downloaded from
+  their publisher on first launch;
+
+- the Swift packages this project depends on (FlyingFox, MIT).
+
+See docs/THIRD-PARTY.md for the details and the reasoning.
+
+
+COMMERCIAL LICENSING
+--------------------
+
+The copyright holder retains the right to license this software under other
+terms. If the AGPL does not fit your use, ask: eliorpom@gmail.com
+(subject: [TBD licensing])

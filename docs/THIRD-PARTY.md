@@ -1,7 +1,7 @@
 # Third-party components
 
-TBD's own source is [MIT](../LICENSE). It ships and depends on other people's
-work, which keeps its own terms.
+TBD's own source is [AGPL-3.0](../LICENSE) (see also [NOTICE](../NOTICE)). It
+ships and depends on other people's work, which keeps its own terms.
 
 | Component | Where | License | Redistributable in a release? |
 | --- | --- | --- | --- |
@@ -10,6 +10,8 @@ work, which keeps its own terms.
 | Mozilla CA bundle | bundled: `App/Resources/bin/cacert.pem` | MPL-2.0 | Yes |
 | [FlyingFox](https://github.com/swhitty/FlyingFox) | SwiftPM dependency, statically linked | MIT | Yes |
 | [FFmpeg](https://ffmpeg.org) + ffprobe | **not bundled** — downloaded on first launch | GPL v3 (publisher's build) | Not ours to redistribute — and we don't |
+| App icon, by [Saint](https://x.com/app_settings) | bundled: `App/Resources/AppIcon.icon` | © its author, used here with permission | See [App icon](#app-icon) |
+| GitHub and Instagram marks | bundled: `App/Resources/Logos/*.svg` | trademarks of their owners, used to link to profiles | See [Brand marks](#brand-marks) |
 
 Not legal advice — it is the reading this repository acts on, and the reasoning
 is laid out so you can check it.
@@ -46,12 +48,12 @@ The last flag is the problem, and the arithmetic is short:
 3. `--enable-nonfree` allows into the binary code the GPL forbids combining
    with — so the combined work cannot be distributed under the GPL.
 4. Therefore no license permitted redistributing that binary. Not the GPL, not
-   MIT, not anything this repository could put on its own code.
+   the AGPL, not MIT, not anything this repository could put on its own code.
 
 Point 4 is the one that trips people up: **it had nothing to do with TBD's
-license.** A license governs code you own. Nobody here owns FFmpeg, so choosing
-MIT, GPL or anything else changed nothing about the right to hand that binary
-out. A DMG, a GitHub release asset and a Homebrew cask are all redistribution,
+license.** A license governs code you own. Nobody here owns FFmpeg, so the
+choice between MIT, AGPL or anything else changed nothing about the right to
+hand that binary out. A DMG, a GitHub release asset and a Homebrew cask are all redistribution,
 and all were equally not permitted.
 
 (Running it privately was always fine — the GPL never restricts private use.
@@ -117,9 +119,13 @@ No, and the structure is the reason.
 TBD never links FFmpeg. It never includes an FFmpeg header. It spawns
 `…/ffmpeg` as a separate process with an argument array and reads its output —
 the same relationship any shell has with any command it runs. That is the
-arm's-length boundary the GPL's "combined work" language is about, and it keeps
-this repository's source under MIT. Since the binary is not even distributed
-with the app anymore, the question is now doubly moot.
+arm's-length boundary the GPL's "combined work" language is about, so FFmpeg
+never dictated this repository's license. Since the binary is not even
+distributed with the app anymore, the question is doubly moot.
+
+(TBD's own license *is* AGPL-3.0 today, which is GPL-compatible anyway — but by
+choice, not because FFmpeg forced it. The distinction matters: relicensing TBD
+tomorrow would still be the author's call alone.)
 
 ---
 
@@ -138,3 +144,31 @@ It is only a **seed**. The copy TBD actually runs lives in
 
 MIT, statically linked through SwiftPM, no framework embedded in the bundle.
 Attribution in this file is the whole obligation.
+
+## Brand marks
+
+`App/Resources/Logos/github.svg` and `instagram.svg` are the official marks, as
+published by [Simple Icons](https://simpleicons.org) (the collection is CC0; the
+marks themselves stay the trademarks of GitHub, Inc. and Meta Platforms, Inc.).
+
+They appear in **Settings → About**, at 14 pt, as the clickable glyph of a link
+to the author's own profile on each platform — which is what a trademark may be
+used for without permission: identifying the thing it names. They are not used
+as TBD's own branding, and neither company endorses this app.
+
+## App icon
+
+The icon — `App/Resources/AppIcon.icon`, and the `mascot.svg` inside it — was
+drawn by **Saint**, aka *System Settings*
+([@app_settings](https://x.com/app_settings)). It is used in TBD with his
+permission, and he is credited in the app under **Settings → Credits**.
+
+**The repository's license covers the source code, not this artwork.** That is
+the default position for any drawing: a file being in a public repository grants
+nobody the right to reuse it. So if you fork TBD and ship your own build,
+**replace the icon** with your own, or ask Saint yourself. Everything else in
+here you may take under the terms listed above; the face is not part of the
+deal.
+
+(Practical bonus: your fork should not look like this app anyway. A different
+icon is how a user tells two builds apart.)
