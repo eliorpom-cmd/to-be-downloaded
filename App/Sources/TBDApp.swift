@@ -66,8 +66,9 @@ struct TBDApp: App {
         MenuBarExtra {
             MenuBarView(manager: manager, server: server, settings: settings)
         } label: {
-            // L'icône de l'app plutôt qu'un symbole générique, en image template
-            // pour suivre le thème de la barre des menus.
+            // L'icône de l'app — la pastille entière, celle du Dock — plutôt
+            // qu'un symbole générique, en image template pour suivre le thème
+            // de la barre des menus.
             HStack(spacing: 3) {
                 Image(nsImage: MascotImage.menuBar())
                 if manager.activeCount > 0 {
