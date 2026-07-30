@@ -48,6 +48,13 @@ targets:
       # sert aussi de référence aux tracés de App/Sources/Mascot.swift.
       - path: App/Resources/AppIcon.icon
         buildPhase: resources
+      # Logos de marque (GitHub, Instagram) pour la section « About » des
+      # réglages : la police système n'a pas de SF Symbol de marque. Livrés en
+      # SVG, que `NSImage` sait lire depuis macOS 13 — donc un seul fichier par
+      # logo au lieu d'un jeu de bitmaps @1x/@2x/@3x.
+      - path: App/Resources/Logos
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: FlyingFox
       # « Download with … » dans le menu Partager de Safari.
