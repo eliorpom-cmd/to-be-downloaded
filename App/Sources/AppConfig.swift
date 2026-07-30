@@ -83,6 +83,44 @@ enum AppConfig {
         static let support = URL(string: "https://ko-fi.com/eliorpom")!
     }
 
+    // MARK: - Crédits
+
+    /// Ce que l'app doit à d'autres, tel qu'affiché dans les réglages.
+    ///
+    /// La liste n'est pas décorative : yt-dlp et FFmpeg FONT le travail, et
+    /// l'icône n'est pas de la main de l'auteur. `docs/THIRD-PARTY.md` reste la
+    /// version longue (licences, obligations) — ici on donne le crédit et le
+    /// lien, pas le raisonnement juridique.
+    enum Credits {
+
+        /// Auteur de l'icône de l'app. Le dessin livré (`AppIcon.icon`) est le
+        /// sien ; l'app n'aurait pas de visage sans lui.
+        enum Icon {
+            static let author = "Saint"
+            static let handle = "@app_settings"
+            static let alias = "System Settings"
+            static let url = URL(string: "https://x.com/app_settings")!
+        }
+
+        static let ytDlp = URL(string: "https://github.com/yt-dlp/yt-dlp")!
+        static let ffmpeg = URL(string: "https://ffmpeg.org")!
+        static let flyingFox = URL(string: "https://github.com/swhitty/FlyingFox")!
+
+        /// Le détail des licences, dans le dépôt. Construit depuis
+        /// `updateRepository` pour qu'un renommage du dépôt ne laisse pas un
+        /// lien mort derrière lui.
+        static let licenses = URL(
+            string: "https://github.com/\(updateRepository)/blob/main/docs/THIRD-PARTY.md")!
+
+        /// Licence de l'app elle-même. Elle n'est pas là pour la décoration :
+        /// sous AGPL, quiconque diffuse une version modifiée — y compris en la
+        /// servant sur un réseau, ce que fait justement Network Access — doit en
+        /// donner la source. Le lien rend cette obligation trouvable au lieu de
+        /// la laisser dormir dans un fichier du dépôt.
+        static let license = URL(
+            string: "https://github.com/\(updateRepository)/blob/main/LICENSE")!
+    }
+
     // MARK: - Mises à jour de l'app
 
     /// Dépôt GitHub dont les releases servent de canal de mise à jour.

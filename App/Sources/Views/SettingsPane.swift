@@ -215,10 +215,13 @@ struct SettingsPane: View {
                         detail: "byelior.com · github.com/eliorpom-cmd · @elior.create") {
                         HStack(spacing: Theme.Space.s2) {
                             link("globe", AppConfig.Author.website, help: "byelior.com")
-                            link("chevron.left.forwardslash.chevron.right",
-                                 AppConfig.Author.github, help: "GitHub — eliorpom-cmd")
-                            link("camera", AppConfig.Author.instagram,
-                                 help: "Instagram — elior.create")
+                            // Vraies marques pour GitHub et Instagram ; le site
+                            // personnel garde le globe système, il n'a pas de
+                            // logo à lui.
+                            logoLink("github", fallback: "chevron.left.forwardslash.chevron.right",
+                                     AppConfig.Author.github, help: "GitHub — eliorpom-cmd")
+                            logoLink("instagram", fallback: "camera",
+                                     AppConfig.Author.instagram, help: "Instagram — elior.create")
                         }
                     }
                     divider
@@ -230,6 +233,8 @@ struct SettingsPane: View {
                         .buttonStyle(.push)
                     }
                 }
+
+                creditsSection
             }
             .padding(.horizontal, Theme.Space.s24)
             .padding(.top, WindowChrome.trafficLightInset + Theme.Space.s16)
@@ -390,6 +395,48 @@ struct SettingsPane: View {
             })
     }
 
+    // MARK: - Crédits
+
+    /// Ce que l'app doit à d'autres. `docs/THIRD-PARTY.md` en donne la version
+    /// longue ; cette section-ci est là pour que le crédit soit visible SANS
+    /// aller lire le dépôt — l'app ne télécharge rien elle-même, et son icône
+    /// n'est pas de la main de son auteur.
+    private var creditsSection: some View {
+        section("Credits") {
+            creditRow("App icon by \(AppConfig.Credits.Icon.author)",
+                      detail: "aka \(AppConfig.Credits.Icon.alias) · "
+                            + "\(AppConfig.Credits.Icon.handle) on X",
+                      url: AppConfig.Credits.Icon.url)
+            divider
+            creditRow("yt-dlp",
+                      detail: "Resolves the links and does the downloading. Public domain.",
+                      url: AppConfig.Credits.ytDlp)
+            divider
+            creditRow("FFmpeg",
+                      detail: "Joins video and audio, extracts audio, embeds subtitles. GPL v3.",
+                      url: AppConfig.Credits.ffmpeg)
+            divider
+            creditRow("FlyingFox",
+                      detail: "The HTTP server behind Network Access. MIT.",
+                      url: AppConfig.Credits.flyingFox)
+            divider
+            creditRow("License",
+                      detail: "AGPL-3.0 — free to fork, and forks stay free too",
+                      url: AppConfig.Credits.license)
+            divider
+            creditRow("Third-party licenses",
+                      detail: "What ships, what is downloaded, and under which terms",
+                      url: AppConfig.Credits.licenses)
+        }
+    }
+
+    /// Ligne de crédit : la ligne ENTIÈRE est le lien. Un glyphe de lien en bout
+    /// de ligne, comme dans « About », conviendrait pour une ligne qui a par
+    /// ailleurs un réglage ; ici la ligne ne dit rien d'autre que « va voir là ».
+    private func creditRow(_ title: String, detail: String, url: URL) -> some View {
+        CreditRow(title: title, detail: detail, url: url)
+    }
+
     // MARK: - Briques de mise en page
 
     private func section<Content: View>(
@@ -439,6 +486,15 @@ struct SettingsPane: View {
         }
     }
 
+    /// Même chose, avec le logo de la plateforme à la place d'un glyphe système.
+    private func logoLink(
+        _ logo: String, fallback: String, _ url: URL, help: String
+    ) -> some View {
+        BrandLogoButton(logo: logo, fallbackSymbol: fallback, help: help) {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     /// Popup macOS discret, aligné sur le style de la maquette.
     private func picker<T: Hashable & Identifiable>(
         _ selection: Binding<T>,
@@ -470,5 +526,59 @@ struct SettingsPane: View {
         guard let p = UInt16(portText), p != settings.port else { return }
         settings.port = p
         server.restart()
+    }
+}
+
+// MARK: - Ligne de crédit
+
+/// Ligne de réglages entièrement cliquable, qui ouvre une page.
+///
+/// Vue à part et non fonction dans `SettingsPane` : il lui faut son propre
+/// `@State` de survol, sinon les cinq lignes s'allumeraient ensemble. Le
+/// survol est la seule affordance disponible — le design system est monochrome,
+/// on ne peut pas colorer un lien en bleu.
+private struct CreditRow: View {
+    let title: String
+    let detail: String
+    let url: URL
+
+    @State private var hovering = false
+
+    var body: some View {
+        // PAS un `Button`. Sur macOS 26, un bouton reçoit une chrome de survol
+        // du système — une pastille arrondie et en retrait, posée PAR-DESSUS le
+        // fond de la ligne — et aucun `ButtonStyle` ne la reprend. Une vue nue
+        // avec `onTapGesture` ne rend QUE ce qui est écrit ici ; les traits
+        // d'accessibilité rendent le rôle de lien malgré tout.
+        HStack(spacing: Theme.Space.s12) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(Theme.Text.body)
+                    .foregroundStyle(Theme.label)
+                    // Le survol se lit sur le TEXTE, pas sur un aplat. Un lien
+                    // souligné dit ce qu'il fait, et aucune forme ne peut mal
+                    // s'aligner : la géométrie de la ligne n'entre plus en jeu.
+                    .underline(hovering)
+                Text(detail)
+                    .font(Theme.Text.caption)
+                    .foregroundStyle(Theme.labelSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            Spacer(minLength: Theme.Space.s12)
+            Image(systemName: "arrow.up.right")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(hovering ? Theme.label : Theme.labelTertiary)
+        }
+        .padding(.horizontal, Theme.Space.s12)
+        .padding(.vertical, Theme.Space.s10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
+        .onTapGesture { NSWorkspace.shared.open(url) }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isLink)
+        .accessibilityAction { NSWorkspace.shared.open(url) }
+        .help(url.absoluteString)
     }
 }

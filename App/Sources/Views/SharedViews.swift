@@ -260,6 +260,79 @@ struct IconButton: View {
     }
 }
 
+// MARK: - Logo de marque
+
+/// Bouton d'icône dont le glyphe est un LOGO DE MARQUE, chargé depuis un SVG du
+/// bundle (`Resources/Logos`).
+///
+/// Pourquoi pas un SF Symbol : la police système ne contient aucune marque —
+/// ni GitHub, ni Instagram. Et pourquoi pas un jeu de PNG : `NSImage` lit le
+/// SVG depuis macOS 13, donc un fichier par logo suffit, net à toutes les
+/// tailles. `isTemplate` laisse la couleur au thème, comme un SF Symbol.
+///
+/// Un repli en glyphe système est prévu : si une version de macOS refusait le
+/// SVG, un lien sans icône serait un carré vide, invisible.
+struct BrandLogoButton: View {
+    let logo: String
+    let fallbackSymbol: String
+    var size: CGFloat = 14
+    var help: String = ""
+    let action: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            glyph
+                .frame(width: 22, height: 22)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help(help)
+    }
+
+    @ViewBuilder
+    private var glyph: some View {
+        if let image = BrandLogo.image(named: logo) {
+            Image(nsImage: image)
+                .renderingMode(.template)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: size, height: size)
+                .foregroundStyle(hovering ? Theme.label : Theme.labelSecondary)
+        } else {
+            Image(systemName: fallbackSymbol)
+                .font(.system(size: size))
+                .foregroundStyle(hovering ? Theme.label : Theme.labelSecondary)
+        }
+    }
+}
+
+/// Cache des logos : `body` est réévalué à chaque survol, et relire puis
+/// re-analyser un SVG à chaque image serait du gâchis pur.
+@MainActor
+private enum BrandLogo {
+    private static var cache: [String: NSImage?] = [:]
+
+    static func image(named name: String) -> NSImage? {
+        if let cached = cache[name] { return cached }
+        let image = load(name)
+        cache[name] = image
+        return image
+    }
+
+    private static func load(_ name: String) -> NSImage? {
+        guard let url = Bundle.main.url(forResource: name, withExtension: "svg",
+                                        subdirectory: "Logos"),
+              let image = NSImage(contentsOf: url)
+        else { return nil }
+        // Rend le logo teintable : il suivra `foregroundStyle`, donc le thème.
+        image.isTemplate = true
+        return image
+    }
+}
+
 // MARK: - Matériau de sidebar
 
 /// `NSVisualEffectView` en mode sidebar : c'est la seule façon d'obtenir la
