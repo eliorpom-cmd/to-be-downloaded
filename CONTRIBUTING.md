@@ -49,8 +49,8 @@ Follow the surrounding code: Swift API Design Guidelines, no reformatting of
 untouched lines, comments that say *why* rather than *what*. Engine code
 (`App/Sources/Core/`) contains no SwiftUI.
 
-Source comments are currently in French, UI strings and documentation in English.
-Match the file you're editing rather than converting it.
+Everything is in English — comments, documentation, UI strings and script
+output. Keep it that way.
 
 ## Pull requests
 
