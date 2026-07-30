@@ -15,15 +15,15 @@ A native macOS downloader built on yt-dlp — that your phone can drive too.
 [![FFmpeg](https://img.shields.io/badge/FFmpeg-downloaded%20on%20first%20launch-0A0A0A?style=flat-square)](#first-launch)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-0A0A0A?style=flat-square)](LICENSE)
 
-<!-- À activer une fois le dépôt public et la première release publiée :
+<!-- Enable once the repository is public and the first release is published:
 [![Latest release](https://img.shields.io/github/v/release/eliorpom-cmd/to-be-downloaded?style=flat-square&color=0A0A0A)](https://github.com/eliorpom-cmd/to-be-downloaded/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/eliorpom-cmd/to-be-downloaded/total?style=flat-square&color=0A0A0A)](https://github.com/eliorpom-cmd/to-be-downloaded/releases)
 [![Stars](https://img.shields.io/github/stars/eliorpom-cmd/to-be-downloaded?style=flat-square&color=0A0A0A)](https://github.com/eliorpom-cmd/to-be-downloaded/stargazers)
 -->
 
-<!-- CAPTURE À FAIRE — hero.png : la fenêtre entière, écran Download, thème clair,
-     un téléchargement en cours (capsule à ~60 %) + un terminé. Fenêtre détachée
-     du fond (⌘⇧4 puis Espace sur la fenêtre, l'ombre est conservée). -->
+<!-- SCREENSHOT TO TAKE — hero.png: entire window, Download screen, light theme,
+     one download in progress (capsule at ~60%) + one finished. Window separated
+     from background (⌘⇧4 then Space on window, shadow preserved). -->
 <img src="docs/assets/hero.png" width="820" alt="The TBD window: one URL field, and downloads filling up as capsules">
 
 </div>
@@ -49,8 +49,8 @@ Paste and press return. If a video link is sitting in your clipboard, the field
 says so and offers it in one click. The thumbnail and title appear in about
 200 ms — before yt-dlp has even finished looking at the page.
 
-<!-- CAPTURE À FAIRE — clipboard.png : champ URL avec l'icône presse-papier
-     visible, thème clair, gros plan sur le champ (pas la fenêtre entière). -->
+<!-- SCREENSHOT TO TAKE — clipboard.png: URL field with clipboard icon visible,
+     light theme, close-up of field (not entire window). -->
 <img src="docs/assets/clipboard.png" width="700" alt="The URL field offering a link found in the clipboard">
 
 ### A progress bar that means something
@@ -60,9 +60,9 @@ muxes. Most front-ends show you that raw and the bar bounces. TBD weighs the
 phases into **one bar that only ever goes forward**, with a countdown that
 doesn't jitter — and the bar *is* the row, filling the capsule as it goes.
 
-<!-- CAPTURE À FAIRE — progress.png : deux ou trois capsules empilées, une en
-     cours (~40 %), une en « Merging », une terminée. Thème sombre de préférence,
-     ça met le remplissage en valeur. -->
+<!-- SCREENSHOT TO TAKE — progress.png: two or three stacked capsules, one in
+     progress (~40%), one in "Merging", one done. Dark theme preferred, shows
+     filling better. -->
 <img src="docs/assets/progress.png" width="700" alt="Download rows whose background fills up as the download progresses">
 
 ### Your phone drives, your Mac works
@@ -72,8 +72,8 @@ any device on the same Wi-Fi — phone, tablet, someone else's laptop. The web U
 is the same design as the app, installable as a PWA, and it can hand you the
 finished file over HTTP.
 
-<!-- CAPTURE À FAIRE — network.png : l'écran Network Access avec le QR code.
-     Idéalement à côté, une capture de la page web sur iPhone (docs/assets/webui.png). -->
+<!-- SCREENSHOT TO TAKE — network.png: Network Access screen with QR code.
+     Ideally next to it, a screenshot of the web page on iPhone (docs/assets/webui.png). -->
 <img src="docs/assets/network.png" width="700" alt="The Network Access screen with its QR code">
 
 ### It behaves like a Mac app
@@ -82,8 +82,8 @@ Drag a finished file into the Finder. Hit space for Quick Look. Watch the Dock
 icon fill up. Hit ⌥⌘V from anywhere to download whatever is in your clipboard.
 Right-click a link in Safari → **Services** → *Download with TBD*.
 
-<!-- CAPTURE À FAIRE — library.png : l'écran Library avec quelques entrées et
-     leurs vignettes. Bonus : menubar.png, le menu de la barre des menus ouvert. -->
+<!-- SCREENSHOT TO TAKE — library.png: Library screen with a few entries and
+     their thumbnails. Bonus: menubar.png, menu bar item menu open. -->
 <img src="docs/assets/library.png" width="700" alt="The Library screen listing downloaded files with thumbnails">
 
 ## Everything else

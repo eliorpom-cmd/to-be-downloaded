@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// Les quatre destinations de la sidebar.
+/// The four sidebar destinations.
 enum AppRoute: String, Hashable, CaseIterable, Identifiable {
     case download, library, network, settings
 
@@ -25,11 +25,11 @@ enum AppRoute: String, Hashable, CaseIterable, Identifiable {
         }
     }
 
-    /// Les trois destinations principales ; Settings est ancré en bas.
+    /// The three main destinations; Settings is anchored at the bottom.
     static let primary: [AppRoute] = [.download, .library, .network]
 }
 
-/// Coquille de l'app : sidebar façon macOS + panneau de détail.
+/// App shell: macOS-style sidebar + detail panel.
 struct RootView: View {
     @ObservedObject var manager: DownloadManager
     @ObservedObject var server: ServerController
@@ -48,16 +48,15 @@ struct RootView: View {
             detail
         }
         .frame(minWidth: 820, minHeight: 620)
-        // La barre de titre est masquée, mais SwiftUI continue d'en réserver la
-        // hauteur en zone sûre. Elle s'AJOUTAIT au dégagement qu'on pose
-        // nous-mêmes pour les feux tricolores, d'où le grand vide au-dessus de
-        // « Download ». En l'ignorant, nos marges redeviennent la seule vérité.
+        // The title bar is hidden, but SwiftUI still reserves its height in the
+        // safe area. It ADDED to the clearance we set for the traffic lights,
+        // creating a big gap above "Download". Ignoring it makes our margins
+        // the only truth.
         .ignoresSafeArea(.container, edges: .top)
         .background {
-            // Translucidité légère : le matériau prend le fond de l'écran, le
-            // voile lui rend la lisibilité. 0,82 est le point où l'effet se
-            // remarque encore sans qu'un fond d'écran chargé vienne parasiter
-            // le texte.
+            // Subtle translucency: the material takes the screen background,
+            // the veil restores readability. 0.82 is where the effect still
+            // shows without a busy wallpaper interfering with text.
             ZStack {
                 WindowMaterial()
                 Theme.window.opacity(0.82)
@@ -68,47 +67,45 @@ struct RootView: View {
             server.start()
             Notifier.shared.requestAuthorization()
             library.pruneMissingFiles()
-            // Téléchargements laissés en plan au dernier arrêt : on les propose,
-            // on ne les relance pas — fermer l'app peut vouloir dire « stop ».
+            // Downloads left off at last shutdown: we propose to resume them,
+            // but don't restart automatically — closing the app can mean "stop".
             manager.loadResumable()
             settings.applyGlobalShortcut()
-            // FFmpeg n'est pas livré avec l'app (le build qu'on embarquait
-            // n'était pas redistribuable) : sans lui, rien ne s'assemble et
-            // aucun téléchargement n'aboutit. C'est donc le seul téléchargement
-            // que l'app lance d'elle-même, une fois, au premier démarrage —
-            // l'écran d'accueil en montre l'avancement.
+            // FFmpeg is not bundled (the one we shipped wasn't redistribution-legal):
+            // without it, nothing assembles and no download completes. It's the only
+            // download the app launches on its own, once, on first launch —
+            // the welcome screen shows progress.
             await ffmpeg.installIfMissing()
-            // Contrôle silencieux de yt-dlp : sans lui, l'app casse à la
-            // prochaine parade anti-bot de YouTube. Throttlé à 24 h côté
-            // updater, et sans effet si l'utilisateur l'a désactivé.
+            // Silent check for yt-dlp: without it, the app breaks at the next
+            // YouTube bot defense. Throttled to 24 h on the updater side, and
+            // has no effect if the user disabled it.
             //
-            // Pas de `refreshInstalledVersion()` ici : lire la version installée
-            // veut dire lancer yt-dlp (~1 s de démarrage PyInstaller). L'updater
-            // ne le fait que s'il va vraiment comparer, et l'écran Réglages
-            // quand il s'affiche.
+            // No `refreshInstalledVersion()` here: reading the installed version
+            // means launching yt-dlp (~1 s PyInstaller startup). The updater only
+            // does it if it's really going to compare, and the Settings screen
+            // when it appears.
             await updater.checkForUpdate(userInitiated: false)
             await appUpdater.checkForUpdate(userInitiated: false)
 
-            // Puis toutes les heures : une app laissée ouverte plusieurs jours
-            // doit continuer à suivre yt-dlp, pas seulement au démarrage. Les
-            // deux updaters portent leur propre throttle de 24 h, ce réveil
-            // horaire est donc quasi toujours un no-op.
+            // Then every hour: an app left open for days should keep tracking
+            // yt-dlp, not just on startup. Both updaters have their own 24 h
+            // throttle, so this hourly wake is usually a no-op.
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 3_600 * 1_000_000_000)
                 if Task.isCancelled { break }
                 await updater.checkForUpdate(userInitiated: false)
                 await appUpdater.checkForUpdate(userInitiated: false)
-                // FFmpeg sort quelques versions par an : le contrôle quotidien
-                // ne coûte qu'une requête de redirection, et ne télécharge que
-                // si la version publiée a changé.
+                // FFmpeg releases a few versions a year: daily checking costs
+                // only a redirect request, and only downloads if the published
+                // version changed.
                 await ffmpeg.checkForUpdate(userInitiated: false)
             }
         }
-        // ⌘, remplace la fenêtre Réglages : la destination vit dans la sidebar.
+        // ⌘, replaces the Settings window: the destination lives in the sidebar.
         .onReceive(NotificationCenter.default.publisher(for: .openSettingsPane)) { _ in
             route = .settings
         }
-        // ⌘L et ⌘⇧V ramènent forcément sur l'écran de téléchargement.
+        // ⌘L and ⌘⇧V always go back to the Download screen.
         .onReceive(NotificationCenter.default.publisher(for: .focusURLField)) { _ in
             route = .download
         }
@@ -119,11 +116,12 @@ struct RootView: View {
 
     // MARK: - Sidebar
 
+
+
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: Theme.Space.s2) {
-            // Strict nécessaire pour dégager les feux tricolores (barre de titre
-            // masquée) : ils occupent physiquement le haut de la sidebar, on ne
-            // peut pas les remonter plus haut.
+            // Bare minimum to clear traffic lights (hidden title bar): they
+            // physically occupy the top of the sidebar, we can't move them up.
             Spacer().frame(height: WindowChrome.trafficLightInset + Theme.Space.s2)
 
             ForEach(AppRoute.primary) { item in
@@ -165,12 +163,12 @@ struct RootView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // Fond volontairement absent : c'est le matériau translucide de la
-        // racine qui traverse. Un aplat ici l'annulerait.
+        // Background intentionally absent: it's the root's translucent material
+        // showing through. A solid here would cancel it.
     }
 }
 
-// MARK: - Ligne de sidebar
+// MARK: - Sidebar Row
 
 private struct SidebarRow: View {
     let route: AppRoute
@@ -216,13 +214,15 @@ private struct SidebarRow: View {
 }
 
 extension Theme {
-    /// `sidebar/selected` — fond de l'élément actif.
+    /// `sidebar/selected` — background of the active item.
     static let sidebarSelected = Color(nsColor: NSColor(name: nil) { appearance in
         appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
             ? NSColor(white: 1, alpha: 0.14) : NSColor(white: 0, alpha: 0.09)
     })
 
     /// `sidebar/hover`
+
+
     static let sidebarHover = Color(nsColor: NSColor(name: nil) { appearance in
         appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
             ? NSColor(white: 1, alpha: 0.07) : NSColor(white: 0, alpha: 0.045)

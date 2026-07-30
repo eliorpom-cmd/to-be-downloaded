@@ -1,28 +1,28 @@
 import Foundation
 
-/// Métadonnées d'un média, extraites SANS téléchargement via
-/// `yt-dlp --dump-single-json --skip-download`. Sert à l'aperçu (avant le
-/// téléchargement) côté UI native et web.
+/// Media metadata, extracted WITHOUT downloading via
+/// `yt-dlp --dump-single-json --skip-download`. Used for preview (before
+/// download) on native UI and web.
 struct MediaMetadata: Codable, Sendable, Equatable {
     var title: String
     var channel: String?
-    /// Durée en secondes.
+    /// Duration in seconds.
     var duration: Double?
-    /// URL absolue de la miniature de la vidéo (chargée par le client).
+    /// Absolute URL of the video thumbnail (loaded by the client).
     var thumbnailURL: String?
-    /// Page de la chaîne, quand on la connaît (`https://youtube.com/@handle`).
+    /// Channel page, when known (`https://youtube.com/@handle`).
     var channelURL: String?
-    /// Photo de profil de la chaîne, résolue à part (cf. `ChannelAvatars`).
+    /// Channel profile photo, resolved separately (see `ChannelAvatars`).
     var channelAvatarURL: String?
 
-    /// Poids estimé du fichier final par hauteur vidéo (clé 0 = « Max »),
-    /// piste audio comprise. Calculé une fois à partir de la liste des formats.
+    /// Estimated size of final file by video height (key 0 = "Max"),
+    /// including audio track. Computed once from the format list.
     var videoBytes: [Int: Int64]?
-    /// Poids de la meilleure piste audio seule.
+    /// Size of the best audio track alone.
     var audioBytes: Int64?
 
-    /// Décode la sortie `--dump-single-json` de yt-dlp en ne gardant que les
-    /// champs utiles. La charge complète est énorme : on ignore tout le reste.
+    /// Decode yt-dlp's `--dump-single-json` output keeping only useful fields.
+    /// The full payload is huge: ignore everything else.
     static func decode(from data: Data) -> MediaMetadata? {
         struct RawFormat: Decodable {
             let height: Int?
@@ -58,8 +58,8 @@ struct MediaMetadata: Codable, Sendable, Equatable {
 
         if let formats = raw.formats {
             let audio = formats.filter { $0.isAudioOnly && $0.bytes != nil }
-            // La piste retenue au téléchargement est la meilleure disponible :
-            // on estime avec la même.
+            // The track picked for download is the best available: estimate
+            // with the same.
             let bestAudio = audio.max { ($0.abr ?? 0) < ($1.abr ?? 0) }
             metadata.audioBytes = bestAudio?.bytes
 
@@ -69,8 +69,8 @@ struct MediaMetadata: Codable, Sendable, Equatable {
                 let candidates = target == .max
                     ? video
                     : video.filter { $0.height! <= target.rawValue }
-                // Même ordre de préférence que le sélecteur `-f` : la définition
-                // d'abord, H.264 à définition égale.
+                // Same preference order as `-f` selector: resolution first,
+                // H.264 at equal resolution.
                 guard let best = candidates.max(by: { a, b in
                     a.height! != b.height! ? a.height! < b.height!
                         : (a.isH264 ? 0 : 1) > (b.isH264 ? 0 : 1)
@@ -83,9 +83,9 @@ struct MediaMetadata: Codable, Sendable, Equatable {
         return metadata
     }
 
-    /// Poids attendu du fichier produit pour un format donné, `nil` si les
-    /// formats n'ont pas encore été lus. C'est une ESTIMATION : yt-dlp lui-même
-    /// ne connaît qu'approximativement la taille des flux fragmentés.
+    /// Expected size of the produced file for a given format, `nil` if formats
+    /// have not been read yet. This is an ESTIMATE: yt-dlp itself knows only
+    /// approximately the size of fragmented streams.
     func estimatedBytes(for format: DownloadFormat) -> Int64? {
         switch format.kind {
         case .video:
@@ -95,23 +95,23 @@ struct MediaMetadata: Codable, Sendable, Equatable {
             case .m4a:
                 return audioBytes
             case .mp3:
-                // Le MP3 est ré-encodé à débit constant : sa taille se déduit
-                // de la durée, pas de celle de la source.
+                // MP3 is re-encoded at constant bitrate: its size is deduced
+                // from duration, not from the source's.
                 guard let duration, duration > 0 else { return nil }
                 return Int64(duration * Double(format.audioBitrate.rawValue) * 1000 / 8)
             }
         }
     }
 
-    /// Titre et chaîne par l'endpoint oEmbed public de YouTube.
+    /// Title and channel from YouTube's public oEmbed endpoint.
     ///
-    /// `yt-dlp --dump-single-json` lance un interpréteur Python et extrait la
-    /// page entière : plusieurs secondes, pendant lesquelles la ligne n'affiche
-    /// ni titre ni chaîne. oEmbed répond en une requête JSON de quelques
-    /// centaines de millisecondes. On s'en sert pour peupler l'affichage tout
-    /// de suite, yt-dlp complétant ensuite (durée, formats).
+    /// `yt-dlp --dump-single-json` launches a Python interpreter and extracts
+    /// the whole page: several seconds, during which the input shows neither
+    /// title nor channel. oEmbed replies in a JSON request of hundreds of
+    /// milliseconds. We use it to populate the display right away, yt-dlp
+    /// completing later (duration, formats).
     ///
-    /// Aucune conséquence en cas d'échec : c'est un raccourci, pas une source.
+    /// No consequence on failure: it is a shortcut, not a source.
     static func oEmbed(for url: String) async -> MediaMetadata? {
         guard YouTubeLink.isValid(url),
               var components = URLComponents(string: "https://www.youtube.com/oembed")
@@ -149,8 +149,8 @@ struct MediaMetadata: Codable, Sendable, Equatable {
         )
     }
 
-    /// Clé de cache d'une chaîne : le `@handle` ou l'identifiant `UC…` extrait
-    /// de l'URL de la chaîne. Stable, contrairement au nom affiché.
+    /// Cache key of a channel: the `@handle` or `UC…` identifier extracted
+    /// from the channel URL. Stable, unlike the displayed name.
     var channelKey: String? {
         guard let channelURL, let url = URL(string: channelURL) else { return nil }
         let last = url.lastPathComponent

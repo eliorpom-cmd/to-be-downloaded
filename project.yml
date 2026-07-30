@@ -1,16 +1,16 @@
 # =============================================================================
-#  NOM DE L'APP — « TBD - To be downloaded »
+#  APP NAME — "TBD - To be downloaded"
 #
-#  Trois formes, chacune pour une largeur d'affichage :
-#    - PRODUCT_NAME (TBD)                       → TBD.app, l'exécutable, le
-#                                                 module Swift. Court et sans
-#                                                 espace : chemins, scripts,
+#  Three forms, each for a display width:
+#    - PRODUCT_NAME (TBD)                       → TBD.app, the executable,
+#                                                 the Swift module. Short and no
+#                                                 spaces: paths, scripts,
 #                                                 Homebrew, Terminal.
-#    - CFBundleName (To be downloaded)          → le menu de l'app, à côté de
-#                                                 la pomme (16 car. max).
-#    - CFBundleDisplayName (TBD - To be…)       → Finder et Spotlight, là où le
-#                                                 sigle seul ne dirait rien.
-#  Les mêmes formes existent côté code dans App/Sources/AppConfig.swift.
+#    - CFBundleName (To be downloaded)          → the app menu, next to the
+#                                                 Apple logo (16 char max).
+#    - CFBundleDisplayName (TBD - To be…)       → Finder and Spotlight, where
+#                                                 the acronym alone says nothing.
+#  The same forms exist in code in App/Sources/AppConfig.swift.
 # =============================================================================
 name: TBD
 
@@ -42,16 +42,16 @@ targets:
       - path: App/Resources/bin
         type: folder
         buildPhase: resources
-      # Icône Icon Composer : `actool` en tire le rendu Liquid Glass de macOS 26
-      # ET les bitmaps classiques pour les versions antérieures, le tout dans
-      # Assets.car. C'est la SOURCE unique de l'icône — le SVG qu'elle contient
-      # sert aussi de référence aux tracés de App/Sources/Mascot.swift.
+      # Icon Composer icon: `actool` extracts the Liquid Glass rendering for
+      # macOS 26 AND the classic bitmaps for older versions, all in Assets.car.
+      # This is the SINGLE SOURCE of the icon — the SVG it contains also serves
+      # as reference for the paths in App/Sources/Mascot.swift.
       - path: App/Resources/AppIcon.icon
         buildPhase: resources
-      # Logos de marque (GitHub, Instagram) pour la section « About » des
-      # réglages : la police système n'a pas de SF Symbol de marque. Livrés en
-      # SVG, que `NSImage` sait lire depuis macOS 13 — donc un seul fichier par
-      # logo au lieu d'un jeu de bitmaps @1x/@2x/@3x.
+      # Brand logos (GitHub, Instagram) for the "About" section of settings:
+      # the system font has no brand SF Symbol. Delivered as SVG, which `NSImage`
+      # can read since macOS 13 — one file per logo instead of a set of bitmaps
+      # @1x/@2x/@3x.
       - path: App/Resources/Logos
         type: folder
         buildPhase: resources
@@ -70,35 +70,35 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_KEY_CFBundleName: To be downloaded
         INFOPLIST_KEY_CFBundleDisplayName: TBD - To be downloaded
-        # Hardened runtime OFF : requis seulement pour la notarisation Apple
-        # (compte développeur payant). Sans lui, le yt-dlp figé s'exécute sans souci.
-        # → Repasser à YES le jour où une notarisation Developer ID est mise en place.
+        # Hardened runtime OFF: required only for Apple notarization (paid
+        # developer account). Without it, the frozen yt-dlp runs fine.
+        # → Switch to YES when Developer ID notarization is set up.
         ENABLE_HARDENED_RUNTIME: NO
         MACOSX_DEPLOYMENT_TARGET: "13.0"
         LD_RUNPATH_SEARCH_PATHS:
           - "$(inherited)"
           - "@executable_path/../Frameworks"
 
-  # Extension de partage : sans interface, elle transmet le lien à l'app par
-  # son schéma d'URL. Elle ne télécharge rien elle-même.
+  # Share extension: no interface, it passes the link to the app via its URL
+  # scheme. It does not download anything itself.
   ShareExtension:
     type: app-extension
     platform: macOS
     sources:
       - path: Extension/Share
-      # Le validateur de liens est partagé avec l'app : une seule définition
-      # de ce qui est acceptable.
+      # Link validator shared with the app: single definition of what is
+      # acceptable.
       - path: App/Sources/Core/YouTubeLink.swift
-      # Et le schéma d'URL, pour la même raison : l'extension écrit le lien que
-      # l'app doit reconnaître.
+      # And the URL scheme, for the same reason: the extension writes the link
+      # that the app must recognize.
       - path: App/Sources/AppConfig.swift
     settings:
       base:
         PRODUCT_NAME: Share
         PRODUCT_BUNDLE_IDENTIFIER: com.byelior.tbd.share
         INFOPLIST_FILE: Extension/Share/Info.plist
-        # Le sigle seul : c'est le libellé de l'entrée dans le menu Partager,
-        # à côté de l'icône de l'app. Le nom complet y serait interminable.
+        # The acronym alone: it is the label of the entry in the Share menu,
+        # next to the app icon. The full name would be unwieldy there.
         INFOPLIST_KEY_CFBundleDisplayName: TBD
         GENERATE_INFOPLIST_FILE: NO
         ENABLE_HARDENED_RUNTIME: NO

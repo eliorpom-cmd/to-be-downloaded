@@ -2,8 +2,8 @@ import Foundation
 
 enum NetworkInfo {
 
-    /// Adresse IPv4 locale (LAN) de la machine, ex. "192.168.1.42".
-    /// Privilégie les interfaces Wi-Fi/Ethernet (en0, en1…).
+    /// Local IPv4 address (LAN) of the machine, e.g. "192.168.1.42".
+    /// Prefers Wi-Fi/Ethernet interfaces (en0, en1…).
     static func localIPAddress() -> String? {
         var address: String?
         var ifaddr: UnsafeMutablePointer<ifaddrs>?
@@ -13,7 +13,7 @@ enum NetworkInfo {
         var candidates: [(name: String, ip: String)] = []
         for ptr in sequence(first: first, next: { $0.pointee.ifa_next }) {
             let flags = Int32(ptr.pointee.ifa_flags)
-            // Interface active et non-loopback.
+            // Active and non-loopback interface.
             guard flags & IFF_UP == IFF_UP, flags & IFF_LOOPBACK == 0 else { continue }
             guard let addr = ptr.pointee.ifa_addr, addr.pointee.sa_family == UInt8(AF_INET) else { continue }
 
@@ -27,7 +27,7 @@ enum NetworkInfo {
             candidates.append((name, ip))
         }
 
-        // Préfère en0/en1… (Wi-Fi/Ethernet) puis n'importe quelle IPv4.
+        // Prefer en0/en1… (Wi-Fi/Ethernet) then any IPv4.
         address = candidates.first(where: { $0.name.hasPrefix("en") })?.ip
             ?? candidates.first?.ip
         return address

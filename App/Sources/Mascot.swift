@@ -1,22 +1,22 @@
 import SwiftUI
 
-/// La mascotte ENTIÈRE — la pastille dont la flèche et les yeux sont évidés.
-/// C'est la marque de l'app telle qu'on la voit dans le Dock, et c'est elle qui
-/// accueille sur l'écran Download.
+/// The ENTIRE mascot — the tile with the arrow and eyes hollowed out.
+/// It is the app's mark as seen in the Dock, and it is what
+/// welcomes on the Download screen.
 ///
-/// L'évidement laisse passer le fond de la fenêtre, qui est translucide (cf.
-/// `RootView`) : le dessin respire le matériau derrière lui, comme la pastille
-/// de l'icône laisse voir le fond du système. Peinte en `Theme.ink`, elle
-/// s'inverse donc avec le thème sans qu'on s'en occupe.
+/// The hollowed-out area lets the window background show through, which is
+/// translucent (see `RootView`): the shape breathes the material behind it,
+/// just as the icon tile lets the system background show. Painted in
+/// `Theme.ink`, it inverts with the theme without any extra work.
 ///
-/// `MascotShape` seule — la flèche et les yeux, sans la pastille — n'est plus
-/// employée nulle part comme icône : partout où l'app se représente elle-même
-/// sans passer par `AppIcon.icon`, c'est la pastille entière qu'on montre.
+/// `MascotShape` alone — the arrow and eyes, without the tile — is no longer
+/// used anywhere as an icon: wherever the app represents itself without going
+/// through `AppIcon.icon`, we show the entire tile.
 ///
-/// Volontairement IMMOBILE : le balancement permanent attirait l'œil sans rien
-/// dire. `isActive` est conservé pour les appelants, mais n'anime plus rien.
+/// Intentionally STILL: the permanent swaying caught the eye without saying
+/// anything. `isActive` is kept for callers, but doesn't animate anything.
 struct MascotView: View {
-    /// Côté de la pastille, qui est carrée.
+    /// Side of the tile, which is square.
     var size: CGFloat = 44
     var isActive: Bool = false
 
@@ -27,38 +27,37 @@ struct MascotView: View {
     }
 }
 
-/// Rendu AppKit de la mascotte, pour les endroits qui exigent une `NSImage` :
-/// barre des menus, notifications.
+/// AppKit rendering of the mascot, for places that require an `NSImage`:
+/// menu bar, notifications.
 enum MascotImage {
 
-    /// `viewBox` du SVG produit par `svgPathData()`, dans les mêmes unités.
+    /// `viewBox` of the SVG produced by `svgPathData()`, in the same units.
     static let svgViewBox = "0 0 100 135.02"
 
-    /// `viewBox` du SVG produit par `iconSvgPathData()` : la pastille est
-    /// carrée, contrairement à la mascotte seule.
+    /// `viewBox` of the SVG produced by `iconSvgPathData()`: the tile is
+    /// square, unlike the mascot alone.
     static let iconSvgViewBox = "0 0 100 100"
 
-    /// Données de tracé SVG (`d="…"`) de la mascotte SEULE — la flèche et les
-    /// yeux, sans la pastille — dans une boîte de 100 de large (cf.
-    /// `svgViewBox` pour la hauteur).
+    /// SVG path data (`d="…"`) of the mascot ALONE — the arrow and
+    /// eyes, without the tile — in a box 100 units wide (see
+    /// `svgViewBox` for height).
     ///
-    /// Conservée pour les usages typographiques, où le dessin accompagne un
-    /// texte au lieu de représenter l'app. Pour l'icône, c'est
-    /// `iconSvgPathData()` qu'il faut.
+    /// Kept for typographic use, where the shape accompanies text instead of
+    /// representing the app. For the icon, use `iconSvgPathData()` instead.
     static func svgPathData(width: CGFloat = 100) -> String {
         pathData(of: MascotShape(),
                  in: CGRect(x: 0, y: 0, width: width, height: width / MascotShape.aspectRatio))
     }
 
-    /// Données de tracé SVG (`d="…"`) de l'ICÔNE : la pastille dont la mascotte
-    /// est évidée, dans une boîte carrée de 100 (cf. `iconSvgViewBox`).
+    /// SVG path data (`d="…"`) of the ICON: the tile with the mascot
+    /// hollowed out, in a 100×100 square box (see `iconSvgViewBox`).
     ///
-    /// Généré depuis le MÊME `AppIconShape` que l'app : l'icône n'existe qu'à un
-    /// seul endroit. Sur la page web elle est peinte en `currentColor`, donc
-    /// elle s'inverse tout seule en thème sombre — contrairement à un PNG.
+    /// Generated from the SAME `AppIconShape` as the app: the icon exists in
+    /// only one place. On the web page it is painted in `currentColor`, so
+    /// it inverts itself in dark mode — unlike a PNG.
     ///
-    /// À rendre en `fill-rule="nonzero"` : la flèche et les yeux sont des
-    /// sous-tracés d'orientation inverse, donc des trous.
+    /// Render with `fill-rule="nonzero"`: the arrow and eyes are
+    /// sub-paths with inverse winding, so they are holes.
     static func iconSvgPathData(width: CGFloat = 100) -> String {
         pathData(of: AppIconShape(), in: CGRect(x: 0, y: 0, width: width, height: width))
     }
@@ -89,26 +88,26 @@ enum MascotImage {
         return commands.joined(separator: " ")
     }
 
-    /// Glyphe de barre des menus : l'ICÔNE, pastille comprise — c'est le contour
-    /// qui la fait reconnaître comme l'app du Dock. La mascotte sortie de sa
-    /// pastille ne renvoyait à rien.
+    /// Menu bar glyph: the ICON, tile included — it is the outline
+    /// that makes it recognizable as the Dock app. The mascot alone, outside
+    /// its tile, means nothing.
     ///
-    /// 15 pt et non 17 : une forme pleine occupe toute sa boîte, là où un glyphe
-    /// évidé n'en remplit qu'une part. À hauteur égale, la pastille écraserait
-    /// les symboles voisins du système.
+    /// 15 pt, not 17: a filled shape occupies its entire box, whereas a
+    /// hollowed-out glyph fills only part of it. At equal height, the tile
+    /// would crush the neighboring system symbols.
     ///
-    /// Rendu dans un bitmap HORS ÉCRAN plutôt que via
-    /// `NSImage(size:flipped:drawingHandler:)` : ce dernier peint directement
-    /// dans le contexte de destination, où l'on ne maîtrise ni le suréchantil-
-    /// lonnage ni les modes de fusion. Ici on choisit l'échelle (3×) pour que
-    /// les yeux et l'encoche de la flèche survivent à la réduction.
+    /// Rendered in an OFF-SCREEN bitmap rather than via
+    /// `NSImage(size:flipped:drawingHandler:)`: the latter paints directly
+    /// into the destination context, where we control neither resampling
+    /// nor blend modes. Here we choose the scale (3×) so that
+    /// the eyes and the arrow's notch survive reduction.
     ///
-    /// Image *template* : macOS la recolore selon le thème de la barre des
-    /// menus (clair, sombre, inversion au clic). L'évidement reste transparent,
-    /// donc la flèche et les yeux prennent le fond de la barre.
+    /// *Template* image: macOS recolors it according to the menu bar theme
+    /// (light, dark, inverted on click). The hollowed-out area stays
+    /// transparent, so the arrow and eyes take the bar's background.
     static func menuBar(height: CGFloat = 15) -> NSImage {
         let scale: CGFloat = 3
-        // La pastille est carrée : lui donner une boîte non carrée la déforme.
+        // The tile is square: giving it a non-square box deforms it.
         let size = NSSize(width: height, height: height)
         guard let context = CGContext(
             data: nil, width: Int(height * scale), height: Int(height * scale),
@@ -118,7 +117,7 @@ enum MascotImage {
         ) else { return NSImage(size: size) }
 
         context.scaleBy(x: scale, y: scale)
-        // Repère y vers le bas, pour raisonner comme dans le reste de l'UI.
+        // y coordinate space pointing down, to reason like the rest of the UI.
         context.translateBy(x: 0, y: height)
         context.scaleBy(x: 1, y: -1)
         context.setShouldAntialias(true)
@@ -134,18 +133,18 @@ enum MascotImage {
     }
 }
 
-/// La mascotte seule : la flèche et les deux yeux, sans la pastille.
+/// The mascot alone: the arrow and two eyes, without the tile.
 ///
-/// N'est PAS l'icône de l'app — sortie de son contour, la marque ne se
-/// reconnaît plus. À réserver aux usages typographiques, où le dessin
-/// accompagne un texte ; partout ailleurs, `AppIconShape`.
+/// NOT the app icon — out of its outline, the mark is no longer
+/// recognizable. Reserve for typographic use, where the shape
+/// accompanies text; everywhere else, use `AppIconShape`.
 ///
-/// Coordonnées normalisées 0…1 sur sa propre boîte englobante, remises à
-/// l'échelle du `rect` fourni — respecter `aspectRatio` sous peine de la
-/// déformer. Généré depuis `App/Resources/AppIcon.icon/Assets/mascot.svg`.
+/// Normalized coordinates 0…1 within its own bounding box, scaled to
+/// the provided `rect` — respect `aspectRatio` or it will be distorted.
+/// Generated from `App/Resources/AppIcon.icon/Assets/mascot.svg`.
 struct MascotShape: Shape {
 
-    /// Largeur / hauteur du dessin. La mascotte est plus haute que large.
+    /// Width / height of the shape. The mascot is taller than it is wide.
     static let aspectRatio: CGFloat = 0.7406
 
     func path(in rect: CGRect) -> Path {
@@ -204,17 +203,18 @@ struct MascotShape: Shape {
     }
 }
 
-/// L'icône de l'app : la pastille dont la mascotte est ÉVIDÉE.
+/// The app icon: the tile with the mascot HOLLOWED OUT.
 ///
-/// Le rendu du Dock vient de `App/Resources/AppIcon.icon` (Liquid Glass, compilé
-/// par `actool`). Ce tracé est là pour TOUT ce que le bundle ne couvre pas, et
-/// c'est lui qu'il faut partout : l'accueil de l'app (`MascotView`), la barre
-/// des menus (`MascotImage.menuBar()`), le logo de la page web et l'icône PWA
-/// comme le favicon servis par le serveur (cf. `Server/AppIcon`).
+/// The Dock rendering comes from `App/Resources/AppIcon.icon` (Liquid Glass,
+/// compiled by `actool`). This path is here for EVERYTHING the bundle doesn't
+/// cover, and it's the one that must be used everywhere: the app welcome
+/// screen (`MascotView`), the menu bar (`MascotImage.menuBar()`), the web page
+/// logo and PWA icon, as well as the favicon served by the server (see
+/// `Server/AppIcon`).
 ///
-/// Rempli en non-zero : la flèche et les yeux sont des sous-tracés d'orientation
-/// inverse, donc des trous. En even-odd la pastille devient un carré plein.
-/// Carrée : lui donner un `rect` non carré la déforme.
+/// Filled with nonzero winding: the arrow and eyes are sub-paths with inverse
+/// winding, so they are holes. With even-odd winding, the tile becomes a solid
+/// square. Square: giving it a non-square `rect` deforms it.
 struct AppIconShape: Shape {
     func path(in rect: CGRect) -> Path {
         func p(_ x: Double, _ y: Double) -> CGPoint {
@@ -291,10 +291,10 @@ struct AppIconShape: Shape {
 
 #Preview {
     HStack(spacing: 30) {
-        // L'icône, telle qu'elle accueille sur l'écran Download, tient la barre
-        // des menus et coiffe la page web…
+        // The icon as it welcomes on the Download screen, appears in the menu
+        // bar, and tops the web page…
         MascotView(size: 96)
-        // …et son intérieur seul, qui ne sert plus d'icône nulle part.
+        // …and its interior alone, which no longer serves as an icon anywhere.
         MascotShape().fill(Theme.ink).frame(width: 96 * MascotShape.aspectRatio, height: 96)
     }
     .padding(40)

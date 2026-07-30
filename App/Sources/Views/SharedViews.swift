@@ -1,13 +1,13 @@
 import SwiftUI
 import AppKit
 
-/// Hauteur réservée en haut de fenêtre pour les feux tricolores, la barre de
-/// titre étant masquée (`.windowStyle(.hiddenTitleBar)`).
+/// Reserved height at the top of the window for traffic lights, with the
+/// title bar hidden (`.windowStyle(.hiddenTitleBar)`).
 enum WindowChrome {
     static let trafficLightInset: CGFloat = 28
 }
 
-// MARK: - Miniature 16:9
+// MARK: - 16:9 Thumbnail
 
 struct Thumbnail: View {
     let urlString: String?
@@ -43,8 +43,8 @@ struct Thumbnail: View {
     }
 }
 
-/// Vignette d'une entrée de bibliothèque : miniature YouTube si on la connaît,
-/// sinon une image extraite du fichier lui-même, sinon un glyphe.
+/// Thumbnail for a library entry: YouTube thumbnail if we have it,
+/// otherwise an image extracted from the file itself, otherwise a glyph.
 struct LibraryThumbnail: View {
     let item: LibraryItem
     var width: CGFloat
@@ -77,11 +77,11 @@ struct LibraryThumbnail: View {
     }
 }
 
-/// Pastille ronde en tête de capsule : la PHOTO DE PROFIL de la chaîne.
+/// Round tile at the head of a capsule: the PROFILE PHOTO of the channel.
 ///
-/// Elle demande une résolution réseau (cf. `ChannelAvatars`), donc elle n'est
-/// pas là dès la première image. En attendant, l'initiale de la chaîne — pas
-/// la miniature de la vidéo, qui ferait croire à un avatar puis changerait.
+/// It requires a network lookup (see `ChannelAvatars`), so it's not there
+/// right away. In the meantime, the channel's initial — not the video
+/// thumbnail, which would suggest an avatar then change.
 struct ChannelAvatar: View {
     let urlString: String?
     var channelName: String?
@@ -132,16 +132,14 @@ struct ChannelAvatar: View {
 // MARK: - Transitions
 
 extension AnyTransition {
-    /// Apparition d'une ligne de téléchargement : elle se déplie depuis le haut.
-    /// Asymétrique — une disparition doit être plus discrète qu'une arrivée,
-    /// puisque l'utilisateur en est déjà à autre chose.
-    /// Pas de décalage vertical ni de ressort : les deux se cumulaient à la
-    /// remise en page de la liste, et l'arrivée se terminait par un à-coup.
-    /// Une mise à l'échelle courte et sans rebond suffit à faire remarquer
-    /// l'apparition.
+    /// Download row arrival: it unfolds from the top. Asymmetric — removal
+    /// should be more subtle than arrival, since the user is already looking
+    /// elsewhere. No vertical offset or spring: both combined with list
+    /// relayout, and arrival ended with a stutter. Short scale with no bounce
+    /// is enough to make the arrival noticeable.
     ///
-    /// Propriété calculée : `AnyTransition` n'est pas `Sendable`, donc pas
-    /// partageable en `static let` sous Swift 6.
+    /// Computed property: `AnyTransition` is not `Sendable`, so it can't be
+    /// shared as `static let` under Swift 6.
     static var appearingCapsule: AnyTransition {
         .asymmetric(
             insertion: .opacity.combined(with: .scale(scale: 0.97, anchor: .top)),
@@ -150,7 +148,7 @@ extension AnyTransition {
     }
 }
 
-// MARK: - En-tête de section
+// MARK: - Section Header
 
 struct SectionHeader: View {
     let title: String
@@ -164,7 +162,7 @@ struct SectionHeader: View {
     }
 }
 
-// MARK: - État vide
+// MARK: - Empty State
 
 struct EmptyState: View {
     let symbol: String
@@ -191,18 +189,18 @@ struct EmptyState: View {
     }
 }
 
-// MARK: - Bandeau d'information
+// MARK: - Inline Notice
 
-/// Bandeau neutre : glyphe + message. Aucune couleur sémantique — l'erreur se
-/// lit au glyphe et au poids du texte (design system monochrome strict).
+/// Neutral banner: glyph + message. No semantic color — error reads from the
+/// glyph and text weight (strictly monochrome design system).
 struct InlineNotice: View {
     let symbol: String
     let message: String
-    /// Action facultative en fin de bandeau (ex. « Update »).
+    /// Optional action at the end of the banner (e.g., "Update").
     var actionTitle: String? = nil
     var actionEnabled: Bool = true
     var action: (() -> Void)? = nil
-    /// Seconde action, plus discrète (ex. « Discard »).
+    /// Second action, more subtle (e.g., "Discard").
     var secondaryTitle: String? = nil
     var secondaryAction: (() -> Void)? = nil
 
@@ -235,9 +233,9 @@ struct InlineNotice: View {
     }
 }
 
-// MARK: - Bouton d'icône discret
+// MARK: - Subtle Icon Button
 
-/// Bouton sans chrome, pour les affordances de fin de ligne (··· , ✕, ⟳).
+/// Button with no chrome, for end-of-line affordances (··· , ✕, ⟳).
 struct IconButton: View {
     let symbol: String
     var size: CGFloat = 13
@@ -260,18 +258,18 @@ struct IconButton: View {
     }
 }
 
-// MARK: - Logo de marque
+// MARK: - Brand Logo
 
-/// Bouton d'icône dont le glyphe est un LOGO DE MARQUE, chargé depuis un SVG du
-/// bundle (`Resources/Logos`).
+/// Icon button whose glyph is a BRAND LOGO, loaded from an SVG in the bundle
+/// (`Resources/Logos`).
 ///
-/// Pourquoi pas un SF Symbol : la police système ne contient aucune marque —
-/// ni GitHub, ni Instagram. Et pourquoi pas un jeu de PNG : `NSImage` lit le
-/// SVG depuis macOS 13, donc un fichier par logo suffit, net à toutes les
-/// tailles. `isTemplate` laisse la couleur au thème, comme un SF Symbol.
+/// Why not SF Symbol: the system font has no brands — no GitHub, no Instagram.
+/// Why not a set of PNGs: `NSImage` reads SVG since macOS 13, so one file per
+/// logo suffices, sharp at any size. `isTemplate` leaves color to the theme,
+/// like an SF Symbol.
 ///
-/// Un repli en glyphe système est prévu : si une version de macOS refusait le
-/// SVG, un lien sans icône serait un carré vide, invisible.
+/// A system glyph fallback is in place: if a macOS version rejected SVG,
+/// a link with no icon would be an invisible empty square.
 struct BrandLogoButton: View {
     let logo: String
     let fallbackSymbol: String
@@ -309,8 +307,8 @@ struct BrandLogoButton: View {
     }
 }
 
-/// Cache des logos : `body` est réévalué à chaque survol, et relire puis
-/// re-analyser un SVG à chaque image serait du gâchis pur.
+/// Logo cache: `body` is reevaluated on every hover, and re-reading and
+/// re-parsing an SVG every frame would be pure waste.
 @MainActor
 private enum BrandLogo {
     private static var cache: [String: NSImage?] = [:]
@@ -327,16 +325,16 @@ private enum BrandLogo {
                                         subdirectory: "Logos"),
               let image = NSImage(contentsOf: url)
         else { return nil }
-        // Rend le logo teintable : il suivra `foregroundStyle`, donc le thème.
+        // Make the logo tintable: it will follow `foregroundStyle`, thus the theme.
         image.isTemplate = true
         return image
     }
 }
 
-// MARK: - Matériau de sidebar
+// MARK: - Sidebar Material
 
-/// `NSVisualEffectView` en mode sidebar : c'est la seule façon d'obtenir la
-/// vibrance système exacte quand on ne passe pas par `List(.sidebar)`.
+/// `NSVisualEffectView` in sidebar mode: the only way to get the exact
+/// system vibrancy when not using `List(.sidebar)`.
 struct SidebarMaterial: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
@@ -349,13 +347,13 @@ struct SidebarMaterial: NSViewRepresentable {
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
 }
 
-/// Fond de fenêtre translucide, comme celui du Terminal.
+/// Translucent window background, like Terminal's.
 ///
-/// `.underWindowBackground` en `behindWindow` : le flou prend ce qu'il y a
-/// DERRIÈRE la fenêtre. Un voile de la couleur de fond est posé par-dessus —
-/// sans lui, le texte perdrait son contraste dès qu'une image claire passe
-/// derrière, et le monochrome de l'app ne pardonne pas ça. C'est le réglage
-/// de ce voile qui fait la différence entre « léger » et « illisible ».
+/// `.underWindowBackground` in `behindWindow`: the blur captures what's
+/// BEHIND the window. A veil of the background color is laid on top — without
+/// it, text would lose contrast when a bright image passes behind, and the
+/// app's monochrome doesn't forgive that. Adjusting this veil makes the
+/// difference between "subtle" and "unreadable".
 struct WindowMaterial: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()

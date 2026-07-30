@@ -2,67 +2,67 @@ import Foundation
 import SwiftUI
 import AppKit
 
-/// Orchestration partagée (UI native ET, plus tard, serveur HTTP).
-/// Détient la file de jobs et pilote le moteur.
+/// Shared orchestration (native UI and, later, HTTP server).
+/// Holds the job queue and drives the engine.
 @MainActor
 final class DownloadManager: ObservableObject {
 
     @Published private(set) var jobs: [DownloadJob] = [] {
         didSet { updateDockBadge() }
     }
-    /// Erreur de configuration au démarrage (binaire manquant, etc.).
+    /// Setup configuration error (missing binary, etc.).
     @Published private(set) var setupError: String?
 
-    /// FFmpeg manque encore. Ce n'est pas une erreur mais une étape
-    /// d'installation : l'app le télécharge au premier lancement, et
-    /// l'interface montre l'avancement au lieu d'un message d'échec.
+    /// FFmpeg is still missing. This is not an error but a setup step:
+    /// the app downloads it on first launch, and the interface shows
+    /// progress instead of a failure message.
     @Published private(set) var needsFFmpeg = false
 
     private var engine: DownloadEngine?
     private var running: [UUID: DownloadEngine.Running] = [:]
-    /// Anime la barre pendant l'assemblage ; s'arrête dès qu'aucun job n'y est.
+    /// Animates the bar during assembly; stops as soon as no job is in it.
     private var mergeTicker: Task<Void, Never>?
 
-    /// Jobs interrompus par une fermeture de l'app, proposés à la reprise.
+    /// Jobs interrupted by app closure, offered for resume.
     @Published private(set) var resumable: [PendingJob] = []
 
-    /// Métadonnées déjà extraites, par identifiant vidéo, et extractions en vol.
+    /// Already-extracted metadata, by video identifier, and in-flight extractions.
     private var metadataCache: [String: MediaMetadata] = [:]
     private var metadataTasks: [String: Task<MediaMetadata?, Never>] = [:]
 
-    /// Bibliothèque persistante alimentée à chaque téléchargement réussi.
+    /// Persistent library fed with each successful download.
     let library: LibraryStore
 
     init(library: LibraryStore = LibraryStore()) {
         self.library = library
         buildEngine()
 
-        // Arrête tous les subprocess yt-dlp à la fermeture de l'app (évite les orphelins).
+        // Stops all yt-dlp subprocesses on app closure (prevents orphans).
         NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification, object: nil, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.terminateAll() }
         }
 
-        // yt-dlp vient d'être mis à jour : le moteur pointe encore sur l'ancien
-        // chemin. Les téléchargements en vol ne sont pas touchés (ils gardent
-        // leur inode), seuls les suivants prennent la nouvelle version.
+        // yt-dlp just updated: the engine still points to the old path.
+        // In-flight downloads are unaffected (they keep their inode),
+        // only subsequent ones pick up the new version.
         NotificationCenter.default.addObserver(
             forName: .engineBinaryDidChange, object: nil, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.reconfigure() }
         }
 
-        // Raccourci global : traité ici et non dans une vue, pour qu'il marche
-        // même quand la fenêtre est fermée — c'est tout son intérêt.
+        // Global shortcut: handled here not in a view, so it works even
+        // when the window is closed — that's its whole point.
         NotificationCenter.default.addObserver(
             forName: .globalPasteAndDownload, object: nil, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated { _ = self?.downloadFromClipboard() }
         }
 
-        // Même raison pour les liens venus de l'extérieur (service macOS,
-        // extension de partage, schéma d'URL) : aucune fenêtre requise.
+        // Same reasoning for links from outside (macOS service,
+        // sharing extension, URL scheme): no window needed.
         NotificationCenter.default.addObserver(
             forName: .externalDownloadRequest, object: nil, queue: .main
         ) { [weak self] note in
@@ -74,7 +74,7 @@ final class DownloadManager: ObservableObject {
         }
     }
 
-    /// Lance le lien du presse-papier avec les réglages par défaut.
+    /// Launch the clipboard link with default settings.
     @discardableResult
     func downloadFromClipboard() -> UUID? {
         guard let copied = NSPasteboard.general.string(forType: .string),
@@ -85,21 +85,21 @@ final class DownloadManager: ObservableObject {
             format: AppSettings.shared.currentDefaultFormat)
     }
 
-    /// (Re)construit le moteur à partir des réglages courants (dossier de sortie).
-    /// Appelé au démarrage et après un changement de dossier dans les Réglages.
+    /// (Re)builds the engine from current settings (output folder).
+    /// Called on startup and after a folder change in Settings.
     func reconfigure() { buildEngine() }
 
     private func buildEngine() {
         do {
-            // Copie mise à jour si elle existe, amorce du bundle sinon.
+            // Updated copy if it exists, bundle seed otherwise.
             let ytDlp = try BinaryLocator.effectiveYtDlp()
-            // FFmpeg, lui, n'a pas d'amorce : il est téléchargé au premier
-            // lancement (le build qu'on embarquait n'était pas redistribuable).
-            // ffprobe vit dans le même dossier et est vérifié en même temps.
+            // FFmpeg, on the other hand, has no seed: it is downloaded on
+            // first launch (the build we shipped was not redistributable).
+            // ffprobe lives in the same folder and is verified at the same time.
             let ffmpeg = try BinaryLocator.effectiveFFmpeg()
 
-            // Bundle CA combiné (Mozilla + trousseau système macOS) généré au
-            // démarrage : gère les intercepteurs TLS locaux (Qustodio, AV, VPN…).
+            // Combined CA bundle (Mozilla + macOS system keychain) generated on
+            // startup: handles local TLS interceptors (Qustodio, AV, VPN…).
             let trustBundle = TrustStore.prepareBundle(
                 shippedCACert: BinaryLocator.resourceInBin("cacert.pem"))
 
@@ -127,19 +127,19 @@ final class DownloadManager: ObservableObject {
 
     var isReady: Bool { engine != nil }
 
-    /// Nombre de téléchargements qui occupent encore le moteur (badge Dock / menu-bar).
+    /// Number of downloads still occupying the engine (Dock badge / menu bar).
     var activeCount: Int {
         jobs.filter { $0.state.isActive }.count
     }
 
-    /// Jobs de la session encore en vol, les plus récents d'abord.
+    /// Session jobs still in flight, most recent first.
     var activeJobs: [DownloadJob] {
         jobs.filter { $0.state.isActive }
     }
 
-    /// Badge + barre de progression sur l'icône du Dock. La fraction est la
-    /// MOYENNE des téléchargements en vol : une seule barre pour un seul
-    /// message, « voilà où en est le lot ».
+    /// Badge + progress bar on the Dock icon. The fraction is the
+    /// AVERAGE of in-flight downloads: a single bar for a single
+    /// message, "here is where the batch stands."
     private func updateDockBadge() {
         let active = jobs.filter { $0.state.isActive }
         let fraction = active.isEmpty
@@ -148,17 +148,17 @@ final class DownloadManager: ObservableObject {
         DockProgress.update(fraction: fraction, badge: active.count)
     }
 
-    /// Termine tous les téléchargements en cours (fermeture de l'app).
+    /// Terminates all in-progress downloads (app closure).
     func terminateAll() {
         for run in running.values { run.cancel() }
     }
 
-    /// Met un téléchargement en file. Renvoie l'id du job (nil si refusé).
+    /// Queues a download. Returns the job id (nil if refused).
     ///
-    /// « En file » et non « démarre » : au-delà de `maxConcurrent`, le job
-    /// attend son tour. Lancer dix transferts de front ne va pas plus vite —
-    /// la bande passante ne change pas — mais retarde le premier fichier
-    /// utilisable et rend tous les temps restants mensongers.
+    /// "Queued" not "starts": beyond `maxConcurrent`, the job waits its turn.
+    /// Launching ten transfers at once won't go faster — bandwidth doesn't
+    /// change — but delays the first usable file and makes all remaining
+    /// times dishonest.
     @discardableResult
     func startDownload(urlString: String, format: DownloadFormat, id: UUID = UUID()) -> UUID? {
         let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -167,25 +167,25 @@ final class DownloadManager: ObservableObject {
         let job = DownloadJob(url: trimmed, format: format, id: id)
         jobs.insert(job, at: 0)
 
-        // Titre et chaîne, en deux temps : oEmbed répond en quelques centaines
-        // de millisecondes, yt-dlp en quelques secondes. Sans le premier, la
-        // ligne restait anonyme pendant tout le début du téléchargement.
-        // (La vignette, elle, se déduit de l'URL — cf. `DownloadJob.thumbnailURL`.)
+        // Title and channel in two stages: oEmbed responds in a few hundred
+        // milliseconds, yt-dlp in a few seconds. Without the first, the line
+        // remained anonymous throughout the start of the download.
+        // (The thumbnail is inferred from the URL — see `DownloadJob.thumbnailURL`.)
         let jobID = job.id
         Task { [weak self] in
             guard let quick = await MediaMetadata.oEmbed(for: trimmed) else { return }
             self?.apply(quick, to: jobID, overwrite: false)
-            // La photo de profil de la chaîne demande une résolution à part, et
-            // n'est en cache qu'à partir du deuxième téléchargement de la même
-            // chaîne. Elle arrive donc APRÈS le nom, ce qui est l'ordre utile.
+            // The channel's profile photo requires separate resolution, and is
+            // cached only from the second download of the same channel. It thus
+            // arrives AFTER the name, which is the useful order.
             guard let key = quick.channelKey, let channelURL = quick.channelURL,
                   let avatar = await ChannelAvatars.shared.avatarURL(
                     channelKey: key, channelURL: channelURL)
             else { return }
             self?.update(jobID) { $0.metadata?.channelAvatarURL = avatar }
         }
-        // Passe par le cache : si l'aperçu du poids a déjà extrait cette vidéo
-        // pendant que l'utilisateur hésitait, on ne relance rien.
+        // Goes through the cache: if the weight preview already extracted this
+        // video while the user was hesitating, nothing is restarted.
         Task { [weak self] in
             guard let meta = await self?.fetchMetadata(urlString: trimmed) else { return }
             self?.apply(meta, to: jobID, overwrite: true)
@@ -196,24 +196,24 @@ final class DownloadManager: ObservableObject {
         return job.id
     }
 
-    /// Met en file toutes les vidéos choisies d'une playlist, dans l'ordre.
+    /// Queues all chosen videos from a playlist, in order.
     func startPlaylist(_ entries: [Playlist.Entry], format: DownloadFormat) {
-        // En sens inverse : `startDownload` insère en tête, donc partir de la
-        // fin laisse la liste dans l'ordre de la playlist à l'écran.
+        // In reverse: `startDownload` inserts at head, so starting from the
+        // end leaves the list in playlist order on screen.
         for entry in entries.reversed() {
             startDownload(urlString: entry.url, format: format)
         }
     }
 
-    // MARK: - File d'attente
+    // MARK: - Queue
 
-    /// Nombre de jobs qui occupent réellement le moteur.
+    /// Number of jobs actually occupying the engine.
     private var activeSlots: Int {
         jobs.filter { running[$0.id] != nil && $0.state.isActive }.count
     }
 
-    /// Lance autant de jobs en attente que la limite l'autorise, du plus ancien
-    /// au plus récent — l'ordre dans lequel ils ont été demandés.
+    /// Launches as many queued jobs as the limit allows, from oldest to
+    /// most recent — the order they were requested.
     private func pump() {
         guard let engine else { return }
         let limit = max(1, AppSettings.shared.maxConcurrent)
@@ -225,11 +225,11 @@ final class DownloadManager: ObservableObject {
             do {
                 let run = try engine.start(url: job.url, format: job.format, jobID: job.id)
                 running[job.id] = run
-                // L'état reste `queued` : yt-dlp doit d'abord se lancer et
-                // interroger YouTube, ce qui prend un temps très visible.
-                // Annoncer « downloading » à cet instant afficherait 0 % et une
-                // barre morte pendant tout ce temps. C'est le premier événement
-                // de progression qui fera basculer l'état.
+                // The state stays `queued`: yt-dlp must first start and query
+                // YouTube, which takes a very visible amount of time.
+                // Announcing "downloading" at that point would show 0% and a
+                // dead bar for that entire time. The first progress event is what
+                // will flip the state.
                 observe(run, jobID: job.id)
             } catch {
                 jobs[index].state = .failed
@@ -238,14 +238,14 @@ final class DownloadManager: ObservableObject {
         }
     }
 
-    /// Un job en attente derrière d'autres, plutôt qu'en train de démarrer.
+    /// A job waiting behind others, rather than starting.
     func isWaiting(_ job: DownloadJob) -> Bool {
         job.state == .queued && running[job.id] == nil
     }
 
-    // MARK: - Reprise après fermeture
+    // MARK: - Resume after closure
 
-    /// Ce qu'il faut pour relancer un job interrompu.
+    /// What's needed to restart an interrupted job.
     struct PendingJob: Codable, Sendable, Identifiable, Equatable {
         let id: UUID
         let url: String
@@ -267,10 +267,9 @@ final class DownloadManager: ObservableObject {
         try? data.write(to: pendingFileURL, options: .atomic)
     }
 
-    /// Lit les téléchargements laissés en plan au dernier arrêt et fait le
-    /// ménage des fichiers partiels devenus orphelins. N'en relance aucun :
-    /// c'est à l'utilisateur de décider, il vient peut-être de les annuler en
-    /// fermant l'app.
+    /// Reads downloads left in limbo at last shutdown and cleans up partial
+    /// files that became orphaned. Relaunches none: it's up to the user to
+    /// decide — they may have just canceled them by closing the app.
     func loadResumable() {
         let data = (try? Data(contentsOf: pendingFileURL)) ?? Data()
         let decoded = (try? JSONDecoder().decode([PendingJob].self, from: data)) ?? []
@@ -278,8 +277,8 @@ final class DownloadManager: ObservableObject {
         DownloadEngine.prunePartials(keeping: Set(decoded.map(\.id)))
     }
 
-    /// Reprend les téléchargements interrompus. Le même identifiant désigne le
-    /// même dossier de fichiers partiels : yt-dlp repart de l'octet courant.
+    /// Resumes interrupted downloads. The same identifier designates the
+    /// same partial-file folder: yt-dlp restarts from the current byte.
     func resumeAll() {
         let pending = resumable
         resumable = []
@@ -297,35 +296,35 @@ final class DownloadManager: ObservableObject {
         savePending()
     }
 
-    /// Enregistre des métadonnées sur un job.
+    /// Records metadata on a job.
     ///
-    /// La vignette est FIGÉE sur celle déduite de l'identifiant YouTube quand
-    /// elle existe : les deux sources en proposent des variantes différentes,
-    /// et en changer d'URL relancerait un chargement — l'avatar clignoterait
-    /// une fois le téléchargement déjà lancé.
+    /// The thumbnail is FROZEN to the one inferred from the YouTube identifier
+    /// when it exists: both sources offer different variants, and changing its
+    /// URL would restart a load — the avatar would flicker once the download
+    /// is already running.
     private func apply(_ metadata: MediaMetadata, to jobID: UUID, overwrite: Bool) {
         update(jobID) { job in
             guard overwrite || job.metadata == nil else { return }
             var merged = metadata
             merged.thumbnailURL = YouTubeLink.thumbnailURL(for: job.url)
                 ?? job.metadata?.thumbnailURL ?? metadata.thumbnailURL
-            // yt-dlp ne connaît ni l'un ni l'autre : sans ces deux lignes, son
-            // arrivée effacerait l'avatar déjà résolu.
+            // yt-dlp knows neither of those: without these two lines, its arrival
+            // would erase the already-resolved avatar.
             merged.channelURL = metadata.channelURL ?? job.metadata?.channelURL
             merged.channelAvatarURL = metadata.channelAvatarURL ?? job.metadata?.channelAvatarURL
             job.metadata = merged
         }
     }
 
-    /// Aperçu (titre/chaîne/durée/miniature) sans démarrer de téléchargement.
-    /// Utilisé par la barre d'aperçu de l'UI et l'endpoint /api/metadata.
-    /// Métadonnées d'une vidéo, extraites AU PLUS UNE FOIS.
+    /// Preview (title/channel/duration/thumbnail) without starting a download.
+    /// Used by the UI preview bar and the /api/metadata endpoint.
+    /// Video metadata, extracted AT MOST ONCE.
     ///
-    /// Chaque lancement de yt-dlp coûte cher : le binaire est un exécutable
-    /// PyInstaller qui se déballe et réimporte tout Python à chaque appel.
-    /// L'app en lançait trois pour un seul téléchargement — l'aperçu du poids
-    /// au collage, les métadonnées du job, puis le téléchargement lui-même.
-    /// Le cache et la déduplication des appels en vol ramènent cela à un seul.
+    /// Each yt-dlp launch is expensive: the binary is a PyInstaller executable
+    /// that unpacks and reimports all of Python on each call.
+    /// The app launched it three times for a single download — the weight
+    /// preview on paste, the job metadata, then the download itself.
+    /// Caching and deduplication of in-flight calls brings that down to one.
     func fetchMetadata(urlString: String) async -> MediaMetadata? {
         let key = YouTubeLink.videoID(from: urlString) ?? urlString
         if let cached = metadataCache[key] { return cached }
@@ -340,18 +339,18 @@ final class DownloadManager: ObservableObject {
         return found
     }
 
-    /// Liste les vidéos d'une playlist, sans en extraire aucune.
+    /// Lists the videos from a playlist, without extracting any of them.
     func fetchPlaylist(urlString: String) async -> Playlist? {
         guard let engine else { return nil }
         return await engine.fetchPlaylist(url: urlString)
     }
 
-    // MARK: - Accès pour le serveur HTTP (données Sendable)
+    // MARK: - Access for HTTP server (Sendable data)
 
-    /// Instantané JSON de tous les jobs.
+    /// JSON snapshot of all jobs.
     func snapshot() -> [JobDTO] { jobs.map(JobDTO.init) }
 
-    /// URL du fichier fini d'un job terminé, sinon nil.
+    /// URL of the finished file from a completed job, else nil.
     func fileURL(forJobID id: UUID) -> URL? {
         guard let job = jobs.first(where: { $0.id == id }), job.state == .completed else { return nil }
         return job.fileURL
@@ -360,14 +359,14 @@ final class DownloadManager: ObservableObject {
     func cancel(_ jobID: UUID) {
         running[jobID]?.cancel()
         update(jobID) { if $0.state.isActive { $0.state = .cancelled } }
-        // Annulation explicite : les fragments ne resserviront pas.
+        // Explicit cancellation: the fragments won't be reused.
         try? FileManager.default.removeItem(at: DownloadEngine.partialDirectory(for: jobID))
         savePending()
         pump()
     }
 
-    /// Suspend le process yt-dlp. Le `.part` reste en place, la reprise
-    /// repart de l'octet courant.
+    /// Suspends the yt-dlp process. The `.part` stays in place, resume
+    /// restarts from the current byte.
     func pause(_ jobID: UUID) {
         guard let run = running[jobID],
               let job = jobs.first(where: { $0.id == jobID }),
@@ -387,7 +386,7 @@ final class DownloadManager: ObservableObject {
         }
     }
 
-    /// Bascule pause/reprise depuis un seul bouton de la capsule.
+    /// Toggle pause/resume from a single capsule button.
     func togglePause(_ jobID: UUID) {
         guard let job = jobs.first(where: { $0.id == jobID }) else { return }
         job.state == .paused ? resume(jobID) : pause(jobID)
@@ -397,7 +396,7 @@ final class DownloadManager: ObservableObject {
         jobs.removeAll { $0.state == .completed || $0.state == .failed || $0.state == .cancelled }
     }
 
-    /// Supprime un job unique (annule d'abord s'il tourne encore).
+    /// Removes a single job (cancels first if it's still running).
     func remove(_ jobID: UUID) {
         running[jobID]?.cancel()
         running[jobID] = nil
@@ -406,14 +405,14 @@ final class DownloadManager: ObservableObject {
         pump()
     }
 
-    /// Relance un téléchargement échoué/annulé avec la même URL et le même format.
+    /// Restarts a failed/canceled download with the same URL and format.
     @discardableResult
     func retry(_ jobID: UUID) -> UUID? {
         guard let job = jobs.first(where: { $0.id == jobID }) else { return nil }
         return startDownload(urlString: job.url, format: job.format)
     }
 
-    // MARK: - Privé
+    // MARK: - Private
 
     private func observe(_ run: DownloadEngine.Running, jobID: UUID) {
         Task { [weak self] in
@@ -422,10 +421,9 @@ final class DownloadManager: ObservableObject {
                 switch event {
                 case .progress(let p):
                     self.update(jobID) { job in
-                        // Une ligne de progression peut arriver APRÈS la mise en
-                        // pause : yt-dlp en avait écrit une avant de recevoir le
-                        // signal. La prendre ferait avancer la barre d'un
-                        // téléchargement à l'arrêt. On la jette.
+                        // A progress line can arrive AFTER pause: yt-dlp wrote one before
+                        // receiving the signal. Taking it would advance the bar of a
+                        // download at rest. We discard it.
                         guard job.state != .cancelled, job.state != .paused else { return }
                         job.state = .downloading
                         job.progress = p
@@ -467,16 +465,16 @@ final class DownloadManager: ObservableObject {
                 }
             }
             self.running[jobID] = nil
-            // Une place se libère : le suivant de la file peut partir.
+            // A slot is freed: the next job in the queue can go.
             self.pump()
         }
     }
 
-    // MARK: - Progression globale
+    // MARK: - Overall progress
 
-    /// Projette la progression du flux courant sur la barre unique, sans jamais
-    /// reculer. Un changement de nom de fichier signale le passage au flux
-    /// suivant (image → son).
+    /// Projects the current stream's progress onto the single bar, never
+    /// receding. A filename change signals the switch to the next stream
+    /// (video → audio).
     private static func advance(_ job: inout DownloadJob, with progress: DownloadProgress) {
         if let file = progress.filename, file != job.currentStreamFile {
             if job.currentStreamFile != nil { job.streamIndex += 1 }
@@ -488,10 +486,10 @@ final class DownloadManager: ObservableObject {
         job.overallProgress = max(job.overallProgress, mapped)
     }
 
-    /// Fait avancer la barre pendant l'assemblage ffmpeg, dont on ne peut pas
-    /// mesurer l'avancement : approche asymptotique du but — vite au début, de
-    /// plus en plus lentement, sans jamais atteindre 100 % avant la fin réelle.
-    /// C'est la convention pour une attente de durée inconnue.
+    /// Advances the bar during ffmpeg assembly, whose progress we cannot
+    /// measure: asymptotic approach to the goal — fast at first, slower and
+    /// slower, never reaching 100% before the actual end.
+    /// This is the convention for a wait of unknown duration.
     private func startMergeTicker() {
         guard mergeTicker == nil else { return }
         mergeTicker = Task { [weak self] in

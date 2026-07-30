@@ -1,39 +1,38 @@
 import Foundation
 
-/// Photo de profil d'une chaîne YouTube.
+/// YouTube channel profile photo.
 ///
-/// Aucune source bon marché ne la donne : oEmbed ne renvoie que le nom et
-/// l'URL de la chaîne, et `yt-dlp --dump-single-json` sur une vidéo n'expose
-/// que `channel_id` / `uploader_url`. La demander à yt-dlp sur l'URL de la
-/// chaîne marche, mais coûte ~16 s — hors de question pour une vignette de
-/// 28 pt.
+/// No cheap source provides it: oEmbed only returns the channel name and
+/// URL, and `yt-dlp --dump-single-json` on a video only exposes
+/// `channel_id` / `uploader_url`. Asking yt-dlp for the channel URL works,
+/// but costs ~16 s — out of the question for a 28 pt thumbnail.
 ///
-/// On lit donc la PAGE DE LA CHAÎNE (~2 s), et surtout on MET EN CACHE par
-/// chaîne : le coût est payé une fois par chaîne, pas à chaque
-/// téléchargement. Un habitué de trois chaînes le paiera trois fois en tout.
+/// So we read the CHANNEL PAGE (~2 s), and especially CACHE by
+/// channel: the cost is paid once per channel, not per download. Someone who
+/// watches three channels pays it three times total.
 ///
-/// C'est de la décoration : en cas d'échec on retombe sur l'initiale de la
-/// chaîne, et rien d'autre n'en dépend.
+/// It's decoration: if it fails, we fall back to the channel's initial,
+/// and nothing else depends on it.
 actor ChannelAvatars {
     static let shared = ChannelAvatars()
 
-    /// Clé = identifiant de chaîne (`@handle` ou `UC…`), valeur = URL de l'avatar.
+    /// Key = channel identifier (`@handle` or `UC…`), value = avatar URL.
     private var cache: [String: String] = [:]
     private var loaded = false
-    /// Résolutions en vol, pour ne pas télécharger deux fois la même page quand
-    /// on lance plusieurs vidéos d'une même chaîne d'affilée.
+    /// In-flight resolutions, to avoid downloading the same page twice when
+    /// launching multiple videos from the same channel in a row.
     private var inFlight: [String: Task<String?, Never>] = [:]
 
     private var fileURL: URL {
         AppConfig.supportDirectory
-            // `-v2` : les entrées de la v1 étaient lues sur la page de la vidéo
-            // et désignaient souvent une chaîne recommandée, pas la bonne. Un
-            // nom de fichier neuf les met au rebut sans code de migration.
+            // `-v2`: v1 entries were read from the video page
+            // and often pointed to a recommended channel, not the right one. A
+            // new filename discards them without migration code.
             .appendingPathComponent("channel-avatars-v2.json")
     }
 
-    /// Avatar d'une chaîne. `channelKey` sert de clé de cache, `channelURL` est
-    /// la page effectivement téléchargée.
+    /// Channel avatar. `channelKey` serves as cache key, `channelURL` is
+    /// the page actually downloaded.
     func avatarURL(channelKey: String, channelURL: String) async -> String? {
         load()
         if let cached = cache[channelKey] { return cached }
@@ -53,32 +52,32 @@ actor ChannelAvatars {
 
     // MARK: - Extraction
 
-    /// `og:image` de la page de la chaîne : par définition l'avatar de CETTE
-    /// chaîne, quel que soit le contenu de la page.
+    /// `og:image` from the channel page: by definition THIS channel's avatar,
+    /// whatever the page content.
     ///
-    /// Ne pas revenir à la page de la vidéo : ses URL `yt3` sont d'abord
-    /// celles des chaînes recommandées en colonne de droite, et l'avatar du
-    /// propriétaire n'y est pas repérable de façon fiable. Prendre « la
-    /// première » donnait l'avatar d'une autre chaîne.
+    /// Don't fall back to the video page: its `yt3` URLs are mostly from
+    /// recommended channels in the right column, and the owner's avatar
+    /// isn't reliably identifiable there. Taking "the first" gave another
+    /// channel's avatar.
     ///
-    /// Le gabarit de taille est renormalisé pour obtenir une image nette sans
-    /// tirer le 900 px que sert `og:image`.
+    /// The size template is renormalized to get a crisp image without
+    /// fetching the 900 px that `og:image` serves.
     private static func scrape(channelURL: String) async -> String? {
         guard let url = URL(string: channelURL) else { return nil }
         var request = URLRequest(url: url)
         request.timeoutInterval = 10
-        // Un User-Agent de navigateur évite les variantes allégées que YouTube
-        // réserve aux clients inconnus.
+        // A browser User-Agent avoids the lightweight variants YouTube
+        // reserves for unknown clients.
         request.setValue(
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
                 + "(KHTML, like Gecko) Version/17.0 Safari/605.1.15",
             forHTTPHeaderField: "User-Agent")
-        // En Europe, une requête sans cookie de consentement est redirigée vers
-        // `consent.youtube.com`, dont la page ne contient évidemment pas
-        // l'avatar. `SOCS=CAI` est le marqueur « choix déjà fait » ; on le pose
-        // à la main plutôt que de dépendre du magasin de cookies partagé, dont
-        // le contenu dépend de ce que l'app a fait avant (d'où un avatar qui
-        // apparaissait ou non selon les fois).
+        // In Europe, a request without a consent cookie is redirected to
+        // `consent.youtube.com`, whose page obviously doesn't contain
+        // the avatar. `SOCS=CAI` is the "choice already made" marker; we set it
+        // manually rather than relying on the shared cookie store, whose
+        // contents depend on what the app did before (hence an avatar that
+        // appeared or not depending on the time).
         request.httpShouldHandleCookies = false
         request.setValue("SOCS=CAI", forHTTPHeaderField: "Cookie")
 
@@ -87,8 +86,8 @@ actor ChannelAvatars {
               let html = String(data: data, encoding: .utf8)
         else { return nil }
 
-        // L'hôte varie (`yt3.ggpht.com`, `yt3.googleusercontent.com`) et le
-        // chemin peut porter un préfixe `ytc/` : on n'ancre que sur `yt3.`.
+        // The host varies (`yt3.ggpht.com`, `yt3.googleusercontent.com`) and the
+        // path may have a `ytc/` prefix: we only anchor on `yt3.`.
         let pattern = #"<meta property="og:image" content="(https://yt3\.[^"]+)""#
         guard let regex = try? NSRegularExpression(pattern: pattern),
               let match = regex.firstMatch(
@@ -97,7 +96,7 @@ actor ChannelAvatars {
         else { return nil }
 
         let raw = String(html[range])
-        // `=s900-` → `=s176-` : la vignette fait 28 pt, soit 84 px en 3×.
+        // `=s900-` → `=s176-`: the thumbnail is 28 pt, or 84 px at 3×.
         return raw.replacingOccurrences(
             of: #"=s\d+-"#, with: "=s176-", options: .regularExpression)
     }

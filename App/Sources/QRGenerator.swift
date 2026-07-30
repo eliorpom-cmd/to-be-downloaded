@@ -2,8 +2,8 @@ import AppKit
 import CoreImage
 import CoreImage.CIFilterBuiltins
 
-/// Génère un QR code (image nette, non interpolée) à partir d'une chaîne.
-/// 100 % natif via CIQRCodeGenerator — aucune dépendance.
+/// Generate a QR code (sharp, uninterpolated image) from a string.
+/// 100% native via CIQRCodeGenerator — no dependencies.
 enum QRGenerator {
     static func image(from string: String, size: CGFloat = 240) -> NSImage? {
         let filter = CIFilter.qrCodeGenerator()

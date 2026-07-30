@@ -3,7 +3,7 @@ import SwiftUI
 extension Notification.Name {
     static let focusURLField = Notification.Name("focusURLField")
     static let pasteAndDownload = Notification.Name("pasteAndDownload")
-    /// ⌘, : les réglages vivent dans la sidebar, pas dans une fenêtre à part.
+    /// ⌘, : settings live in the sidebar, not a separate window.
     static let openSettingsPane = Notification.Name("openSettingsPane")
 }
 
@@ -32,17 +32,17 @@ struct TBDApp: App {
                      library: library, updater: updater, appUpdater: appUpdater,
                      ffmpeg: ffmpeg)
                 .tint(Theme.ink)
-                // Pas de `.preferredColorScheme` : l'apparence est pilotée par
-                // NSApp (cf. AppSettings.applyAppearance), seul moyen de
-                // revenir réellement au réglage système.
+                // No `.preferredColorScheme`: appearance is driven by NSApp
+                // (see AppSettings.applyAppearance), the only way to truly
+                // go back to system settings.
                 .task { AppSettings.applyAppearance(settings.appearance) }
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
         .defaultSize(width: 1000, height: 680)
         .commands {
-            // Remplace l'élément « Settings… » système : il sélectionne la
-            // destination Settings de la sidebar au lieu d'ouvrir une fenêtre.
+            // Replace the system "Settings…" item: select the Settings
+            // destination in the sidebar instead of opening a window.
             CommandGroup(replacing: .appSettings) {
                 Button("Settings…") {
                     NotificationCenter.default.post(name: .openSettingsPane, object: nil)
@@ -66,9 +66,8 @@ struct TBDApp: App {
         MenuBarExtra {
             MenuBarView(manager: manager, server: server, settings: settings)
         } label: {
-            // L'icône de l'app — la pastille entière, celle du Dock — plutôt
-            // qu'un symbole générique, en image template pour suivre le thème
-            // de la barre des menus.
+            // The app icon — the full tile, the one from Dock — not a generic
+            // symbol, as a template image to follow the menu bar theme.
             HStack(spacing: 3) {
                 Image(nsImage: MascotImage.menuBar())
                 if manager.activeCount > 0 {

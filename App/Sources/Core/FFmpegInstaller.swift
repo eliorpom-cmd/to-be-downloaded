@@ -1,27 +1,27 @@
 import Foundation
 import CryptoKit
 
-/// Installe et met à jour FFmpeg, que l'app ne livre pas.
+/// Installs and updates FFmpeg, which the app does not ship with.
 ///
-/// **Pourquoi ce fichier existe.** Le build statique qu'on embarquait était
-/// compilé `--enable-nonfree` : son propre `ffmpeg -L` répond « not legally
-/// redistributable ». Le GPL est la seule licence qui autorise à redistribuer
-/// les parties GPL de FFmpeg, et il retire cette autorisation dès qu'on y lie du
-/// code incompatible — donc plus aucune licence ne couvrait le binaire combiné,
-/// et aucune licence posée sur ce dépôt n'y pouvait quoi que ce soit. Le
-/// télécharger depuis chez celui qui a le droit de le distribuer résout le
-/// problème à la racine, et allège l'app de 86 Mo au passage.
+/// **Why this file exists.** The static build we shipped was compiled with
+/// `--enable-nonfree`: its own `ffmpeg -L` replies "not legally redistributable".
+/// GPL is the only license that permits redistribution of FFmpeg's GPL parts,
+/// and it withdraws that permission as soon as you link incompatible code to it —
+/// so no license covered the combined binary anymore, and no license in this
+/// repository could do anything about it. Downloading it from whoever has the
+/// right to distribute it solves the problem at its root, and saves 86 MB of
+/// app size in the process.
 ///
-/// Le fonctionnement reprend celui d'`EngineUpdater` : rien n'est jamais écrit
-/// dans le bundle (ça casserait sa signature, et `/Applications` n'est pas
-/// toujours inscriptible), tout vit dans `Application Support/TBD/bin`.
+/// The mechanism mirrors `EngineUpdater`: nothing is ever written into the
+/// bundle (it would break its signature, and `/Applications` is not always
+/// writable), everything lives in `Application Support/TBD/bin`.
 @MainActor
 final class FFmpegInstaller: ObservableObject {
 
     enum Status: Equatable {
         case idle
         case checking
-        /// Fraction cumulée sur les DEUX archives (ffmpeg puis ffprobe).
+        /// Cumulative fraction across BOTH archives (ffmpeg then ffprobe).
         case downloading(Double)
         case installing
         case upToDate
@@ -41,13 +41,13 @@ final class FFmpegInstaller: ObservableObject {
     @Published private(set) var availableVersion: String?
     @Published private(set) var lastCheck: Date?
 
-    /// FFmpeg est-il utilisable maintenant ? C'est cette propriété qui décide si
-    /// l'app peut télécharger quoi que ce soit — sans elle, yt-dlp ne peut ni
-    /// assembler les flux ni extraire l'audio.
+    /// Is FFmpeg usable right now? This property decides whether the app can
+    /// download anything — without it, yt-dlp can neither mux streams nor
+    /// extract audio.
     var isInstalled: Bool { BinaryLocator.hasManagedFFmpeg }
 
-    /// Une vérification par jour suffit largement : FFmpeg publie quelques
-    /// versions par an, là où yt-dlp court après les changements de YouTube.
+    /// One check per day is more than enough: FFmpeg releases a few versions
+    /// per year, whereas yt-dlp chases YouTube changes constantly.
     private static let checkInterval: TimeInterval = 24 * 3600
 
     private let store = UserDefaults.standard
@@ -60,25 +60,25 @@ final class FFmpegInstaller: ObservableObject {
         if let stamp = store.object(forKey: Key.lastCheck) as? Double, stamp > 0 {
             lastCheck = Date(timeIntervalSince1970: stamp)
         }
-        // Version mémorisée à l'installation : la relire en lançant le binaire
-        // au démarrage coûterait un sous-processus pour rien.
+        // Version stored at install time: re-reading it by launching the binary
+        // on startup would cost a subprocess for nothing.
         if BinaryLocator.hasManagedFFmpeg {
             installedVersion = store.string(forKey: Key.installedVersion)
         }
     }
 
-    // MARK: - Points d'entrée
+    // MARK: - Entry points
 
-    /// Premier lancement : installe FFmpeg s'il manque, ne fait rien sinon.
-    /// C'est le seul téléchargement que l'app déclenche sans qu'on le lui
-    /// demande — sans FFmpeg, elle ne sait rien faire du tout.
+    /// First launch: install FFmpeg if missing, do nothing otherwise.
+    /// This is the only download the app triggers without being asked —
+    /// without FFmpeg, it cannot do anything at all.
     func installIfMissing() async {
         guard !isInstalled, !status.isBusy else { return }
         await run(force: true)
     }
 
-    /// Contrôle de version, puis installation si une plus récente existe.
-    /// - Parameter userInitiated: `true` court-circuite l'intervalle de 24 h.
+    /// Check for version, then install if a newer one exists.
+    /// - Parameter userInitiated: `true` bypasses the 24-hour interval.
     func checkForUpdate(userInitiated: Bool) async {
         guard !status.isBusy else { return }
         if !userInitiated {
@@ -88,7 +88,7 @@ final class FFmpegInstaller: ObservableObject {
         await run(force: false)
     }
 
-    /// Relit la version réellement installée en interrogeant le binaire.
+    /// Re-read the actually installed version by querying the binary.
     func refreshInstalledVersion() async {
         guard let ffmpeg = try? BinaryLocator.effectiveFFmpeg() else {
             installedVersion = nil
@@ -100,13 +100,13 @@ final class FFmpegInstaller: ObservableObject {
         }
     }
 
-    // MARK: - Déroulé
+    // MARK: - Flow
 
     private func run(force: Bool) async {
         status = .checking
         do {
-            // Une seule résolution sert aux deux composants : ils sont publiés
-            // ensemble, sous le même dossier versionné.
+            // Single resolution serves both components: they are published
+            // together under the same versioned folder.
             let latest = try await Self.resolveLatest(component: "ffmpeg")
             availableVersion = latest.version
 
@@ -141,9 +141,8 @@ final class FFmpegInstaller: ObservableObject {
             installedVersion = version
             store.set(version, forKey: Key.installedVersion)
             status = .installed(version)
-            // Le moteur tient un chemin qui n'existait pas encore : il doit se
-            // reconstruire, sinon l'app reste bloquée jusqu'au prochain
-            // lancement.
+            // The engine holds a path that did not exist yet: it must rebuild,
+            // or the app stays stuck until the next launch.
             NotificationCenter.default.post(name: .engineBinaryDidChange, object: nil)
         } catch {
             status = .failed(error.localizedDescription)
@@ -151,7 +150,7 @@ final class FFmpegInstaller: ObservableObject {
         Self.cleanUpWorkDirectory()
     }
 
-    // MARK: - Résolution de la dernière version
+    // MARK: - Latest version resolution
 
     private struct Resolved: Sendable {
         let component: String
@@ -191,9 +190,9 @@ final class FFmpegInstaller: ObservableObject {
         }
     }
 
-    /// Suit le 307 « latest » **sans le télécharger** : la réponse de redirection
-    /// porte déjà le chemin versionné, donc la version disponible. Une requête
-    /// de quelques octets remplace 28 Mo.
+    /// Follow the 307 "latest" **without downloading it**: the redirect response
+    /// already carries the versioned path, so the available version. A request
+    /// of a few bytes replaces 28 MB.
     private static func resolveLatest(component: String) async throws -> Resolved {
         let entry = URL(string: "\(AppConfig.FFmpegSource.latestBase)/\(component).zip")!
         guard AppConfig.FFmpegSource.isTrustedURL(entry) else { throw InstallError.untrustedURL }
@@ -213,9 +212,9 @@ final class FFmpegInstaller: ObservableObject {
         return Resolved(component: component, archive: archive, version: version(from: archive))
     }
 
-    /// Le dossier versionné s'appelle `<horodatage>_<version>`, par exemple
-    /// `1783011502_8.1.2`. À défaut, on rend le dossier tel quel plutôt que rien :
-    /// il sert d'identité pour savoir si quelque chose a changé.
+    /// The versioned folder is named `<timestamp>_<version>`, for example
+    /// `1783011502_8.1.2`. Failing that, we return the folder as-is rather than
+    /// nothing: it serves as an identity to know if something changed.
     private static func version(from archive: URL) -> String {
         let directory = archive.deletingLastPathComponent().lastPathComponent
         if let underscore = directory.firstIndex(of: "_") {
@@ -224,15 +223,15 @@ final class FFmpegInstaller: ObservableObject {
         return directory
     }
 
-    /// Empêche `URLSession` de suivre la redirection : c'est elle qu'on veut
-    /// lire, pas ce qu'il y a au bout.
+    /// Prevent `URLSession` from following the redirect: it's the redirect
+    /// itself we want to read, not what it points to.
     private final class RedirectBlocker: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
         func urlSession(_ session: URLSession, task: URLSessionTask,
                         willPerformHTTPRedirection response: HTTPURLResponse,
                         newRequest request: URLRequest) async -> URLRequest? { nil }
     }
 
-    // MARK: - Téléchargement
+    // MARK: - Download
 
     private static var workDirectory: URL {
         AppConfig.supportDirectory.appendingPathComponent("ffmpeg-install", isDirectory: true)
@@ -242,11 +241,12 @@ final class FFmpegInstaller: ObservableObject {
         try? FileManager.default.removeItem(at: workDirectory)
     }
 
-    /// Télécharge une archive et vérifie son SHA-256 publié à côté d'elle.
+    /// Download an archive and verify its published SHA-256 alongside it.
     ///
-    /// Cette somme vient du même hôte que l'archive : elle ne protège donc pas
-    /// d'un serveur compromis, seulement d'un transfert tronqué. La vérification
-    /// qui compte vraiment est la signature Developer ID, faite après extraction.
+    /// This checksum comes from the same host as the archive: so it protects
+    /// only against truncated transfers, not a compromised server. The
+    /// verification that truly matters is the Developer ID signature, done
+    /// after extraction.
     private static func downloadAndVerify(
         _ resolved: Resolved,
         onProgress: @escaping @Sendable (Double) -> Void
@@ -263,7 +263,7 @@ final class FFmpegInstaller: ObservableObject {
             throw InstallError.http(http.statusCode)
         }
 
-        // `download(from:)` détruit son fichier temporaire dès le retour.
+        // `download(from:)` destroys its temp file on return.
         let zip = workDirectory.appendingPathComponent("\(resolved.component).zip")
         try? fm.removeItem(at: zip)
         try fm.moveItem(at: temp, to: zip)
@@ -276,7 +276,7 @@ final class FFmpegInstaller: ObservableObject {
         return zip
     }
 
-    /// Fichier `<archive>.sha256`, au format `<hash>  <nom>`.
+    /// File `<archive>.sha256`, in format `<hash>  <name>`.
     private static func publishedChecksum(for resolved: Resolved) async throws -> String {
         let url = resolved.archive.appendingPathExtension("sha256")
         guard AppConfig.FFmpegSource.isTrustedURL(url) else { throw InstallError.untrustedURL }
@@ -304,8 +304,8 @@ final class FFmpegInstaller: ObservableObject {
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
-    /// 28 Mo par archive : une barre indéterminée ferait douter qu'il se passe
-    /// quelque chose, au moment précis où l'app ne sait encore rien faire.
+    /// 28 MB per archive: an indeterminate bar would raise doubt that anything
+    /// is happening, precisely when the app still cannot do anything.
     private final class ProgressObserver: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
         private let onProgress: @Sendable (Double) -> Void
 
@@ -326,8 +326,8 @@ final class FFmpegInstaller: ObservableObject {
 
     // MARK: - Installation
 
-    /// Extrait, authentifie, essaie, puis installe. Dans cet ordre : rien n'est
-    /// posé dans le dossier géré avant d'être vérifié ET d'avoir démarré une fois.
+    /// Extract, authenticate, test, then install. In that order: nothing is
+    /// placed in the managed folder before being verified AND having started once.
     private static func install(_ archives: [String: URL]) async throws -> String {
         let fm = FileManager.default
         let unpacked = workDirectory.appendingPathComponent("unpacked", isDirectory: true)
@@ -339,9 +339,9 @@ final class FFmpegInstaller: ObservableObject {
         for component in AppConfig.FFmpegSource.components {
             guard let zip = archives[component] else { throw InstallError.missingBinary(component) }
 
-            // `ditto` plutôt qu'`unzip` : il préserve permissions, attributs
-            // étendus et signature — et c'est la signature qu'on s'apprête à
-            // vérifier.
+            // `ditto` rather than `unzip`: it preserves permissions, extended
+            // attributes, and signature — and it's the signature we are about to
+            // verify.
             let result = try await ProcessRunner.run(
                 executable: URL(fileURLWithPath: "/usr/bin/ditto"),
                 arguments: ["-x", "-k", zip.path, unpacked.path])
@@ -356,9 +356,9 @@ final class FFmpegInstaller: ObservableObject {
                 throw InstallError.missingBinary(component)
             }
 
-            // LA vérification qui compte. Un hôte compromis peut servir une
-            // archive et la somme qui va avec ; il ne peut pas signer au nom
-            // d'une équipe Apple dont il n'a pas la clé.
+            // THE verification that matters. A compromised host can serve an
+            // archive and the checksum that goes with it; it cannot sign on
+            // behalf of an Apple team whose key it does not hold.
             try CodeSignature.verifyDeveloperID(
                 at: binary, teamIdentifier: AppConfig.FFmpegSource.signingTeam)
 
@@ -368,9 +368,9 @@ final class FFmpegInstaller: ObservableObject {
             verified[component] = binary
         }
 
-        // Essai à blanc avant de rien remplacer : un binaire qui ne démarre pas
-        // (mauvaise architecture, dépendance manquante) doit être refusé ici, pas
-        // découvert au premier téléchargement.
+        // Dry run before replacing anything: a binary that won't start (wrong
+        // architecture, missing dependency) must be rejected here, not
+        // discovered on first download.
         guard let ffmpeg = verified["ffmpeg"] else { throw InstallError.missingBinary("ffmpeg") }
         let probe = try await ProcessRunner.run(executable: ffmpeg, arguments: ["-version"])
         guard probe.exitCode == 0, let version = parseVersion(probe.stdout) else {
@@ -383,8 +383,8 @@ final class FFmpegInstaller: ObservableObject {
         try fm.createDirectory(at: BinaryLocator.managedDirectory, withIntermediateDirectories: true)
         for (component, binary) in verified {
             let destination = BinaryLocator.managedDirectory.appendingPathComponent(component)
-            // Remplacement atomique, sans danger pendant un téléchargement en
-            // cours : sous POSIX, le process déjà lancé garde son inode.
+            // Atomic replacement, safe during an ongoing download: on POSIX, an
+            // already-running process keeps its inode.
             if fm.fileExists(atPath: destination.path) {
                 _ = try fm.replaceItemAt(destination, withItemAt: binary)
             } else {
@@ -403,9 +403,9 @@ final class FFmpegInstaller: ObservableObject {
         return parseVersion(result.stdout)
     }
 
-    /// Première ligne : `ffmpeg version 8.1.2-https://www.martin-riedl.de …`.
-    /// Le suffixe d'origine du build est retiré, mais pas les tirets internes —
-    /// un snapshot s'appelle `N-125610-g312c830916` et doit rester lisible tel quel.
+    /// First line: `ffmpeg version 8.1.2-https://www.martin-riedl.de …`.
+    /// The build's original suffix is stripped, but not internal dashes —
+    /// a snapshot is called `N-125610-g312c830916` and must stay readable as-is.
     static func parseVersion(_ output: String) -> String? {
         guard let line = output.split(separator: "\n").first,
               let range = line.range(of: "version ")

@@ -1,13 +1,13 @@
 import Foundation
 
-/// Type de média à produire.
+/// Media type to produce.
 enum MediaKind: String, Codable, Sendable, CaseIterable, Identifiable {
     case video
     case audio
     var id: String { rawValue }
 
-    /// Le conteneur n'est plus dans le libellé : il se règle à part
-    /// (`AudioFormat`), et la vidéo sort toujours en MP4.
+    /// The container is no longer in the label: it's set separately
+    /// (`AudioFormat`), and video always outputs as MP4.
     var label: String {
         switch self {
         case .video: return "Video"
@@ -16,7 +16,7 @@ enum MediaKind: String, Codable, Sendable, CaseIterable, Identifiable {
     }
 }
 
-/// Qualité vidéo (hauteur max en pixels ; `max` = meilleure dispo).
+/// Video quality (max height in pixels; `max` = best available).
 enum VideoQuality: Int, CaseIterable, Sendable, Identifiable {
     case p360 = 360
     case p480 = 480
@@ -28,7 +28,7 @@ enum VideoQuality: Int, CaseIterable, Sendable, Identifiable {
     var label: String { self == .max ? "Max" : "\(rawValue)p" }
 }
 
-/// Débit audio MP3.
+/// MP3 audio bitrate.
 enum AudioBitrate: Int, CaseIterable, Sendable, Identifiable {
     case k128 = 128
     case k192 = 192
@@ -38,12 +38,12 @@ enum AudioBitrate: Int, CaseIterable, Sendable, Identifiable {
     var label: String { "\(rawValue) kbps" }
 }
 
-/// Conteneur audio produit.
+/// Output audio container.
 ///
-/// YouTube sert de l'AAC : le convertir en MP3 le ré-encode, donc dégrade et
-/// prend du temps. Le garder en M4A évite les deux — et l'AAC se lit partout
-/// (Apple, Windows, Android, autoradios). MP3 reste proposé pour le matériel
-/// ancien, qui est la seule chose qui ne le lise pas.
+/// YouTube serves AAC: converting it to MP3 re-encodes it, degrading quality
+/// and taking time. Keeping it as M4A avoids both — and AAC plays everywhere
+/// (Apple, Windows, Android, car stereos). MP3 is still offered for old
+/// hardware, which is the only thing that won't play it.
 enum AudioFormat: String, CaseIterable, Sendable, Identifiable, Codable {
     case m4a
     case mp3
@@ -64,17 +64,17 @@ enum AudioFormat: String, CaseIterable, Sendable, Identifiable, Codable {
         }
     }
 
-    /// Le débit n'est réglable que si l'on ré-encode.
+    /// Bitrate is adjustable only if we re-encode.
     var usesBitrate: Bool { self == .mp3 }
 }
 
-/// Spécification complète d'un téléchargement.
+/// Complete download specification.
 struct DownloadFormat: Sendable, Equatable, Codable {
     var kind: MediaKind
     var videoQuality: VideoQuality = .p1080
     var audioBitrate: AudioBitrate = .k192
     var audioFormat: AudioFormat = .m4a
-    /// Incruster les sous-titres dans le MP4 (vidéo seulement).
+    /// Embed subtitles in the MP4 (video only).
     var subtitles: Bool = false
 
     var shortLabel: String {

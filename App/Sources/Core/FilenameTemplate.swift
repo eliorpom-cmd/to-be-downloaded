@@ -1,12 +1,12 @@
 import Foundation
 
-/// Comment nommer les fichiers produits.
+/// How to name produced files.
 ///
-/// L'app passait `--restrict-filenames` à yt-dlp, qui remplace tout espace par
-/// un souligné et ampute les caractères accentués : on obtenait
-/// `Rick_Astley_-_Never_Gonna_Give_You_Up_Official_Video_4K_Re…`. Sans cette
-/// option, yt-dlp ne remplace que les caractères réellement interdits par le
-/// système de fichiers, et le titre reste lisible.
+/// The app passed `--restrict-filenames` to yt-dlp, which replaces every space
+/// with an underscore and strips accented characters: we got
+/// `Rick_Astley_-_Never_Gonna_Give_You_Up_Official_Video_4K_Re…`. Without
+/// this option, yt-dlp only replaces characters truly forbidden by the
+/// filesystem, and the title stays readable.
 enum FilenameTemplate: String, CaseIterable, Identifiable, Sendable {
     case title
     case channelTitle
@@ -24,7 +24,7 @@ enum FilenameTemplate: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// Aperçu montré sous le réglage, avec une vidéo réelle en exemple.
+    /// Preview shown under the setting, with a real video as example.
     var example: String {
         switch self {
         case .title:        return "Never Gonna Give You Up.mp4"
@@ -34,7 +34,7 @@ enum FilenameTemplate: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// Motif yt-dlp correspondant, SANS l'extension (ajoutée par l'appelant).
+    /// Corresponding yt-dlp pattern, WITHOUT the extension (added by caller).
     var pattern: String? {
         switch self {
         case .title:        return "%(title)s"
@@ -44,11 +44,11 @@ enum FilenameTemplate: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// Motif complet à passer à `-o`, extension comprise.
+    /// Complete pattern to pass to `-o`, extension included.
     ///
-    /// Un gabarit personnalisé est nettoyé avant usage : un `/` y créerait des
-    /// sous-dossiers, ce que le réglage ne promet pas, et un motif vide ferait
-    /// écrire un fichier sans nom.
+    /// A custom template is cleaned before use: a `/` would create
+    /// subfolders, which the setting does not promise, and an empty pattern
+    /// would write a file with no name.
     static func outputPattern(_ template: FilenameTemplate, custom: String) -> String {
         let base: String
         if let pattern = template.pattern {

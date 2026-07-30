@@ -1,12 +1,12 @@
 import Foundation
 import Security
 
-/// Vérification de signature de code, sans passer par `codesign`.
+/// Code signature verification without calling `codesign`.
 ///
-/// On pourrait lancer `/usr/bin/codesign` et lire sa sortie ; l'API Security
-/// fait la même chose sans sous-processus, sans parsing de texte, et rend une
-/// erreur exploitable. Elle est aussi la seule à savoir dire « signé par CETTE
-/// équipe » d'une façon qui ne se contrefait pas.
+/// We could run `/usr/bin/codesign` and parse its output; the Security API
+/// does the same thing without a subprocess, without text parsing, and returns
+/// an actionable error. It's also the only way to say "signed by THIS
+/// team" in a way that can't be forged.
 enum CodeSignature {
 
     enum SignatureError: LocalizedError {
@@ -26,31 +26,31 @@ enum CodeSignature {
         }
     }
 
-    /// Exige une signature **Developer ID** délivrée par Apple à l'équipe
-    /// donnée, chaîne de certification comprise.
+    /// Requires a **Developer ID** signature issued by Apple to the given
+    /// team, including the certificate chain.
     ///
-    /// C'est la garantie forte de tout le chemin de téléchargement : le SHA-256
-    /// vient du même hôte que le binaire, donc il ne protège que d'un transfert
-    /// tronqué. Une signature Developer ID, elle, ne peut pas être fabriquée par
-    /// quelqu'un qui prendrait le contrôle du serveur — il faudrait la clé
-    /// privée de l'équipe ET l'autorité de certification d'Apple.
+    /// This is the strong guarantee of the entire download path: the SHA-256
+    /// comes from the same host as the binary, so it only protects against
+    /// truncated transfers. A Developer ID signature, on the other hand,
+    /// cannot be forged by someone who took control of the server — you'd need
+    /// the team's private key AND Apple's certificate authority.
     ///
     /// - Parameters:
-    ///   - url: le binaire à vérifier.
-    ///   - teamIdentifier: l'identifiant d'équipe attendu (ex. `"KU3N25YGLU"`).
+    ///   - url: the binary to verify.
+    ///   - teamIdentifier: the expected team identifier (e.g., `"KU3N25YGLU"`).
     static func verifyDeveloperID(at url: URL, teamIdentifier: String) throws {
         var staticCode: SecStaticCode?
         guard SecStaticCodeCreateWithPath(url as CFURL, [], &staticCode) == errSecSuccess,
               let code = staticCode
         else { throw SignatureError.unreadable }
 
-        // Forme canonique d'Apple pour « Developer ID de telle équipe » :
-        //   - ancre Apple,
-        //   - le certificat intermédiaire porte le marqueur Developer ID CA,
-        //   - la feuille porte le marqueur Developer ID Application,
-        //   - et son unité organisationnelle est l'identifiant d'équipe.
-        // Vérifier la seule OU sans les marqueurs laisserait passer un
-        // certificat Apple d'un autre type portant le même champ.
+        // Apple's canonical form for "Developer ID of such-and-such team":
+        //   - Apple anchor,
+        //   - the intermediate cert carries the Developer ID CA marker,
+        //   - the leaf carries the Developer ID Application marker,
+        //   - and its organizational unit is the team identifier.
+        // Checking only OU without the markers would pass an Apple cert of
+        // another type carrying the same field.
         let requirementText = """
             anchor apple generic \
             and certificate 1[field.1.2.840.113635.100.6.2.6] \
@@ -64,18 +64,18 @@ enum CodeSignature {
         else { throw SignatureError.unreadable }
 
         var errorRef: Unmanaged<CFError>?
-        // `.enforceRevocationChecks` n'est PAS demandé : il exige le réseau et
-        // ferait échouer une vérification hors ligne. La chaîne Apple et le
-        // marqueur d'équipe suffisent ici.
+        // `.enforceRevocationChecks` is NOT requested: it requires the network
+        // and would fail offline verification. The Apple chain and team marker
+        // are enough here.
         let status = SecStaticCodeCheckValidityWithErrors(
             code, SecCSFlags(rawValue: kSecCSCheckAllArchitectures), requirement, &errorRef)
 
         guard status == errSecSuccess else {
             let detail = errorRef?.takeRetainedValue().localizedDescription
                 ?? "OSStatus \(status)"
-            // `errSecCSReqFailed` = la signature est valide mais ne vient pas de
-            // l'équipe attendue. À distinguer d'un binaire non signé ou abîmé :
-            // c'est le seul cas qui ressemble à une substitution.
+            // `errSecCSReqFailed` = signature is valid but does not come from
+            // the expected team. Distinguish from unsigned or corrupted binary:
+            // only this case looks like substitution.
             throw status == errSecCSReqFailed
                 ? SignatureError.wrongAuthority
                 : SignatureError.invalid(detail)

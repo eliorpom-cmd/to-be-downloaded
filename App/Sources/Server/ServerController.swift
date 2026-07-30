@@ -1,16 +1,16 @@
 import Foundation
 import FlyingFox
 
-/// Démarre/arrête le serveur HTTP LAN et expose son état à l'UI.
-/// Partage le même DownloadManager que l'UI native (moteur unique).
+/// Starts/stops the LAN HTTP server and exposes its state to the UI.
+/// Shares the same DownloadManager as the native UI (single engine).
 @MainActor
 final class ServerController: ObservableObject {
 
     @Published private(set) var isRunning = false
     @Published private(set) var url: String?
     @Published private(set) var lastError: String?
-    /// Dernier appel reçu d'un appareil du réseau (poll /api/jobs). Sert à
-    /// afficher « appareil connecté » tant qu'un client garde la page ouverte.
+    /// Last call from a network device (poll /api/jobs). Used to display
+    /// "device connected" as long as a client keeps the page open.
     @Published private(set) var lastClientPing: Date?
 
     private(set) var port: UInt16
@@ -35,10 +35,10 @@ final class ServerController: ObservableObject {
         url = "http://\(ip):\(port)"
         isRunning = true
 
-        // Icône PNG pré-rendue (PWA / apple-touch-icon), générée hors des
-        // handlers (qui tournent hors du thread principal).
+        // Pre-rendered PNG icon (PWA / apple-touch-icon), generated outside of
+        // handlers (which run off the main thread).
         let iconData = AppIcon.png(size: 512)
-        // Variante serrée pour l'onglet du navigateur : voir `AppIcon.favicon`.
+        // Tight variant for the browser tab: see `AppIcon.favicon`.
         let faviconData = AppIcon.favicon(size: 64)
 
         task = Task { [weak self] in
@@ -46,7 +46,7 @@ final class ServerController: ObservableObject {
             do {
                 try await server.run()
             } catch {
-                // Arrêt volontaire (task annulée) : ce n'est pas une erreur.
+                // Voluntary stop (task cancelled): not an error.
                 if Task.isCancelled { return }
                 await MainActor.run {
                     self?.lastError = error.localizedDescription
@@ -69,7 +69,7 @@ final class ServerController: ObservableObject {
         lastClientPing = nil
     }
 
-    /// Redémarre le serveur (ex. après un changement de port dans les Réglages).
+    /// Restarts the server (e.g. after a port change in Settings).
     func restart() {
         stop()
         start()
@@ -86,10 +86,10 @@ final class ServerController: ObservableObject {
         let appName = AppConfig.displayName
         let shortName = AppConfig.shortName
 
-        // Page web
+        // Web page
         await server.appendRoute("GET /") { _ in
-            // Lu à chaque requête, et non capturé au démarrage : changer le
-            // format audio dans l'app doit se voir au rafraîchissement suivant.
+            // Read on each request, not captured at startup: changing the audio
+            // format in the app must be visible on the next refresh.
             let audioBitrateSelectable = await MainActor.run {
                 AppSettings.shared.audioFormat.usesBitrate
             }
@@ -101,7 +101,7 @@ final class ServerController: ObservableObject {
                                 body: Data(html.utf8))
         }
 
-        // Manifest PWA (« Ajouter à l'écran d'accueil »).
+        // PWA manifest ("Add to Home Screen").
         await server.appendRoute("GET /manifest.webmanifest") { _ in
             HTTPResponse(statusCode: .ok,
                          headers: [.contentType: "application/manifest+json"],
@@ -109,7 +109,7 @@ final class ServerController: ObservableObject {
                                                        shortName: shortName).utf8))
         }
 
-        // Icône d'écran d'accueil (PWA + apple-touch-icon).
+        // Home screen icon (PWA + apple-touch-icon).
         await server.appendRoute("GET /icon-512.png") { _ in
             guard let iconData else {
                 return HTTPResponse(statusCode: .notFound, body: Data())
@@ -119,7 +119,7 @@ final class ServerController: ObservableObject {
                                 body: iconData)
         }
 
-        // Icône d'onglet.
+        // Tab icon.
         await server.appendRoute("GET /favicon.png") { _ in
             guard let faviconData else {
                 return HTTPResponse(statusCode: .notFound, body: Data())
@@ -129,7 +129,7 @@ final class ServerController: ObservableObject {
                                 body: faviconData)
         }
 
-        // Liste des jobs (chaque appel = un appareil actif sur le réseau).
+        // Job list (each call = one active device on the network).
         await server.appendRoute("GET /api/jobs") { [weak self] _ in
             await self?.noteClientActivity()
             let jobs = await downloads.snapshot()
@@ -139,7 +139,7 @@ final class ServerController: ObservableObject {
                                 body: data)
         }
 
-        // Aperçu des métadonnées (titre/chaîne/durée/miniature), sans téléchargement.
+        // Metadata preview (title/channel/duration/thumbnail), no download.
         await server.appendRoute("GET /api/metadata") { request in
             let url = request.query["url"]?.trimmingCharacters(in: .whitespaces) ?? ""
             guard !url.isEmpty, let meta = await downloads.fetchMetadata(urlString: url) else {
@@ -153,7 +153,7 @@ final class ServerController: ObservableObject {
                                 body: data)
         }
 
-        // Nouveau téléchargement
+        // New download
         await server.appendRoute("POST /api/download") { request in
             guard let body = try? await request.bodyData,
                   let dto = try? JSONDecoder().decode(DownloadRequestDTO.self, from: body),
@@ -162,9 +162,8 @@ final class ServerController: ObservableObject {
                                     headers: [.contentType: "application/json"],
                                     body: Data(#"{"error":"invalid request"}"#.utf8))
             }
-            // Le conteneur audio et les sous-titres suivent les réglages de
-            // l'app : la page web ne les expose pas, elle ne doit pas décider
-            // à leur place.
+            // Audio container and subtitles follow the app's settings:
+            // the web page does not expose them, it must not decide for them.
             let defaults = await MainActor.run { AppSettings.shared.currentDefaultFormat }
             let id = await downloads.startDownload(
                 urlString: dto.url, format: dto.toFormat(defaults: defaults))
@@ -175,7 +174,7 @@ final class ServerController: ObservableObject {
                                 body: data)
         }
 
-        // Annuler un téléchargement
+        // Cancel a download
         await server.appendRoute("POST /api/cancel/:id") { (_: HTTPRequest, id: String) in
             if let uuid = UUID(uuidString: id) { await downloads.cancel(uuid) }
             return HTTPResponse(statusCode: .ok,
@@ -183,7 +182,7 @@ final class ServerController: ObservableObject {
                                 body: Data("{}".utf8))
         }
 
-        // Effacer les téléchargements terminés/échoués/annulés
+        // Clear completed/failed/cancelled downloads
         await server.appendRoute("POST /api/clear") { _ in
             await downloads.removeCompleted()
             return HTTPResponse(statusCode: .ok,
@@ -191,7 +190,7 @@ final class ServerController: ObservableObject {
                                 body: Data("{}".utf8))
         }
 
-        // Récupération du fichier fini (streamé, pas chargé en RAM)
+        // Fetch the finished file (streamed, not loaded in RAM)
         await server.appendRoute("GET /api/file/:id") { (_: HTTPRequest, id: String) in
             guard let uuid = UUID(uuidString: id),
                   let fileURL = await downloads.fileURL(forJobID: uuid),

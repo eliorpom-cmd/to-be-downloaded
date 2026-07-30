@@ -24,8 +24,8 @@
 	<dict>
 		<key>NSExtensionAttributes</key>
 		<dict>
-			<!-- Une seule URL web à la fois : on ne partage pas une sélection
-			     multiple vers un téléchargeur. -->
+			<!-- One web URL at a time: no sharing multiple selections to a
+			     downloader. -->
 			<key>NSExtensionActivationRule</key>
 			<dict>
 				<key>NSExtensionActivationSupportsWebURLWithMaxCount</key>

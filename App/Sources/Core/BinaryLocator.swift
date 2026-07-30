@@ -1,16 +1,16 @@
 import Foundation
 
-/// Localise et prépare les binaires embarqués (yt-dlp, ffmpeg) dans le bundle.
+/// Locates and prepares embedded binaries (yt-dlp, ffmpeg) in the bundle.
 ///
-/// Les binaires sont copiés dans `Contents/Resources/bin` du .app. À la copie,
-/// le bit exécutable peut être perdu : on le rétablit au runtime (`ensureExecutable`).
+/// Binaries are copied to `Contents/Resources/bin` of the .app. On copy,
+/// the executable bit can be lost: we restore it at runtime (`ensureExecutable`).
 enum BinaryLocator {
 
     enum BinaryError: LocalizedError {
         case notFound(String)
-        /// FFmpeg n'est pas livré avec l'app : il s'installe au premier
-        /// lancement (cf. `FFmpegInstaller`). Cas normal, pas une anomalie —
-        /// l'interface le traite comme une étape d'installation, pas une erreur.
+        /// FFmpeg is not shipped with the app: it installs on first
+        /// launch (see `FFmpegInstaller`). Normal case, not an anomaly —
+        /// the UI treats it as an install step, not an error.
         case notInstalled(String)
 
         var errorDescription: String? {
@@ -23,20 +23,20 @@ enum BinaryLocator {
         }
     }
 
-    /// URL du dossier `bin` dans les Resources du bundle.
+    /// URL of the `bin` folder in the bundle's Resources.
     static var binDirectory: URL? {
         Bundle.main.resourceURL?.appendingPathComponent("bin", isDirectory: true)
     }
 
-    /// Résout le chemin d'un binaire embarqué et garantit qu'il est exécutable.
-    /// - Parameter name: nom du fichier (ex. "yt-dlp").
+    /// Resolves the path of an embedded binary and ensures it is executable.
+    /// - Parameter name: file name (e.g., "yt-dlp").
     static func url(for name: String) throws -> URL {
-        // 1) Cherche via l'API Bundle (fonctionne si le fichier est une resource plate).
+        // 1) Search via Bundle API (works if the file is a flat resource).
         if let url = Bundle.main.url(forResource: name, withExtension: nil, subdirectory: "bin") {
             try ensureExecutable(at: url)
             return url
         }
-        // 2) Repli : construit le chemin manuellement.
+        // 2) Fallback: construct the path manually.
         if let dir = binDirectory {
             let url = dir.appendingPathComponent(name)
             if FileManager.default.fileExists(atPath: url.path) {
@@ -47,13 +47,13 @@ enum BinaryLocator {
         throw BinaryError.notFound(name)
     }
 
-    // MARK: - Copie gérée (mise à jour à chaud)
+    // MARK: - Managed Copy (Hot Update)
 
-    /// Dossier des binaires que l'app peut remplacer elle-même.
+    /// Folder of binaries that the app can replace itself.
     ///
-    /// Volontairement HORS du bundle : réécrire `Contents/Resources` casserait
-    /// la signature du `.app`, et `/Applications` n'est pas toujours accessible
-    /// en écriture à l'utilisateur.
+    /// Intentionally OUTSIDE the bundle: rewriting `Contents/Resources` would
+    /// break the `.app`'s signature, and `/Applications` is not always
+    /// user-writable.
     static var managedDirectory: URL {
         AppConfig.supportDirectory
             .appendingPathComponent("bin", isDirectory: true)
@@ -67,9 +67,9 @@ enum BinaryLocator {
         FileManager.default.isExecutableFile(atPath: managedYtDlp.path)
     }
 
-    /// yt-dlp réellement exécuté : la copie mise à jour si elle existe, sinon
-    /// l'amorce livrée dans le bundle (qui garantit une app fonctionnelle dès
-    /// l'installation, même hors ligne).
+    /// yt-dlp actually executed: the updated copy if it exists, otherwise
+    /// the bootstrap shipped in the bundle (which guarantees a working app
+    /// right after installation, even offline).
     static func effectiveYtDlp() throws -> URL {
         if hasManagedYtDlp {
             try? ensureExecutable(at: managedYtDlp)
@@ -78,7 +78,7 @@ enum BinaryLocator {
         return try url(for: AppConfig.ytDlpBinaryName)
     }
 
-    // MARK: - FFmpeg (jamais embarqué)
+    // MARK: - FFmpeg (never embedded)
 
     static var managedFFmpeg: URL {
         managedDirectory.appendingPathComponent(AppConfig.ffmpegBinaryName)
@@ -88,19 +88,19 @@ enum BinaryLocator {
         managedDirectory.appendingPathComponent("ffprobe")
     }
 
-    /// Les DEUX exécutables sont nécessaires : yt-dlp sonde les flux avec
-    /// ffprobe avant de demander l'assemblage à ffmpeg. N'en avoir qu'un
-    /// (installation interrompue) équivaut à n'en avoir aucun.
+    /// BOTH executables are needed: yt-dlp probes streams with ffprobe before
+    /// asking ffmpeg to assemble. Having only one (interrupted install) amounts
+    /// to having none.
     static var hasManagedFFmpeg: Bool {
         let fm = FileManager.default
         return fm.isExecutableFile(atPath: managedFFmpeg.path)
             && fm.isExecutableFile(atPath: managedFFprobe.path)
     }
 
-    /// FFmpeg réellement exécuté. Contrairement à yt-dlp, il n'y a PAS d'amorce
-    /// dans le bundle : le build qu'on y mettait n'était pas redistribuable
-    /// (cf. `FFmpegInstaller`). Tant qu'il n'est pas installé, l'app le dit et
-    /// propose de le télécharger.
+    /// FFmpeg actually executed. Unlike yt-dlp, there is NO bootstrap in the
+    /// bundle: the build we put there was not redistributable (see
+    /// `FFmpegInstaller`). Until it is installed, the app says so and offers to
+    /// download it.
     static func effectiveFFmpeg() throws -> URL {
         guard hasManagedFFmpeg else {
             throw BinaryError.notInstalled(AppConfig.ffmpegBinaryName)
@@ -110,19 +110,19 @@ enum BinaryLocator {
         return managedFFmpeg
     }
 
-    /// Chemin d'une resource (non exécutable) dans `bin`, si elle existe.
+    /// Path of a resource (non-executable) in `bin`, if it exists.
     static func resourceInBin(_ name: String) -> URL? {
         guard let dir = binDirectory else { return nil }
         let url = dir.appendingPathComponent(name)
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
-    /// Rétablit le bit exécutable (`chmod +x`) et retire la quarantaine.
+    /// Restore the executable bit (`chmod +x`) and remove quarantine.
     static func ensureExecutable(at url: URL) throws {
         let fm = FileManager.default
         let perms = try fm.attributesOfItem(atPath: url.path)[.posixPermissions] as? NSNumber
         let current = perms?.uint16Value ?? 0
-        // 0o111 = bits exécutables (user/group/other).
+        // 0o111 = executable bits (user/group/other).
         if current & 0o111 == 0 {
             let newPerms = NSNumber(value: current | 0o755)
             try fm.setAttributes([.posixPermissions: newPerms], ofItemAtPath: url.path)
@@ -130,9 +130,9 @@ enum BinaryLocator {
         stripQuarantine(at: url)
     }
 
-    /// Retire `com.apple.quarantine` : sans notarisation, un binaire embarqué
-    /// hérite de la quarantaine si l'app a été téléchargée/AirDrop, ce qui
-    /// empêche son exécution. On l'enlève pour que yt-dlp/ffmpeg démarrent.
+    /// Remove `com.apple.quarantine`: without notarization, an embedded binary
+    /// inherits quarantine if the app was downloaded/AirDropped, which prevents
+    /// its execution. Remove it so yt-dlp/ffmpeg start.
     static func stripQuarantine(at url: URL) {
         url.path.withCString { path in
             _ = removexattr(path, "com.apple.quarantine", 0)

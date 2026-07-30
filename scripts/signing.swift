@@ -1,34 +1,34 @@
 #!/usr/bin/env swift
 //
-//  Signature des releases — Ed25519 (CryptoKit).
+//  Release signing — Ed25519 (CryptoKit).
 //
-//  C'est la RACINE DE CONFIANCE des mises à jour automatiques : l'app ne
-//  remplace son propre bundle que si l'archive téléchargée porte une signature
-//  valide pour la clé publique compilée dans le binaire. Comme l'app n'est pas
-//  notarisée par Apple, cette signature est la SEULE garantie d'authenticité —
-//  elle joue exactement le rôle que joue le Developer ID chez Sparkle.
+//  This is the ROOT OF TRUST for automatic updates: the app only replaces its
+//  own bundle if the downloaded archive carries a valid signature for the public
+//  key compiled in the binary. Since the app is not Apple-notarized, this
+//  signature is the ONLY authenticity guarantee — it plays the exact role of
+//  Developer ID in Sparkle.
 //
-//  Les clés privées ne quittent jamais cette machine :
-//      ~/.config/tbd-release/ed25519.key          (0600)  — signature courante
-//      ~/.config/tbd-release/ed25519-backup.key   (0600)  — secours
+//  Private keys never leave this machine:
+//      ~/.config/tbd-release/ed25519.key          (0600)  — current signature
+//      ~/.config/tbd-release/ed25519-backup.key   (0600)  — backup
 //
-//  DEUX clés, et les deux clés publiques sont acceptées par l'app. C'est ce qui
-//  évite l'impasse : si la clé courante est perdue, on signe la version suivante
-//  avec la clé de secours et les mises à jour continuent de fonctionner. Range
-//  la clé de secours AILLEURS que sur ce Mac (gestionnaire de mots de passe).
+//  TWO keys, and both public keys are accepted by the app. This avoids lockout:
+//  if the current key is lost, sign the next version with the backup key and
+//  updates keep working. Store the backup key ELSEWHERE than on this Mac (password
+//  manager).
 //
-//  → À NE JAMAIS committer. Elles vivent hors du repo exprès.
+//  → NEVER commit. They live outside the repo on purpose.
 //
-//  Usage :
-//      ./scripts/signing.swift keygen [backup]           # une fois par clé
+//  Usage:
+//      ./scripts/signing.swift keygen [backup]           # once per key
 //      ./scripts/signing.swift pubkey [backup]
-//      ./scripts/signing.swift sign <fichier> [backup]   # écrit <fichier>.sig
-//      ./scripts/signing.swift verify <fichier> <fichier.sig> <pubkey-base64>
+//      ./scripts/signing.swift sign <file> [backup]      # writes <file>.sig
+//      ./scripts/signing.swift verify <file> <file.sig> <pubkey-base64>
 //
 import Foundation
 import CryptoKit
 
-/// `backup` en dernier argument sélectionne la clé de secours.
+/// `backup` as last argument selects the backup key.
 let useBackupKey = CommandLine.arguments.dropFirst().contains("backup")
 
 let keyPath: URL = {
@@ -50,13 +50,13 @@ func loadPrivateKey() -> Curve25519.Signing.PrivateKey {
           let raw = Data(base64Encoded: text.trimmingCharacters(in: .whitespacesAndNewlines)),
           let key = try? Curve25519.Signing.PrivateKey(rawRepresentation: raw)
     else {
-        fail("Clé privée introuvable ou illisible : \(keyPath.path)\n   Lance d'abord : ./scripts/signing.swift keygen")
+        fail("Private key not found or unreadable: \(keyPath.path)\n   First run: ./scripts/signing.swift keygen")
     }
     return key
 }
 
-/// Lecture mappée : une archive de release pèse ~100 Mo, inutile de la charger
-/// entièrement en mémoire pour la signer.
+/// Memory-mapped reading: a release archive weighs ~100 MB, no point loading
+/// it entirely into memory to sign it.
 func mappedContents(of path: String) -> Data {
     guard let data = try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe) else {
         fail("Fichier illisible : \(path)")
@@ -66,14 +66,14 @@ func mappedContents(of path: String) -> Data {
 
 let args = Array(CommandLine.arguments.dropFirst())
 guard let command = args.first else {
-    fail("Commande manquante (keygen | pubkey | sign | verify)")
+    fail("Missing command (keygen | pubkey | sign | verify)")
 }
 
 switch command {
 case "keygen":
     if FileManager.default.fileExists(atPath: keyPath.path) {
         let key = loadPrivateKey()
-        print("ℹ️  Clé déjà présente : \(keyPath.path)")
+        print("ℹ️  Key already present: \(keyPath.path)")
         print(key.publicKey.rawRepresentation.base64EncodedString())
         exit(0)
     }
@@ -82,27 +82,27 @@ case "keygen":
         at: keyPath.deletingLastPathComponent(),
         withIntermediateDirectories: true,
         attributes: [.posixPermissions: NSNumber(value: 0o700)])
-    // Écriture directe avec des permissions restrictives : jamais de fenêtre
-    // pendant laquelle la clé serait lisible par tous.
+    // Direct write with restrictive permissions: never a window where the
+    // key is readable by everyone.
     guard FileManager.default.createFile(
         atPath: keyPath.path,
         contents: Data(key.rawRepresentation.base64EncodedString().utf8),
         attributes: [.posixPermissions: NSNumber(value: 0o600)])
-    else { fail("Écriture impossible : \(keyPath.path)") }
+    else { fail("Cannot write: \(keyPath.path)") }
 
-    print("✅ Clé privée créée : \(keyPath.path) (0600)")
+    print("✅ Private key created: \(keyPath.path) (0600)")
     print(useBackupKey
-        ? "   Range-la HORS de ce Mac : c'est elle qui te sauvera si l'autre est perdue."
-        : "   SAUVEGARDE-LA (et garde aussi la clé de secours ailleurs).")
+        ? "   Store it ELSEWHERE than this Mac: it will save you if the other is lost."
+        : "   BACK IT UP (and keep the backup key elsewhere too).")
     print("")
-    print("Clé publique à ajouter dans AppConfig.updatePublicKeys :")
+    print("Public key to add to AppConfig.updatePublicKeys:")
     print(key.publicKey.rawRepresentation.base64EncodedString())
 
 case "pubkey":
     print(loadPrivateKey().publicKey.rawRepresentation.base64EncodedString())
 
 case "sign":
-    guard args.count >= 2 else { fail("Usage : sign <fichier>") }
+    guard args.count >= 2 else { fail("Usage: sign <file>") }
     let target = args[1]
     let signature = try loadPrivateKey().signature(for: mappedContents(of: target))
     let encoded = signature.base64EncodedString()
@@ -110,20 +110,20 @@ case "sign":
     print(encoded)
 
 case "verify":
-    guard args.count >= 4 else { fail("Usage : verify <fichier> <fichier.sig> <pubkey-base64>") }
+    guard args.count >= 4 else { fail("Usage: verify <file> <file.sig> <pubkey-base64>") }
     guard let rawKey = Data(base64Encoded: args[3]),
           let publicKey = try? Curve25519.Signing.PublicKey(rawRepresentation: rawKey)
-    else { fail("Clé publique invalide") }
+    else { fail("Invalid public key") }
     guard let sigText = try? String(contentsOf: URL(fileURLWithPath: args[2]), encoding: .utf8),
           let signature = Data(base64Encoded: sigText.trimmingCharacters(in: .whitespacesAndNewlines))
-    else { fail("Signature illisible : \(args[2])") }
+    else { fail("Unreadable signature: \(args[2])") }
 
     if publicKey.isValidSignature(signature, for: mappedContents(of: args[1])) {
-        print("✅ Signature valide")
+        print("✅ Signature valid")
     } else {
-        fail("Signature INVALIDE")
+        fail("Signature INVALID")
     }
 
 default:
-    fail("Commande inconnue : \(command)")
+    fail("Unknown command: \(command)")
 }

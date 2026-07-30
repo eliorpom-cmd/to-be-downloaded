@@ -1,15 +1,15 @@
 import Foundation
 
-/// Une playlist YouTube et ses vidéos, lues sans rien télécharger.
+/// A YouTube playlist and its videos, read without downloading anything.
 struct Playlist: Sendable, Equatable, Identifiable {
-    /// Identité de présentation seulement (`.sheet(item:)`), pas d'identifiant
-    /// YouTube : deux lectures de la même playlist sont deux objets distincts.
+    /// Presentation identity only (`.sheet(item:)`), not a YouTube identifier:
+    /// two reads of the same playlist are two distinct objects.
     let id = UUID()
     var title: String
     var entries: [Entry]
 
     struct Entry: Sendable, Equatable, Identifiable {
-        let id: String          // identifiant vidéo YouTube
+        let id: String          // YouTube video identifier
         var title: String
         var duration: Double?
 
@@ -17,12 +17,11 @@ struct Playlist: Sendable, Equatable, Identifiable {
         var thumbnailURL: String { "https://i.ytimg.com/vi/\(id)/mqdefault.jpg" }
     }
 
-    /// Décode `yt-dlp --flat-playlist --dump-single-json`.
+    /// Decode `yt-dlp --flat-playlist --dump-single-json`.
     ///
-    /// « Plat » veut dire qu'on ne demande QUE la liste : yt-dlp n'extrait
-    /// aucune des vidéos. Sans cela, une playlist de cinquante titres
-    /// demanderait cinquante extractions complètes avant d'afficher quoi que
-    /// ce soit.
+    /// "Flat" means we request ONLY the list: yt-dlp extracts none of the
+    /// videos. Without it, a fifty-video playlist would require fifty complete
+    /// extractions before displaying anything.
     static func decode(from data: Data) -> Playlist? {
         struct RawEntry: Decodable {
             let id: String?
@@ -39,8 +38,8 @@ struct Playlist: Sendable, Equatable, Identifiable {
 
         let entries = rawEntries.compactMap { entry -> Entry? in
             guard let id = entry.id, !id.isEmpty else { return nil }
-            // Les vidéos privées ou supprimées apparaissent sans titre
-            // exploitable : les proposer au choix ne servirait à rien.
+            // Private or deleted videos appear without usable title: offering
+            // them for choice would be pointless.
             let title = entry.title ?? ""
             guard !title.isEmpty, title != "[Private video]", title != "[Deleted video]"
             else { return nil }

@@ -1,7 +1,7 @@
 import Foundation
 
-/// Lance un binaire via `Process` SANS injection shell : les arguments sont
-/// passés dans un tableau, jamais concaténés dans une ligne de commande.
+/// Launch a binary via `Process` WITHOUT shell injection: arguments are passed
+/// in an array, never concatenated into a command line.
 enum ProcessRunner {
 
     struct Result: Sendable {
@@ -10,14 +10,13 @@ enum ProcessRunner {
         let stderr: String
     }
 
-    /// Exécute `executable` avec `arguments` et renvoie sa sortie une fois terminé.
+    /// Run `executable` with `arguments` and return its output once finished.
     ///
-    /// Les deux tuyaux sont vidés EN CONTINU, pendant que le process tourne.
-    /// Attendre sa fin pour les lire bloque dès que la sortie dépasse la taille
-    /// du tampon du tuyau (64 Ko) : le process reste coincé sur son écriture,
-    /// donc ne se termine jamais, donc on ne lit jamais. C'est exactement ce
-    /// qui arrivait sur une playlist un peu fournie, dont le JSON pèse
-    /// plusieurs centaines de kilo-octets.
+    /// Both pipes are drained CONTINUOUSLY while the process runs. Waiting for
+    /// it to finish before reading them deadlocks once output exceeds the pipe
+    /// buffer (64 KB): the process gets stuck on its write, so never finishes,
+    /// so we never read. This is exactly what happened with a well-populated
+    /// playlist whose JSON weighs hundreds of kilobytes.
     static func run(
         executable: URL,
         arguments: [String],
@@ -76,8 +75,8 @@ enum ProcessRunner {
     }
 }
 
-/// Assemble les deux sorties et ne rend la main qu'une fois le process terminé
-/// ET les deux flux épuisés — dans n'importe quel ordre.
+/// Assemble both outputs and return control only once the process exits AND
+/// both streams are exhausted — in any order.
 private final class OutputCollector: @unchecked Sendable {
     private let lock = NSLock()
     private var out = Data()
@@ -87,7 +86,7 @@ private final class OutputCollector: @unchecked Sendable {
     private var exitCode: Int32?
     private var finished = false
 
-    /// Assignée avant le lancement, appelée une seule fois.
+    /// Assigned before launch, called once only.
     var onFinished: ((Data, Data, Int32) -> Void)?
 
     func append(_ data: Data, toStandardOutput: Bool) {
@@ -110,7 +109,7 @@ private final class OutputCollector: @unchecked Sendable {
         finishIfReady()
     }
 
-    /// Le lancement a échoué : plus personne ne rendra la main, on neutralise.
+    /// Launch failed: no one will return control, neutralize it.
     func cancel() {
         lock.lock(); finished = true; lock.unlock()
     }

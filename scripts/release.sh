@@ -1,35 +1,35 @@
 #!/usr/bin/env bash
 #
-# Publie une version : build Release → archive ZIP signée Ed25519 → cask Homebrew.
+# Publishes a release: Release build → Ed25519-signed ZIP archive → Homebrew cask.
 #
-# Usage :  ./scripts/release.sh 0.2.0 [backup]
+# Usage: ./scripts/release.sh 0.2.0 [backup]
 #
-# « backup » signe avec la clé de secours au lieu de la clé courante (utile si
-# celle-ci est perdue : les deux clés publiques sont acceptées par l'app).
+# "backup" signs with the backup key instead of the current key (useful if the
+# current is lost: both public keys are accepted by the app).
 #
-# Le script ne publie RIEN tout seul : il prépare tout dans dist/ et affiche la
-# commande `gh release create` à lancer. Publier reste une décision explicite.
+# The script publishes NOTHING by itself: it prepares everything in dist/ and
+# displays the `gh release create` command to run. Publishing stays explicit.
 #
-# Ce que les utilisateurs recevront ensuite automatiquement : l'app installée
-# vérifie une fois par jour les releases de ce dépôt, refuse toute archive dont
-# la signature Ed25519 ne correspond pas à la clé publique compilée dans
-# l'app (AppConfig.updatePublicKey), et remplace son propre bundle.
+# What users will then get automatically: the installed app checks this
+# repository for releases once a day, rejects any archive whose Ed25519
+# signature doesn't match the public key compiled in the app
+# (AppConfig.updatePublicKey), and replaces its own bundle.
 #
 set -euo pipefail
 
 VERSION="${1:-}"
 if [ -z "$VERSION" ]; then
-  echo "Usage : ./scripts/release.sh <version>   (ex. 0.2.0)"; exit 1
+  echo "Usage: ./scripts/release.sh <version>   (e.g. 0.2.0)"; exit 1
 fi
 if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-  echo "❌ Version attendue au format X.Y.Z (reçu : $VERSION)"; exit 1
+  echo "❌ Expected a version in X.Y.Z form (got: $VERSION)"; exit 1
 fi
 
-KEY_KIND="${2:-}"   # "" (clé courante) ou "backup"
+KEY_KIND="${2:-}"   # "" (current key) or "backup"
 
 APP_NAME="TBD"
-# Token du cask = ce que l'utilisateur tape après le tap. Développé, parce
-# qu'on ne le tape qu'une fois et qu'il doit être devinable :
+# Cask token = what the user types after the tap. Spelled out because you type
+# it only once and it must be guessable:
 #   brew install --cask --no-quarantine eliorpom-cmd/tap/to-be-downloaded
 CASK_TOKEN="to-be-downloaded"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -38,64 +38,63 @@ ZIP_NAME="$APP_NAME-$VERSION-macos.zip"
 
 cd "$ROOT"
 
-# Dépôt déduit du remote git : renommer le dépôt ne demande donc pas de toucher
-# à ce script (seul AppConfig.updateRepository reste à mettre à jour).
+# Repository deduced from git remote: renaming the repo doesn't require
+# editing this script (only AppConfig.updateRepository needs updating).
 REPO="$(git remote get-url origin 2>/dev/null \
   | /usr/bin/sed -E 's#^git@github.com:##; s#^https://github.com/##; s#\.git$##')"
 if [ -z "$REPO" ]; then
-  echo "❌ Impossible de déduire le dépôt GitHub depuis 'git remote get-url origin'"; exit 1
+  echo "❌ Cannot deduce the GitHub repository from 'git remote get-url origin'"; exit 1
 fi
 
 APP_REPO="$(/usr/bin/grep -o 'updateRepository = "[^"]*"' App/Sources/AppConfig.swift \
   | /usr/bin/sed 's/.*"\(.*\)"/\1/')"
 if [ "$REPO" != "$APP_REPO" ]; then
-  echo "❌ Le dépôt du remote ($REPO) et celui compilé dans l'app ($APP_REPO) diffèrent."
-  echo "   → Mets à jour AppConfig.updateRepository, sinon l'app ira chercher"
-  echo "     ses mises à jour au mauvais endroit."
+  echo "❌ The remote repository ($REPO) and the one compiled into the app ($APP_REPO) differ."
+  echo "   → Update AppConfig.updateRepository, otherwise the app will look for"
+  echo "     its updates in the wrong place."
   exit 1
 fi
 
-echo "▶ Version $VERSION dans project.yml…"
+echo "▶ Version $VERSION in project.yml…"
 /usr/bin/sed -i '' -E "s/MARKETING_VERSION: \"[^\"]*\"/MARKETING_VERSION: \"$VERSION\"/" project.yml
 BUILD_NUMBER="$(/bin/date +%Y%m%d%H%M)"
 /usr/bin/sed -i '' -E "s/CURRENT_PROJECT_VERSION: \"[^\"]*\"/CURRENT_PROJECT_VERSION: \"$BUILD_NUMBER\"/" project.yml
 
-echo "▶ yt-dlp embarqué : dernière version stable…"
+echo "▶ Bundled yt-dlp: latest stable version…"
 "$ROOT/scripts/update-ytdlp.sh" stable >/dev/null
 
 echo "▶ Build Release + signature ad-hoc + DMG…"
 "$ROOT/scripts/build.sh" >/dev/null
 
 APP="$DIST/$APP_NAME.app"
-[ -d "$APP" ] || { echo "❌ App introuvable après build : $APP"; exit 1; }
+[ -d "$APP" ] || { echo "❌ App not found after build: $APP"; exit 1; }
 
-# La version DANS le bundle doit correspondre à la release : l'updater refuse
-# une archive dont l'Info.plist annonce autre chose que le tag.
+# The version IN the bundle must match the release: the updater rejects
+# an archive whose Info.plist announces anything different than the tag.
 SHIPPED="$(/usr/bin/defaults read "$APP/Contents/Info" CFBundleShortVersionString)"
 if [ "$SHIPPED" != "$VERSION" ]; then
-  echo "❌ Le bundle annonce $SHIPPED au lieu de $VERSION"; exit 1
+  echo "❌ The bundle announces $SHIPPED instead of $VERSION"; exit 1
 fi
 
-# Accolades obligatoires : collé à « … », bash avale les octets UTF-8 dans le
-# nom de la variable.
+# Braces required: attached to "…", bash would eat UTF-8 bytes in the var name.
 echo "▶ Archive ${ZIP_NAME}…"
-# ditto (et pas zip) : préserve permissions, attributs étendus et signature
-# ad-hoc du bundle. C'est aussi ditto qui l'extraira côté client.
+# ditto (not zip): preserves permissions, extended attributes, and the bundle's
+# ad-hoc signature. It will also extract it on the client side.
 rm -f "$DIST/$ZIP_NAME" "$DIST/$ZIP_NAME.sig"
 /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$APP" "$DIST/$ZIP_NAME"
 
-echo "▶ Signature Ed25519 (clé ${KEY_KIND:-courante})…"
+echo "▶ Ed25519 signature (${KEY_KIND:-current} key)…"
 "$ROOT/scripts/signing.swift" sign "$DIST/$ZIP_NAME" $KEY_KIND >/dev/null
 PUBKEY="$("$ROOT/scripts/signing.swift" pubkey $KEY_KIND)"
 "$ROOT/scripts/signing.swift" verify "$DIST/$ZIP_NAME" "$DIST/$ZIP_NAME.sig" "$PUBKEY"
 
-# Garde-fou : signer avec une clé que les apps installées ne connaissent pas
-# rendrait la mise à jour impossible chez les utilisateurs. On vérifie donc que
-# la clé utilisée figure bien parmi celles compilées dans l'app.
+# Safeguard: signing with a key that installed apps don't know about would
+# break updates for users. So we verify that the key used is among those
+# compiled in the app.
 if ! /usr/bin/grep -q "$PUBKEY" App/Sources/AppConfig.swift; then
-  echo "❌ La clé utilisée n'est pas dans AppConfig.updatePublicKeys :"
+  echo "❌ The key used is not in AppConfig.updatePublicKeys:"
   echo "   $PUBKEY"
-  echo "   → Les apps déjà installées ne pourraient PAS valider cette release."
+  echo "   → Already-installed apps could NOT validate this release."
   exit 1
 fi
 
@@ -114,14 +113,14 @@ cask "$CASK_TOKEN" do
   desc "Downloads YouTube video and audio, with a LAN web remote"
   homepage "https://github.com/$REPO"
 
-  # L'app se met à jour elle-même (releases signées Ed25519), donc Homebrew ne
-  # doit pas s'inquiéter de voir une version plus récente que la sienne.
+  # The app updates itself (Ed25519-signed releases), so Homebrew shouldn't
+  # worry about seeing a newer version than its own.
   auto_updates true
   depends_on macos: ">= :ventura"
 
-  # Installé sous le nom complet : Spotlight indexe une app par son nom de
-  # FICHIER et ignore CFBundleDisplayName. Sous « TBD.app », l'app serait
-  # introuvable en cherchant « to be downloaded ».
+  # Installed with the full name: Spotlight indexes an app by its FILE NAME
+  # and ignores CFBundleDisplayName. Under "TBD.app" the app would be unfound
+  # searching for "to be downloaded".
   app "$APP_NAME.app", target: "TBD - To be downloaded.app"
 
   caveats <<~EOS
@@ -143,22 +142,22 @@ end
 CASK
 
 echo ""
-echo "✅ Prêt dans dist/"
+echo "✅ Ready in dist/"
 echo "   $ZIP_NAME        ($(/usr/bin/du -h "$DIST/$ZIP_NAME" | /usr/bin/awk '{print $1}'))"
-echo "   $ZIP_NAME.sig    (signature Ed25519)"
-echo "   $CASK_TOKEN.rb    (cask Homebrew, sha256 $SHA)"
+echo "   $ZIP_NAME.sig    (Ed25519 signature)"
+echo "   $CASK_TOKEN.rb    (Homebrew cask, sha256 $SHA)"
 echo ""
-echo "1) Publier la release :"
+echo "1) Publish the release:"
 echo ""
 echo "   gh release create v$VERSION \\"
 echo "     \"$DIST/$ZIP_NAME\" \\"
 echo "     \"$DIST/$ZIP_NAME.sig\" \\"
 echo "     --repo $REPO --title \"v$VERSION\" --notes \"…\""
 echo ""
-echo "2) Mettre à jour le tap (repo eliorpom-cmd/homebrew-tap) :"
+echo "2) Update the tap (repo eliorpom-cmd/homebrew-tap):"
 echo ""
-echo "   cp \"$DIST/$CASK_TOKEN.rb\" <clone-du-tap>/Casks/$CASK_TOKEN.rb"
-echo "   # puis commit + push"
+echo "   cp \"$DIST/$CASK_TOKEN.rb\" <tap-clone>/Casks/$CASK_TOKEN.rb"
+echo "   # then commit + push"
 echo ""
-echo "ℹ️  Les deux fichiers ZIP et .sig doivent être attachés à la release :"
-echo "    sans le .sig, les apps installées refuseront la mise à jour."
+echo "ℹ️  Both the ZIP and the .sig must be attached to the release:"
+echo "    without the .sig, installed apps will refuse the update."

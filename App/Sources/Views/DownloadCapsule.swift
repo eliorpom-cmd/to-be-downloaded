@@ -1,22 +1,22 @@
 import SwiftUI
 import AppKit
 
-/// La ligne de téléchargement de la maquette : une capsule dont le **fond se
-/// remplit** au fil de la progression, avec la vignette de la chaîne à gauche,
-/// le titre, la meta à droite et une affordance contextuelle.
+/// The download row from the mockup: a capsule whose **background fills**
+/// as progress advances, with the channel thumbnail on the left,
+/// title, metadata on the right, and contextual affordance.
 ///
-/// Partagée par l'écran Download (session) et l'onglet Library (section
-/// « Downloading »).
+/// Shared by the Download screen (session) and the Library tab (section
+/// "Downloading").
 struct DownloadCapsule: View {
     let job: DownloadJob
-    /// En file derrière d'autres, plutôt qu'en train de se préparer.
+    /// Queued behind others, rather than starting up.
     var waiting: Bool = false
     let onTogglePause: () -> Void
     let onCancel: () -> Void
     let onRetry: () -> Void
-    /// Clic sur la ligne terminée.
+    /// Click on the completed row.
     let onOpen: () -> Void
-    /// Clic sur la coche : retire la ligne de la liste de la session.
+    /// Click on the checkmark: removes the row from the session list.
     var onDismiss: () -> Void = {}
 
     @State private var hovering = false
@@ -24,16 +24,16 @@ struct DownloadCapsule: View {
 
     private var isFailed: Bool { job.state == .failed }
 
-    /// yt-dlp est lancé mais n'a encore rien émis : il se déballe et interroge
-    /// YouTube. Rien à mesurer, mais il faut que ça se voie.
+    /// yt-dlp is running but hasn't emitted anything yet: it's unpacking
+    /// and querying YouTube. Nothing to measure, but it needs to show.
     private var isPreparing: Bool { job.state == .queued && !waiting }
 
     var body: some View {
         ZStack(alignment: .leading) {
-            // Fond de piste.
+            // Track background.
             Capsule().fill(hovering ? Theme.rowHover : Theme.fillTertiary)
 
-            // Remplissage de progression, découpé par la capsule.
+            // Progress fill, clipped by the capsule.
             if let fraction = job.progressFraction {
                 GeometryReader { geo in
                     Rectangle()
@@ -44,8 +44,8 @@ struct DownloadCapsule: View {
                 .clipShape(Capsule())
             }
 
-            // Balayage indéterminé pendant la préparation : la seule façon
-            // honnête de dire « ça travaille » quand on ne peut rien mesurer.
+            // Indeterminate sweep during preparation: the only honest way to
+            // say "it's working" when there's nothing to measure.
             if isPreparing {
                 GeometryReader { geo in
                     LinearGradient(
@@ -67,17 +67,16 @@ struct DownloadCapsule: View {
                 ChannelAvatar(urlString: job.metadata?.channelAvatarURL,
                               channelName: job.metadata?.channel)
 
-                // Tant que le titre n'est pas connu, un trait neutre plutôt que
-                // l'URL brute : elle s'affichait puis sautait au vrai titre.
+                // While the title is unknown, a neutral line instead of
+                // the raw URL: it would display then jump to the real title.
                 if job.metadata?.title == nil, job.state.isActive {
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
                         .fill(Theme.fillSecondary)
                         .frame(width: 132, height: 9)
                         .transition(.opacity)
                 } else {
-                    // Priorité de mise en page au titre : c'est lui qu'on
-                    // cherche du regard, et la meta n'a plus qu'un pourcentage
-                    // à loger.
+                    // Layout priority goes to the title: that's what the eye
+                    // seeks, and metadata only has a percentage to fit.
                     Text(job.displayTitle)
                         .font(Theme.Text.body)
                         .foregroundStyle(job.state == .paused ? Theme.labelSecondary : Theme.label)
@@ -89,9 +88,9 @@ struct DownloadCapsule: View {
 
                 Spacer(minLength: Theme.Space.s6)
 
-                // Largeur RÉSERVÉE et chiffres à chasse fixe : le texte change à
-                // chaque rafraîchissement, et sans cela toute la ligne — titre
-                // compris — se décalait à chaque image.
+                // RESERVED width and monospace digits: the text changes on
+                // every refresh, and without this the whole row — title
+                // included — would shift every frame.
                 Text(metaText)
                     .font(Theme.Text.caption)
                     .monospacedDigit()
@@ -106,25 +105,25 @@ struct DownloadCapsule: View {
         }
         .frame(height: 44)
         .overlay {
-            // Un échec se signale par un liseré, pas par une couleur.
+            // A failure shows via border, not color.
             if isFailed {
                 Capsule().strokeBorder(Theme.strokeEmphasis, lineWidth: 1)
             }
         }
         .animation(.easeOut(duration: 0.25), value: job.metadata?.title)
         .overlay(alignment: .topTrailing) { liveTooltip }
-        // Sinon l'info-bulle passerait SOUS la capsule suivante.
+        // Otherwise the tooltip would pass UNDER the next capsule.
         .zIndex(hovering ? 1 : 0)
         .contentShape(Capsule())
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
-        // Toute la capsule est cliquable une fois le fichier là.
-        // Une ligne terminée mène à la bibliothèque, pas au Finder : on reste
-        // dans l'app, où la vidéo a une fiche, une vignette et un menu.
+        // The entire capsule is clickable once the file is there.
+        // A completed row goes to the library, not Finder: stay
+        // in the app, where the video has a card, thumbnail, and menu.
         .onTapGesture {
             if job.state == .completed { onOpen() }
         }
-        // Un fichier terminé se glisse vers le Finder ou n'importe quelle app.
+        // A completed file can be dragged to Finder or any other app.
         .onDrag {
             guard job.state == .completed, let url = job.fileURL,
                   let provider = NSItemProvider(contentsOf: url)
@@ -135,15 +134,15 @@ struct DownloadCapsule: View {
         .help(helpText)
     }
 
-    // MARK: - Info-bulle vivante
+    // MARK: - Live Tooltip
 
-    /// Le débit et le temps restant ne tiennent plus dans la ligne : ils
-    /// mangeaient la place du titre. Ils s'affichent au survol.
+    /// Bitrate and remaining time no longer fit in the row: they
+    /// consumed the title space. They show on hover.
     ///
-    /// Vue SwiftUI et NON `.help()` : ce dernier pose une info-bulle AppKit,
-    /// dont le texte n'est relu qu'au survol SUIVANT. Elle restait donc figée
-    /// sur les chiffres du moment où on est arrivé dessus, ce qui est pire que
-    /// de ne rien afficher pour une valeur qui change chaque seconde.
+    /// SwiftUI view, NOT `.help()`: the latter places an AppKit tooltip,
+    /// whose text only updates on the NEXT hover. It would stay frozen
+    /// on the numbers from when you arrived, which is worse than
+    /// showing nothing for a value that changes every second.
     @ViewBuilder
     private var liveTooltip: some View {
         if hovering, let text = liveDetail {
@@ -169,7 +168,7 @@ struct DownloadCapsule: View {
         }
     }
 
-    /// Contenu de l'info-bulle : `nil` quand il n'y a rien qui bouge à dire.
+    /// Tooltip content: `nil` when there's nothing moving to report.
     private var liveDetail: String? {
         switch job.state {
         case .downloading:
@@ -200,16 +199,16 @@ struct DownloadCapsule: View {
         case .completed:
             return "Show in Library — \(job.displayTitle)"
         default:
-            // Les états qui bougent ont l'info-bulle vivante ci-dessus ; celle
-            // d'AppKit ne sert plus qu'à donner le titre en entier.
+            // Active states have the live tooltip above; the AppKit one
+            // now only displays the full title.
             return job.displayTitle
         }
     }
 
-    // MARK: - Meta
+    // MARK: - Metadata
 
-    /// Place réservée à la meta pendant qu'elle bouge. Étroite : elle ne porte
-    /// plus qu'un pourcentage, le reste est passé en info-bulle.
+    /// Reserved space for metadata while it changes. Narrow: it now only
+    /// holds a percentage, the rest moved to the tooltip.
     private var metaWidth: CGFloat? {
         switch job.state {
         case .downloading:      return 34
@@ -224,12 +223,12 @@ struct DownloadCapsule: View {
         case .queued:
             return waiting ? "Waiting…" : "Preparing…"
         case .downloading:
-            // Le pourcentage suit la barre unique, pas le flux en cours : les
-            // deux doivent raconter la même histoire.
+            // The percentage follows the overall bar, not the current stream:
+            // both must tell the same story.
             return "\(Int(job.overallProgress * 100))%"
         case .paused:
-            // Le mot, pas le chiffre : sans lui, une barre arrêtée ressemble à
-            // un téléchargement bloqué. Le pourcentage est dans l'info-bulle.
+            // The word, not the number: without it, a stopped bar looks like
+            // a stalled download. The percentage is in the tooltip.
             return "Paused"
         case .merging:
             return "Finishing up…"
@@ -242,16 +241,15 @@ struct DownloadCapsule: View {
         }
     }
 
-    // MARK: - Affordance de fin de ligne
+    // MARK: - End-of-Row Affordance
 
     @ViewBuilder
     private var trailing: some View {
         switch job.state {
         case .queued, .downloading, .paused:
-            // Une seule affordance, toujours la même : annuler. La pause reste
-            // au menu contextuel — un bouton qui change de sens selon le survol
-            // fait hésiter, et personne ne met un téléchargement en pause aussi
-            // souvent qu'il l'abandonne.
+            // One affordance, always the same: cancel. Pause lives in the
+            // context menu — a button that changes meaning on hover causes
+            // hesitation, and no one pauses a download as often as they abandon it.
             IconButton(symbol: "xmark.circle.fill", size: 15, help: "Cancel", action: onCancel)
         case .merging:
             ProgressView()
@@ -267,7 +265,7 @@ struct DownloadCapsule: View {
         }
     }
 
-    // MARK: - Menu contextuel
+    // MARK: - Context Menu
 
     @ViewBuilder
     private var menu: some View {
@@ -301,12 +299,12 @@ struct DownloadCapsule: View {
     }
 }
 
-// MARK: - Construction depuis le manager
+// MARK: - Construction from Manager
 
 extension DownloadCapsule {
-    /// Raccourci : câble les actions sur le manager pour un job donné.
-    /// `onOpen` par défaut révèle dans le Finder ; l'écran Download le
-    /// remplace par un passage à la bibliothèque.
+    /// Shortcut: wires actions to the manager for a given job.
+    /// `onOpen` defaults to reveal in Finder; the Download screen
+    /// replaces it with a navigation to the library.
     init(job: DownloadJob, manager: DownloadManager, onOpen: (() -> Void)? = nil) {
         self.init(
             job: job,

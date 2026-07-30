@@ -1,14 +1,14 @@
 import SwiftUI
 
-/// Choix des vidéos à prendre dans une playlist.
+/// Choose which videos to take from a playlist.
 ///
-/// Elle ne s'ouvre QUE si le lien en désigne une. Auparavant, `--no-playlist`
-/// était câblé en dur : coller une playlist téléchargeait la première vidéo
-/// sans le dire, ce qui est le pire des comportements — silencieux et faux.
+/// It only opens if the link designates one. Previously, `--no-playlist`
+/// was hardcoded: pasting a playlist would download the first video
+/// without saying so, the worst behavior — silent and wrong.
 struct PlaylistSheet: View {
     let playlist: Playlist
-    /// Vidéo précise visée par le lien, quand il en désigne une
-    /// (`watch?v=…&list=…`). C'est le cas ambigu qui justifie la question.
+    /// Specific video targeted by the link, when it designates one
+    /// (`watch?v=…&list=…`). This is the ambiguous case that justifies asking.
     let focusedVideoID: String?
     let onDownload: ([Playlist.Entry]) -> Void
     let onCancel: () -> Void
@@ -28,7 +28,7 @@ struct PlaylistSheet: View {
         .onAppear { selection = Set(playlist.entries.map(\.id)) }
     }
 
-    // MARK: - Morceaux
+    // MARK: - Pieces
 
     private var header: some View {
         VStack(alignment: .leading, spacing: Theme.Space.s2) {
@@ -97,8 +97,8 @@ struct PlaylistSheet: View {
             }
             .buttonStyle(.push)
 
-            // Raccourci du cas courant : on a cliqué une vidéo, elle
-            // appartenait à une playlist, on ne voulait qu'elle.
+            // Shortcut for the common case: clicked a video, it was in a
+            // playlist, only that one was wanted.
             if let focusedVideoID,
                let entry = playlist.entries.first(where: { $0.id == focusedVideoID }) {
                 Button("This Video Only") { onDownload([entry]) }

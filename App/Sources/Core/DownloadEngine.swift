@@ -1,35 +1,35 @@
 import Foundation
 
-/// Événements émis pendant un téléchargement.
+/// Events emitted during a download.
 enum DownloadEvent: Sendable {
     case progress(DownloadProgress)
-    /// yt-dlp a fini de télécharger et lance un post-traitement ffmpeg
-    /// (fusion vidéo+audio, extraction MP3, fixup conteneur).
+    /// yt-dlp finished downloading and is starting ffmpeg post-processing
+    /// (video+audio merge, MP3 extraction, container fixup).
     case postProcessing
     case completed(fileURL: URL?)
     case failed(message: String)
 }
 
-/// Lance yt-dlp en subprocess (arguments en tableau, JAMAIS de shell) et
-/// diffuse la progression parsée depuis `--progress-template`.
+/// Runs yt-dlp as a subprocess (arguments as array, NEVER shell) and
+/// streams parsed progress from `--progress-template`.
 final class DownloadEngine: @unchecked Sendable {
 
     struct Config {
         let ytDlp: URL
-        /// Dossier contenant ffmpeg + ffprobe (passé à --ffmpeg-location).
+        /// Folder containing ffmpeg + ffprobe (passed to --ffmpeg-location).
         let ffmpegDirectory: URL
         let outputDirectory: URL
-        /// Bundle CA combiné (Mozilla + trousseau système) honoré par curl_cffi
-        /// via CURL_CA_BUNDLE. Corrige "certificate verify failed" y compris
-        /// derrière un intercepteur TLS (contrôle parental, antivirus, proxy).
+        /// Combined CA bundle (Mozilla + system keychain) honored by curl_cffi
+        /// via CURL_CA_BUNDLE. Fixes "certificate verify failed" even
+        /// behind TLS interceptors (parental controls, antivirus, proxy).
         let trustBundle: URL?
-        /// Motif `-o` complet, extension comprise.
+        /// Complete `-o` pattern, extension included.
         var outputPattern: String = "%(title)s.%(ext)s"
-        /// Langues de sous-titres à incruster, par ordre de préférence.
+        /// Subtitle languages to embed, by preference order.
         var subtitleLanguages: [String] = ["en"]
     }
 
-    /// Un téléchargement en cours ; permet la pause, la reprise et l'annulation.
+    /// A download in progress; allows pause, resume, and cancellation.
     final class Running: @unchecked Sendable {
         private let process: Process
         let events: AsyncStream<DownloadEvent>
@@ -39,10 +39,10 @@ final class DownloadEngine: @unchecked Sendable {
             self.events = events
         }
 
-        /// Suspend yt-dlp (SIGSTOP). Le fichier `.part` reste sur place et la
-        /// reprise repart de l'octet courant ; si le serveur a coupé la
-        /// connexion entre-temps, yt-dlp reprend le transfert de lui-même
-        /// (`--continue` est actif par défaut).
+        /// Suspends yt-dlp (SIGSTOP). The `.part` file stays in place and
+        /// resume restarts from the current byte; if the server closed the
+        /// connection in the meantime, yt-dlp resumes the transfer on its own
+        /// (`--continue` is active by default).
         @discardableResult
         func pause() -> Bool {
             guard process.isRunning else { return false }
@@ -57,8 +57,8 @@ final class DownloadEngine: @unchecked Sendable {
 
         func cancel() {
             guard process.isRunning else { return }
-            // Un process suspendu ne traiterait pas SIGTERM : on le réveille
-            // d'abord, sinon il resterait en vie indéfiniment.
+            // A suspended process won't handle SIGTERM: wake it up
+            // first, or it will stay alive indefinitely.
             process.resume()
             process.terminate()
         }
@@ -70,17 +70,17 @@ final class DownloadEngine: @unchecked Sendable {
         self.config = config
     }
 
-    /// Démarre un téléchargement et renvoie un handle diffusant les événements.
+    /// Starts a download and returns a handle streaming events.
     ///
-    /// `jobID` détermine le dossier de travail, qui SURVIT à la fermeture de
-    /// l'app : c'est ce qui permet à un téléchargement interrompu de repartir
-    /// de l'octet où il s'était arrêté au lancement suivant, plutôt que de
-    /// zéro. Il n'est effacé qu'en cas de succès ou d'annulation explicite.
+    /// `jobID` determines the work folder, which SURVIVES app closure:
+    /// this allows an interrupted download to resume from the byte where it
+    /// stopped on next launch, rather than from zero. It's only deleted on
+    /// success or explicit cancellation.
     func start(url: String, format: DownloadFormat, jobID: UUID) throws -> Running {
         try FileManager.default.createDirectory(
             at: config.outputDirectory, withIntermediateDirectories: true)
 
-        // yt-dlp écrit le chemin final (après post-traitement) dans ce fichier.
+        // yt-dlp writes the final path (after post-processing) to this file.
         let resultFile = FileManager.default.temporaryDirectory
             .appendingPathComponent("dl-\(UUID().uuidString).path")
 
@@ -126,12 +126,12 @@ final class DownloadEngine: @unchecked Sendable {
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 let fileURL = (path?.isEmpty == false) ? URL(fileURLWithPath: path!) : nil
                 continuation.yield(.completed(fileURL: fileURL))
-                // Succès : les fichiers partiels n'ont plus lieu d'être.
+                // Success: partial files are no longer needed.
                 try? FileManager.default.removeItem(at: workDir)
             } else {
-                // Échec ou fermeture de l'app : on GARDE le `.part`, sinon la
-                // reprise repartirait de zéro. Le ménage se fait au lancement
-                // suivant pour les dossiers dont plus aucun job ne dépend.
+                // Failure or app closure: we KEEP the `.part`, else resume would
+                // restart from zero. Cleanup happens on next launch for folders
+                // no job depends on anymore.
                 continuation.yield(.failed(message: Self.cleanError(errAcc.recentTail, code: code)))
             }
             try? FileManager.default.removeItem(at: resultFile)
@@ -148,18 +148,18 @@ final class DownloadEngine: @unchecked Sendable {
         return Running(process: process, events: stream)
     }
 
-    // MARK: - Fichiers partiels
+    // MARK: - Partial files
 
-    /// Dossier de travail d'un job. Sous Application Support et non dans
-    /// `/tmp` : macOS y fait le ménage tout seul, et un téléchargement de
-    /// plusieurs heures y perdrait ses fragments.
+    /// Job work folder. Under Application Support, not in `/tmp`: macOS
+    /// cleans it up on its own, and a download of several hours would
+    /// lose its fragments there.
     static func partialDirectory(for jobID: UUID) -> URL {
         AppConfig.supportDirectory
             .appendingPathComponent("partials", isDirectory: true)
             .appendingPathComponent(jobID.uuidString, isDirectory: true)
     }
 
-    /// Supprime les dossiers partiels dont aucun job ne dépend plus.
+    /// Removes partial folders no job depends on anymore.
     static func prunePartials(keeping ids: Set<UUID>) {
         let root = partialDirectory(for: UUID()).deletingLastPathComponent()
         guard let entries = try? FileManager.default.contentsOfDirectory(
@@ -172,11 +172,11 @@ final class DownloadEngine: @unchecked Sendable {
         }
     }
 
-    // MARK: - Métadonnées (aperçu, sans téléchargement)
+    // MARK: - Metadata (preview, no download)
 
-    /// Extrait titre/chaîne/durée/miniature sans rien télécharger.
-    /// Utilise `--dump-single-json --skip-download` via le même backend
-    /// curl_cffi (`--impersonate chrome`) que le téléchargement.
+    /// Extracts title/channel/duration/thumbnail without downloading.
+    /// Uses `--dump-single-json --skip-download` via the same
+    /// curl_cffi backend (`--impersonate chrome`) as the download.
     func fetchMetadata(url: String) async -> MediaMetadata? {
         let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
@@ -197,7 +197,7 @@ final class DownloadEngine: @unchecked Sendable {
         return MediaMetadata.decode(from: Data(result.stdout.utf8))
     }
 
-    /// Liste les vidéos d'une playlist, sans extraire aucune d'entre elles.
+    /// Lists videos from a playlist, without extracting any of them.
     func fetchPlaylist(url: String) async -> Playlist? {
         let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
@@ -218,38 +218,38 @@ final class DownloadEngine: @unchecked Sendable {
         return Playlist.decode(from: Data(result.stdout.utf8))
     }
 
-    /// Environnement hérité + bundle CA combiné pour la validation SSL derrière
-    /// un intercepteur TLS local (contrôle parental, antivirus, proxy).
+    /// Inherited environment + combined CA bundle for SSL validation behind
+    /// a local TLS interceptor (parental controls, antivirus, proxy).
     private func trustEnvironment() -> [String: String] {
         var env = ProcessInfo.processInfo.environment
         if let ca = config.trustBundle {
-            env["CURL_CA_BUNDLE"] = ca.path      // backend curl_cffi (utilisé via --impersonate)
+            env["CURL_CA_BUNDLE"] = ca.path      // curl_cffi backend (used via --impersonate)
             env["SSL_CERT_FILE"] = ca.path       // Python/urllib (fallback)
-            env["REQUESTS_CA_BUNDLE"] = ca.path  // backend requests (fallback)
+            env["REQUESTS_CA_BUNDLE"] = ca.path  // requests backend (fallback)
         }
         return env
     }
 
-    // MARK: - Construction des arguments (aucune concaténation shell)
+    // MARK: - Argument building (no shell concatenation)
 
     private func buildArgs(url: String, format: DownloadFormat, resultFile: URL, workDir: URL) -> [String] {
         var args: [String] = [
             "--ffmpeg-location", config.ffmpegDirectory.path,
-            // Route les requêtes via curl_cffi : seul backend qui honore
-            // CURL_CA_BUNDLE (indispensable derrière un intercepteur TLS).
-            // Bonus : réduit la détection anti-bot de YouTube.
+            // Routes requests via curl_cffi: only backend that honors
+            // CURL_CA_BUNDLE (essential behind a TLS interceptor).
+            // Bonus: reduces YouTube's anti-bot detection.
             "--impersonate", "chrome",
             "--newline",
             "--no-colors",
             "--no-playlist",
-            // Pas de `--restrict-filenames` : il remplaçait les espaces par des
-            // soulignés et amputait les accents, d'où des noms illisibles. Sans
-            // lui, yt-dlp ne remplace que ce que le système interdit vraiment.
-            "--progress",       // force la progression même si --print active --quiet
-            "--no-simulate",    // --print-to-file impliquerait sinon une simulation
+            // No `--restrict-filenames`: it replaced spaces with underscores
+            // and truncated accents, resulting in unreadable names. Without it,
+            // yt-dlp replaces only what the system actually forbids.
+            "--progress",       // forces progress even if --print activates --quiet
+            "--no-simulate",    // --print-to-file would otherwise imply a simulation
             "--progress-template", Self.progressTemplate,
             "--print-to-file", "after_move:filepath", resultFile.path,
-            // Fichiers partiels dans le dossier de travail, fichier final dans ~/Downloads.
+            // Partial files in the work folder, final file in ~/Downloads.
             "-P", "home:\(config.outputDirectory.path)",
             "-P", "temp:\(workDir.path)",
             "-o", config.outputPattern,
@@ -257,27 +257,26 @@ final class DownloadEngine: @unchecked Sendable {
 
         switch format.kind {
         case .video:
-            // Ordre de préférence : d'abord la résolution demandée, PUIS le
-            // codec H.264/AAC.
+            // Preference order: first the requested resolution, THEN the
+            // H.264/AAC codec.
             //
-            // Sans cette préférence de codec, YouTube sert volontiers de l'AV1,
-            // que QuickTime ne sait pas décoder sur la plupart des Mac : le
-            // fichier arrive complet et refuse de s'ouvrir. En H.264 il se lit
-            // partout, y compris dans Aperçu et sur iPhone.
+            // Without this codec preference, YouTube readily serves AV1,
+            // which QuickTime cannot decode on most Macs: the file arrives
+            // complete and refuses to open. In H.264 it plays everywhere,
+            // including Preview and on iPhone.
             //
-            // Au-delà de 1080p, YouTube ne propose plus de H.264 : on retombe
-            // alors sur VP9/AV1, qui demandent un lecteur comme IINA ou VLC.
+            // Beyond 1080p, YouTube no longer offers H.264: we fall back to
+            // VP9/AV1, which require a player like IINA or VLC.
             if format.videoQuality == .max {
-                // « Best » veut dire la meilleure définition : on ne redescend
-                // pas en 1080p pour du H.264. À définition égale en revanche,
-                // H.264 passe devant.
+                // "Best" means the highest resolution: we don't drop down to
+                // 1080p for H.264. At equal resolution, however, H.264 comes first.
                 args += ["-f", "bv*+ba/b"]
                 args += ["-S", "res,vcodec:h264,acodec:aac,ext:mp4:m4a"]
             } else {
                 let h = format.videoQuality.rawValue
-                // Le codec est filtré DANS le sélecteur, pas seulement trié :
-                // avec un simple `-S`, yt-dlp retenait le flux HLS muxé (plus
-                // lourd, fragmenté) plutôt que la paire DASH avc1 + m4a.
+                // The codec is filtered IN the selector, not just sorted: with
+                // a simple `-S`, yt-dlp selected the muxed HLS stream (heavier,
+                // fragmented) over the DASH pair avc1 + m4a.
                 args += ["-f", [
                     "bv*[vcodec^=avc1][height<=\(h)]+ba[acodec^=mp4a]",
                     "bv*[height<=\(h)]+ba",
@@ -289,15 +288,15 @@ final class DownloadEngine: @unchecked Sendable {
             args += ["--merge-output-format", "mp4"]
 
             if format.subtitles {
-                // Incrustés dans le MP4 (piste `mov_text`), pas déposés en
-                // fichiers `.srt` à côté : une piste qu'on active dans le
-                // lecteur est plus utile qu'un fichier de plus dans le dossier.
+                // Embedded in the MP4 (track `mov_text`), not deposited in
+                // `.srt` files alongside: a track you activate in the player
+                // is more useful than an extra file in the folder.
                 args += [
                     "--embed-subs",
                     "--write-subs",
-                    "--write-auto-subs",   // à défaut de sous-titres écrits, ceux générés
+                    "--write-auto-subs",   // if no written subtitles, auto-generated ones
                     "--sub-langs", config.subtitleLanguages.joined(separator: ","),
-                    // Sans quoi yt-dlp laisse aussi les `.vtt` sur le disque.
+                    // Otherwise yt-dlp leaves `.vtt` files on disk too.
                     "--compat-options", "no-keep-subs",
                 ]
             }
@@ -312,9 +311,9 @@ final class DownloadEngine: @unchecked Sendable {
                     "--audio-quality", "\(format.audioBitrate.rawValue)K",
                 ]
             case .m4a:
-                // Piste AAC d'origine préférée : `--audio-format m4a` se
-                // contente alors de la remuxer, sans ré-encodage — plus rapide
-                // et sans perte de génération.
+                // Prefers the original AAC track: `--audio-format m4a` then
+                // just remuxes it without re-encoding — faster and no generation
+                // loss.
                 args += [
                     "-f", "ba[ext=m4a]/ba/b",
                     "-x",
@@ -323,17 +322,17 @@ final class DownloadEngine: @unchecked Sendable {
             }
         }
 
-        // `--` puis l'URL en dernier : protège contre une URL commençant par '-'.
+        // `--` then the URL last: protects against URLs starting with '-'.
         args += ["--", url]
         return args
     }
 
-    /// Marqueur distinctif + champs explicites séparés par tabulation.
+    /// Distinctive marker + explicit fields separated by tabs.
     static let progressMarker = "@@PROG@@\t"
     static let progressTemplate =
         "download:@@PROG@@\t" + DownloadProgress.templateFieldOrder.joined(separator: "\t")
 
-    /// Transforme la sortie d'erreur brute de yt-dlp en message lisible.
+    /// Transforms raw yt-dlp stderr into a readable message.
     static func cleanError(_ raw: String, code: Int32) -> String {
         let lines = raw.split(separator: "\n").map(String.init)
         let errorLines = lines.filter { $0.contains("ERROR:") }
@@ -341,7 +340,7 @@ final class DownloadEngine: @unchecked Sendable {
             ? (lines.last ?? "yt-dlp failed (code \(code))")
             : errorLines.joined(separator: "\n")
 
-        // Retire le suffixe « ; please report this issue… ».
+        // Removes the "; please report this issue…" suffix.
         if let range = message.range(of: "; please report") {
             message = String(message[..<range.lowerBound])
         }
@@ -351,8 +350,8 @@ final class DownloadEngine: @unchecked Sendable {
         return message.isEmpty ? "yt-dlp failed (code \(code))" : message
     }
 
-    /// Préfixes des post-processeurs yt-dlp qui suivent le téléchargement.
-    /// Ils arrivent sur stdout sous la forme `[Merger] Merging formats into …`.
+    /// Prefixes of yt-dlp post-processors that follow the download.
+    /// They arrive on stdout as `[Merger] Merging formats into …`.
     private static let postProcessingPrefixes = [
         "[Merger]", "[ExtractAudio]", "[Fixup", "[VideoConvertor]", "[Metadata]",
     ]
@@ -371,8 +370,8 @@ final class DownloadEngine: @unchecked Sendable {
     }
 }
 
-/// Accumule des octets et en extrait des lignes complètes (thread-safe).
-/// Conserve aussi une queue de texte récent pour les messages d'erreur.
+/// Accumulates bytes and extracts complete lines from them (thread-safe).
+/// Also keeps a queue of recent text for error messages.
 final class LineAccumulator: @unchecked Sendable {
     private let lock = NSLock()
     private var buffer = Data()

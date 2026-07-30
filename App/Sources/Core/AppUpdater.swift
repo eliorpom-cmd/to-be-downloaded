@@ -2,32 +2,31 @@ import Foundation
 import CryptoKit
 import AppKit
 
-/// Met à jour l'app elle-même depuis les releases GitHub du projet.
+/// Updates the app itself from the project's GitHub releases.
 ///
-/// ## Modèle de sécurité
+/// ## Security model
 ///
-/// L'app n'est pas notarisée (pas de compte développeur Apple), donc macOS
-/// n'apporte AUCUNE garantie sur ce qu'on télécharge. La garantie vient d'ici :
+/// The app is not notarized (no Apple developer account), so macOS provides
+/// NO guarantee about what we download. The guarantee comes from here:
 ///
-/// 1. **Signature Ed25519 obligatoire.** L'archive doit être signée par la clé
-///    privée d'Elior ; seule sa clé publique (`AppConfig.updatePublicKey`),
-///    compilée dans le binaire, permet de valider. Un dépôt GitHub compromis,
-///    un miroir hostile ou un intercepteur TLS ne peuvent pas produire de
-///    signature valide.
-/// 2. **Vérifiée AVANT toute extraction.** L'archive n'est pas ouverte tant que
-///    sa signature n'est pas validée : le décompresseur n'est jamais exposé à
-///    des données non authentifiées.
-/// 3. **Rien n'est jamais exécuté depuis la release.** Pas de script
-///    d'installation, pas de post-install, pas de shell. On extrait avec
-///    `/usr/bin/ditto` (arguments passés en tableau) et on remplace un dossier.
-/// 4. **Contenu contraint.** L'archive doit contenir exactement un `.app`,
-///    portant le même identifiant de bundle que nous et la version annoncée par
-///    la release. Tout le reste est refusé.
-/// 5. **Aucune élévation de privilèges.** Si le dossier de l'app n'est pas
-///    inscriptible, on abandonne en le disant — jamais de demande de mot de
-///    passe administrateur, jamais d'installation ailleurs.
-/// 6. **HTTPS uniquement**, hôtes GitHub, et jamais de redirection vers autre
-///    chose qu'un asset de la release demandée.
+/// 1. **Mandatory Ed25519 signature.** The archive must be signed by Elior's
+///    private key; only their public key (`AppConfig.updatePublicKey`),
+///    compiled in the binary, can validate it. A compromised GitHub repo,
+///    hostile mirror, or TLS interceptor cannot produce a valid signature.
+/// 2. **Verified BEFORE any extraction.** The archive is not opened until
+///    its signature is validated: the decompressor is never exposed to
+///    unauthenticated data.
+/// 3. **Nothing is ever executed from the release.** No install script,
+///    post-install, or shell. We extract with `/usr/bin/ditto` (arguments
+///    passed as array) and replace a folder.
+/// 4. **Constrained content.** The archive must contain exactly one `.app`,
+///    with the same bundle identifier as ours and the version announced by
+///    the release. Anything else is rejected.
+/// 5. **No privilege escalation.** If the app folder is not writable,
+///    we abandon gracefully — never prompt for admin password,
+///    never install elsewhere.
+/// 6. **HTTPS only**, GitHub hosts, and never redirect to anything other than
+///    an asset from the requested release.
 @MainActor
 final class AppUpdater: ObservableObject {
 
@@ -37,11 +36,11 @@ final class AppUpdater: ObservableObject {
         case downloading(Double)
         case verifying
         case upToDate
-        /// Installée sur le disque : elle démarrera au prochain lancement.
+        /// Installed on disk: it will start on next launch.
         case ready(String)
         case failed(String)
-        /// Mise à jour impossible dans ce contexte (build de dev, dossier en
-        /// lecture seule…). Ce n'est pas une erreur, juste un constat.
+        /// Update impossible in this context (dev build, read-only folder, etc.).
+        /// Not an error, just a fact.
         case unavailable(String)
 
         var isBusy: Bool {
@@ -73,11 +72,11 @@ final class AppUpdater: ObservableObject {
         if let reason = Self.unavailableReason { status = .unavailable(reason) }
     }
 
-    /// Pourquoi ce contexte interdit la mise à jour automatique, le cas échéant.
+    /// Why this context forbids automatic updates, if applicable.
     ///
-    /// Le garde-fou « build de développement » est essentiel : sans lui, lancer
-    /// le build local remplacerait `build/…/TBD.app` par la release
-    /// publiée, ce qui détruirait le binaire en cours de test.
+    /// The "development build" safeguard is essential: without it, running
+    /// the local build would replace `build/…/TBD.app` with the published
+    /// release, destroying the binary being tested.
     private static var unavailableReason: String? {
         let path = Bundle.main.bundleURL.path
         if path.contains("/Build/Products/") || path.contains("/DerivedData/") {
@@ -93,7 +92,7 @@ final class AppUpdater: ObservableObject {
         return nil
     }
 
-    // MARK: - Cycle de mise à jour
+    // MARK: - Update Cycle
 
     func checkForUpdate(userInitiated: Bool) async {
         if let reason = Self.unavailableReason {
@@ -105,7 +104,7 @@ final class AppUpdater: ObservableObject {
             if let lastCheck, Date().timeIntervalSince(lastCheck) < Self.checkInterval { return }
         }
         guard !status.isBusy else { return }
-        // Déjà installée et en attente de relance : ne rien retélécharger.
+        // Already installed and waiting to relaunch: do not re-download.
         if case .ready = status, !userInitiated { return }
 
         status = .checking
@@ -130,8 +129,8 @@ final class AppUpdater: ObservableObject {
 
             status = .ready(release.version)
         } catch UpdateError.http(404) {
-            // Aucune release publiée (ou dépôt privé vu d'ici) : ce n'est pas
-            // une panne, il n'y a simplement rien de plus récent.
+            // No release published (or private repo from here): it's not a failure,
+            // there is simply nothing newer.
             status = .upToDate
         } catch {
             status = .failed(error.localizedDescription)
@@ -139,9 +138,9 @@ final class AppUpdater: ObservableObject {
         cleanUpWorkDirectory()
     }
 
-    /// Redémarre sur la version installée. Le serveur LAN doit être arrêté avant
-    /// (l'appelant s'en charge) : sinon la nouvelle instance trouverait le port
-    /// encore occupé par celle-ci.
+    /// Relaunch on the installed version. The LAN server must be stopped first
+    /// (the caller handles it): otherwise the new instance would find the port
+    /// still occupied by this one.
     func relaunch() {
         let target = Bundle.main.bundleURL
         let task = Process()
@@ -229,10 +228,10 @@ final class AppUpdater: ObservableObject {
             signature: sig.browser_download_url)
     }
 
-    // MARK: - Téléchargement
+    // MARK: - Download
 
-    /// Dossier de travail dédié, systématiquement nettoyé : l'archive et le
-    /// bundle extrait ne traînent jamais dans un dossier partagé.
+    /// Dedicated work folder, systematically cleaned: the archive and extracted
+    /// bundle never linger in a shared folder.
     private static var workDirectory: URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("\(AppConfig.shortName)-update", isDirectory: true)
@@ -273,8 +272,8 @@ final class AppUpdater: ObservableObject {
         return (zip, signature)
     }
 
-    /// Suit l'avancement d'un `URLSession.download` : l'archive pèse ~100 Mo,
-    /// une barre indéterminée serait pénible.
+    /// Track progress of a `URLSession.download`: the archive weighs ~100 MB,
+    /// an indeterminate bar would be annoying.
     private final class ProgressObserver: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
         private let onProgress: @Sendable (Double) -> Void
 
@@ -293,10 +292,10 @@ final class AppUpdater: ObservableObject {
                         didFinishDownloadingTo location: URL) {}
     }
 
-    // MARK: - Vérification
+    // MARK: - Verification
 
-    /// Ed25519 sur les octets bruts de l'archive. Lecture mappée : on ne charge
-    /// pas 100 Mo en RAM pour vérifier.
+    /// Ed25519 on the archive's raw bytes. Memory-mapped reading: do not load
+    /// 100 MB into RAM to verify.
     private static func verifySignature(archive: URL, signature: URL) throws {
         guard let sigText = try? String(contentsOf: signature, encoding: .utf8),
               let sigData = Data(base64Encoded: sigText.trimmingCharacters(in: .whitespacesAndNewlines))
@@ -309,17 +308,18 @@ final class AppUpdater: ObservableObject {
         guard !keys.isEmpty else { throw UpdateError.badSignature }
 
         let contents = try Data(contentsOf: archive, options: .mappedIfSafe)
-        // Clé courante ou clé de secours : l'une suffit.
+        // Current key or backup key: either is enough.
         guard keys.contains(where: { $0.isValidSignature(sigData, for: contents) }) else {
             throw UpdateError.badSignature
         }
     }
 
-    /// Extrait l'archive (déjà authentifiée) et vérifie qu'elle contient bien
-    /// une seule app, la nôtre, à la version annoncée.
+    /// Extract the archive (already authenticated) and verify it contains exactly
+    /// one app, ours, at the announced version.
     ///
-    /// `ditto` plutôt qu'`unzip` : il préserve les permissions, les attributs
-    /// étendus et la signature ad-hoc du bundle, ce qu'`unzip` détruit.
+    /// `ditto` rather than `unzip`: it preserves permissions, extended
+    /// attributes, and the ad-hoc signature of the bundle, which `unzip`
+    /// destroys.
     private static func unpackAndValidate(_ zip: URL, expecting version: String) async throws -> URL {
         let fm = FileManager.default
         let destination = workDirectory.appendingPathComponent("unpacked", isDirectory: true)
@@ -343,8 +343,8 @@ final class AppUpdater: ObservableObject {
         }
         let app = apps[0]
 
-        // Info.plist lu comme une simple structure de données : on n'ouvre PAS
-        // le bundle (aucun chargement de code, même indirect).
+        // Info.plist read as raw data structure: do NOT open the bundle (no
+        // code loading, even indirect).
         guard let plistData = try? Data(contentsOf: app.appendingPathComponent("Contents/Info.plist")),
               let plist = try? PropertyListSerialization.propertyList(
                 from: plistData, options: [], format: nil) as? [String: Any]
@@ -366,11 +366,11 @@ final class AppUpdater: ObservableObject {
         return app
     }
 
-    /// Échange atomique du bundle en cours d'exécution.
+    /// Atomic swap of the running bundle.
     ///
-    /// Sans danger pour le process actuel : sous POSIX, l'ancien bundle reste
-    /// vivant tant qu'il est mappé, on continue donc de tourner sur l'ancienne
-    /// version jusqu'au prochain lancement.
+    /// Safe for the current process: on POSIX, the old bundle stays alive as
+    /// long as it is mapped, so we keep running on the old version until next
+    /// launch.
     private static func replaceRunningBundle(with staged: URL) throws {
         let current = Bundle.main.bundleURL
         do {
@@ -382,7 +382,7 @@ final class AppUpdater: ObservableObject {
 
     // MARK: - Versions
 
-    /// Compare `1.2.10` et `1.2.9` en entiers, composante par composante.
+    /// Compare `1.2.10` and `1.2.9` as integers, component by component.
     static func isNewer(_ candidate: String, than current: String) -> Bool {
         let a = candidate.split(separator: ".").map { Int($0) ?? 0 }
         let b = current.split(separator: ".").map { Int($0) ?? 0 }

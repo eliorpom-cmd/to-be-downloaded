@@ -1,15 +1,15 @@
 import SwiftUI
 import AppKit
 
-/// Bibliothèque : ce qui est en cours de téléchargement (capsules, comme sur
-/// l'accueil) puis l'historique persistant des fichiers produits.
+/// Library: what's currently downloading (capsules, like on the welcome
+/// screen) plus the persistent history of produced files.
 struct LibraryPane: View {
     @ObservedObject var manager: DownloadManager
     @ObservedObject var library: LibraryStore
     @ObservedObject var settings: AppSettings
 
     @State private var query = ""
-    /// Ligne sélectionnée : c'est elle que la barre d'espace prévisualise.
+    /// Selected row: the one the spacebar previews.
     @State private var selectedID: UUID?
     @State private var spaceMonitor: Any?
 
@@ -38,10 +38,9 @@ struct LibraryPane: View {
                         if !active.isEmpty {
                             VStack(alignment: .leading, spacing: Theme.Space.s6) {
                                 SectionHeader(title: "Downloading", count: active.count)
-                                // Mêmes cartes que les fichiers terminés : dans
-                                // une liste, deux formes différentes pour la
-                                // même chose se lisent comme deux natures
-                                // différentes. Seule la barre distingue.
+                                // Same cards as finished files: in a list, two
+                                // different shapes for the same thing read as two
+                                // different natures. Only the bar distinguishes.
                                 VStack(spacing: 0) {
                                     ForEach(Array(active.enumerated()), id: \.element.id) { index, job in
                                         DownloadRow(job: job, manager: manager)
@@ -92,12 +91,11 @@ struct LibraryPane: View {
         }
     }
 
-    /// Barre d'espace = aperçu, comme dans le Finder.
+    /// Spacebar = preview, like in Finder.
     ///
-    /// Moniteur d'événements local plutôt que `.onKeyPress`, qui demande
-    /// macOS 14 alors que l'app vise macOS 13. On laisse passer la touche dès
-    /// qu'un champ de texte a le focus, sinon on ne pourrait plus taper
-    /// d'espace dans la recherche.
+    /// Local event monitor rather than `.onKeyPress`, which requires
+    /// macOS 14 while the app targets macOS 13. Let the key through if
+    /// a text field has focus, otherwise you couldn't type space in search.
     private func installSpaceMonitor() {
         guard spaceMonitor == nil else { return }
         spaceMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
@@ -141,8 +139,8 @@ struct LibraryPane: View {
         }
     }
 
-    /// Relance le téléchargement avec les réglages par défaut du même type :
-    /// la qualité exacte d'origine n'est pas conservée dans la bibliothèque.
+    /// Restart the download with default settings of the same type: the
+    /// exact original quality is not preserved in the library.
     private func downloadAgain(_ item: LibraryItem) {
         let format = DownloadFormat(
             kind: item.kind,
@@ -153,11 +151,10 @@ struct LibraryPane: View {
     }
 }
 
-// MARK: - Ligne d'un téléchargement en cours
+// MARK: - Active Download Row
 
-/// Même carte que `LibraryRow`, avec la progression en plus : dans la
-/// bibliothèque, un téléchargement en cours n'est qu'un fichier pas encore
-/// fini, pas un objet d'une autre nature.
+/// Same card as `LibraryRow`, plus progress: in the library, an active
+/// download is just an unfinished file, not a different kind of thing.
 private struct DownloadRow: View {
     let job: DownloadJob
     let manager: DownloadManager
@@ -169,8 +166,8 @@ private struct DownloadRow: View {
             Thumbnail(urlString: job.thumbnailURL, width: 64, height: 36)
 
             VStack(alignment: .leading, spacing: 4) {
-                // Tant que le titre n'est pas connu, un trait neutre plutôt que
-                // l'URL brute, qui sauterait ensuite au vrai titre.
+                // While the title is unknown, a neutral line instead of the
+                // raw URL, which would jump to the real title later.
                 if job.metadata?.title == nil {
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
                         .fill(Theme.fillSecondary)
@@ -223,8 +220,8 @@ private struct DownloadRow: View {
         case .queued:
             return manager.isWaiting(job) ? "Waiting…" : "Preparing…"
         case .downloading:
-            // Ici la carte est large : le débit et le temps restant tiennent,
-            // contrairement à la capsule de l'accueil.
+            // Here the card is wide: bitrate and remaining time fit,
+            // unlike the welcome capsule.
             var parts = ["\(Int(job.overallProgress * 100))%"]
             let eta = Format.eta(job.progress?.eta)
             let speed = Format.speed(job.progress?.speed)
@@ -242,8 +239,8 @@ private struct DownloadRow: View {
     @ViewBuilder
     private var trailing: some View {
         HStack(spacing: Theme.Space.s2) {
-            // Comme sur l'accueil : une seule affordance, annuler. Le bouton de
-            // reprise n'apparaît que si le job a réellement été mis en pause.
+            // Like on welcome: one affordance, cancel. The resume button
+            // only shows if the job was actually paused.
             switch job.state {
             case .paused:
                 IconButton(symbol: "play.circle.fill", size: 15, help: "Resume") {
@@ -259,7 +256,7 @@ private struct DownloadRow: View {
     }
 }
 
-// MARK: - Ligne de bibliothèque
+// MARK: - Library Row
 
 private struct LibraryRow: View {
     let item: LibraryItem
@@ -318,16 +315,15 @@ private struct LibraryRow: View {
         .background(background)
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
-        // Toute la ligne mène au fichier, comme la capsule côté Download. Le
-        // même clic marque la ligne, pour que la barre d'espace sache quoi
-        // prévisualiser ensuite.
+        // The entire row goes to the file, like the capsule on Download. The
+        // same click marks the row, so the spacebar knows what to preview next.
         .onTapGesture {
             onSelect()
             guard item.fileExists else { return }
             NSWorkspace.shared.activateFileViewerSelecting([item.fileURL])
         }
-        // Glisser la ligne dépose le VRAI fichier : Finder, Messages, Mail,
-        // n'importe quoi qui accepte un fichier.
+        // Dragging the row drops the ACTUAL file: Finder, Messages, Mail,
+        // anything that accepts a file.
         .onDrag {
             guard item.fileExists,
                   let provider = NSItemProvider(contentsOf: item.fileURL)

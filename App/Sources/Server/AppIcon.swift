@@ -3,30 +3,30 @@ import CoreGraphics
 import AppKit
 import SwiftUI
 
-/// Rend l'icône de l'app en PNG, servie à la PWA et à `apple-touch-icon`.
+/// Renders the app icon as PNG, served to the PWA and `apple-touch-icon`.
 ///
-/// Même dessin que l'icône du bundle : la pastille dont la mascotte est évidée
-/// (`AppIconShape`, tracé issu de `App/Resources/AppIcon.icon`). L'icône sur
-/// l'écran d'accueil d'un téléphone est donc la même que celle du Dock.
+/// Same drawing as the bundle icon: the tile with the mascot hollowed out
+/// (`AppIconShape`, path from `App/Resources/AppIcon.icon`). The icon on a
+/// phone's home screen is thus the same as the Dock icon.
 ///
-/// Toujours en variante claire : rien ici ne dit dans quel thème l'icône sera
-/// affichée, et le clair est celui que macOS montre par défaut.
+/// Always in light variant: nothing here says which theme the icon will be
+/// displayed in, and light is what macOS shows by default.
 enum AppIcon {
 
-    /// Fond de l'icône, et l'encre de la pastille : `Theme.canvas` et
-    /// `Theme.ink` en clair, figés — un PNG ne suit pas le thème.
+    /// Icon background and tile ink: `Theme.canvas` and `Theme.ink` in light,
+    /// frozen — a PNG does not follow the theme.
     private static let paper = CGColor(red: 0.98, green: 0.98, blue: 0.98, alpha: 1)
     private static let ink = CGColor(red: 0.04, green: 0.04, blue: 0.04, alpha: 1)
 
-    /// Icône d'écran d'accueil : la pastille et sa marge, comme dans le Dock
-    /// (80/1024, la marge du SVG d'origine). iOS arrondit lui-même le carré.
+    /// Home screen icon: the tile and its margin, like in the Dock (80/1024,
+    /// the margin of the original SVG). iOS rounds the square itself.
     static func png(size: Int) -> Data? {
         render(size: size, marginRatio: 80.0 / 1024.0)
     }
 
-    /// Icône d'onglet. La marge du Dock est calculée pour une icône de 128 px ;
-    /// à 16 px elle réduirait la pastille à un point. On la colle donc aux
-    /// bords : ne restent que les quatre coins de fond.
+    /// Tab icon. The Dock's margin is calculated for a 128 px icon; at 16 px it
+    /// would reduce the tile to a dot. So we stick it to the edges: only the four
+    /// background corners remain.
     static func favicon(size: Int) -> Data? {
         render(size: size, marginRatio: 0)
     }
@@ -42,9 +42,8 @@ enum AppIcon {
         ctx.setFillColor(paper)
         ctx.fill(CGRect(x: 0, y: 0, width: s, height: s))
 
-        // Le tracé est exprimé en coordonnées SwiftUI (y vers le bas) alors que
-        // CoreGraphics compte depuis le bas : sans ce retournement, la mascotte
-        // sort sur la tête.
+        // The path is expressed in SwiftUI coordinates (y down) while CoreGraphics
+        // counts from the bottom: without this flip, the mascot comes out upside down.
         ctx.translateBy(x: 0, y: s)
         ctx.scaleBy(x: 1, y: -1)
 
@@ -52,8 +51,8 @@ enum AppIcon {
         let body = CGRect(x: margin, y: margin, width: s - 2 * margin, height: s - 2 * margin)
         ctx.addPath(AppIconShape().path(in: body).cgPath)
         ctx.setFillColor(ink)
-        // Non-zero : la flèche et les yeux sont des sous-tracés d'orientation
-        // inverse, donc des trous. En even-odd la pastille devient un carré plein.
+        // Non-zero: the arrow and eyes are sub-paths with reverse winding, so
+        // holes. In even-odd the tile would become a solid square.
         ctx.fillPath(using: .winding)
 
         guard let cgImage = ctx.makeImage() else { return nil }

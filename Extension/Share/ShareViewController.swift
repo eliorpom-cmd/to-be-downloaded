@@ -1,14 +1,13 @@
 import Cocoa
 import UniformTypeIdentifiers
 
-/// Extension de partage : « Download with … » dans le menu Partager de Safari
-/// et de toute app qui partage une URL.
+/// Share extension: "Download with …" in Safari's Share menu and any app that
+/// shares a URL.
 ///
-/// Sans interface. Une extension de partage ouvre normalement une fenêtre de
-/// rédaction ; ici il n'y a rien à rédiger — on récupère le lien, on le passe à
-/// l'app par son schéma d'URL, et on referme. L'extension ne télécharge rien
-/// elle-même : elle n'a ni les binaires, ni la file d'attente, ni la
-/// bibliothèque.
+/// No interface. A share extension normally opens a composition window; here there
+/// is nothing to compose — we grab the link, pass it to the app via its URL scheme,
+/// and close. The extension does not download anything itself: it has no binaries,
+/// no queue, no library.
 final class ShareViewController: NSViewController {
 
     override func loadView() {
@@ -21,8 +20,8 @@ final class ShareViewController: NSViewController {
               let attachments = item.attachments, !attachments.isEmpty
         else { return finish() }
 
-        // Une URL d'abord ; à défaut du texte, car Safari partage parfois la
-        // sélection plutôt que l'adresse de la page.
+        // A URL first; failing that, text, because Safari sometimes shares the
+        // selection rather than the page address.
         let identifiers = [UTType.url.identifier, UTType.plainText.identifier]
         for identifier in identifiers {
             guard let provider = attachments.first(where: {
@@ -49,7 +48,7 @@ final class ShareViewController: NSViewController {
         components.queryItems = [URLQueryItem(name: "url", value: link)]
         guard let deepLink = components.url else { return finish() }
 
-        // C'est l'app, et elle seule, qui vérifie que le lien est acceptable.
+        // Only the app verifies that the link is acceptable.
         extensionContext?.open(deepLink) { [weak self] _ in
             DispatchQueue.main.async { self?.finish() }
         }

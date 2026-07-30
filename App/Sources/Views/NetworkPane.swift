@@ -1,13 +1,13 @@
 import SwiftUI
 import AppKit
 
-/// Accès réseau : QR à scanner depuis le téléphone, adresse LAN et contrôle
-/// du serveur.
+/// Network access: QR to scan from your phone, LAN address, and server
+/// control.
 struct NetworkPane: View {
     @ObservedObject var server: ServerController
     @ObservedObject var settings: AppSettings
 
-    /// Horloge lente : « appareil connecté » dépend d'un ping récent.
+    /// Slow clock: "device connected" depends on a recent ping.
     @State private var now = Date()
 
     private enum Status { case stopped, active, connected }
@@ -57,7 +57,7 @@ struct NetworkPane: View {
         .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { now = $0 }
     }
 
-    // MARK: - Statut
+    // MARK: - Status
 
     private var statusPill: some View {
         HStack(spacing: 7) {
@@ -101,8 +101,8 @@ struct NetworkPane: View {
 
     // MARK: - QR
 
-    /// Le QR reste **toujours clair**, y compris en thème sombre : un code
-    /// blanc sur fond noir se scanne mal.
+    /// The QR stays **always light**, even in dark mode: a white code on
+    /// black background scans poorly.
     private var qrCard: some View {
         ZStack {
             RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
