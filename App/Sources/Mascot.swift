@@ -1,27 +1,28 @@
 import SwiftUI
 
-/// Mascotte de l'app — la flèche de téléchargement et ses deux yeux.
+/// La mascotte ENTIÈRE — la pastille dont la flèche et les yeux sont évidés.
+/// C'est la marque de l'app telle qu'on la voit dans le Dock, et c'est elle qui
+/// accueille sur l'écran Download.
 ///
-/// Le tracé vient du SVG de `App/Resources/AppIcon.icon`, la source unique de
-/// l'identité : l'icône du Dock est ce même dessin creusé dans une pastille
-/// (`AppIconShape`), la mascotte seule en est la forme pleine. Modifier le SVG
-/// et régénérer les deux tracés plutôt que retoucher l'un des deux ici.
+/// L'évidement laisse passer le fond de la fenêtre, qui est translucide (cf.
+/// `RootView`) : le dessin respire le matériau derrière lui, comme la pastille
+/// de l'icône laisse voir le fond du système. Peinte en `Theme.ink`, elle
+/// s'inverse donc avec le thème sans qu'on s'en occupe.
 ///
-/// Monochrome : peinte en `Theme.ink`, sans aucun trou — les yeux sont des
-/// formes pleines et non des évidements.
+/// Pour un glyphe fin — barre des menus, logo de la page web — c'est
+/// `MascotShape` seule qu'il faut : voir `MascotImage.menuBar()`.
 ///
 /// Volontairement IMMOBILE : le balancement permanent attirait l'œil sans rien
 /// dire. `isActive` est conservé pour les appelants, mais n'anime plus rien.
 struct MascotView: View {
-    /// Côté de la boîte carrée où la mascotte s'inscrit. Plus haute que large,
-    /// elle occupe toute la hauteur et se centre horizontalement.
+    /// Côté de la pastille, qui est carrée.
     var size: CGFloat = 44
     var isActive: Bool = false
 
     var body: some View {
-        MascotShape()
+        AppIconShape()
             .fill(Theme.ink)
-            .frame(width: size * MascotShape.aspectRatio, height: size)
+            .frame(width: size, height: size)
     }
 }
 
@@ -173,8 +174,9 @@ struct MascotShape: Shape {
 /// L'icône de l'app : la pastille dont la mascotte est ÉVIDÉE.
 ///
 /// Le rendu du Dock vient de `App/Resources/AppIcon.icon` (Liquid Glass, compilé
-/// par `actool`). Ce tracé est là pour les endroits que le bundle ne couvre pas
-/// — l'icône PWA et le favicon servis par le serveur web, cf. `Server/AppIcon`.
+/// par `actool`). Ce tracé est là pour tout ce que le bundle ne couvre pas :
+/// l'accueil de l'app (`MascotView`), et l'icône PWA comme le favicon servis par
+/// le serveur web (cf. `Server/AppIcon`).
 ///
 /// Rempli en non-zero : la flèche et les yeux sont des sous-tracés d'orientation
 /// inverse, donc des trous. En even-odd la pastille devient un carré plein.
@@ -255,8 +257,10 @@ struct AppIconShape: Shape {
 
 #Preview {
     HStack(spacing: 30) {
+        // La mascotte entière, telle qu'elle accueille sur l'écran Download…
         MascotView(size: 96)
-        AppIconShape().fill(Theme.ink).frame(width: 96, height: 96)
+        // …et l'intérieur seul, réservé aux glyphes fins.
+        MascotShape().fill(Theme.ink).frame(width: 96 * MascotShape.aspectRatio, height: 96)
     }
     .padding(40)
     .background(Theme.canvas)
