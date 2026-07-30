@@ -1,18 +1,18 @@
 import Foundation
 
-/// Construit un bundle de certificats de confiance combinant :
-///  - le bundle Mozilla embarqué (`cacert.pem`, racines publiques),
-///  - les racines du trousseau macOS, qui incluent les CA installées
-///    localement : contrôle parental, antivirus, VPN, proxy d'entreprise…
-///    (ex. « Qustodio Protection CA » qui intercepte le TLS).
+/// Build a trust certificate bundle combining:
+///  - the shipped Mozilla bundle (`cacert.pem`, public roots),
+///  - the macOS keychain roots, which include locally-installed CAs: parental
+///    controls, antivirus, VPN, enterprise proxy, etc.
+///    (e.g. "Qustodio Protection CA" which intercepts TLS).
 ///
-/// Indispensable : yt-dlp (via curl_cffi + `CURL_CA_BUNDLE`) doit faire
-/// confiance à un éventuel intercepteur TLS présent sur la machine, sinon
-/// toutes les connexions HTTPS échouent (« unable to get local issuer certificate »).
+/// Essential: yt-dlp (via curl_cffi + `CURL_CA_BUNDLE`) must trust any TLS
+/// interceptor on the machine, otherwise all HTTPS connections fail
+/// ("unable to get local issuer certificate").
 enum TrustStore {
 
-    /// Génère le bundle combiné dans Application Support et renvoie son URL.
-    /// En cas d'échec, retombe sur le bundle Mozilla embarqué.
+    /// Generate the combined bundle in Application Support and return its URL.
+    /// On failure, fall back to the shipped Mozilla bundle.
     static func prepareBundle(shippedCACert: URL?) -> URL? {
         let dest = AppConfig.supportDirectory.appendingPathComponent("trust.pem")
 
@@ -39,9 +39,9 @@ enum TrustStore {
         let login = (NSHomeDirectory() as NSString)
             .appendingPathComponent("Library/Keychains/login.keychain-db")
         let keychains = [
-            "/System/Library/Keychains/SystemRootCertificates.keychain", // racines Apple
-            "/Library/Keychains/System.keychain",                        // racines admin (Qustodio…)
-            login,                                                       // racines utilisateur
+            "/System/Library/Keychains/SystemRootCertificates.keychain", // Apple roots
+            "/Library/Keychains/System.keychain",                        // admin roots (Qustodio…)
+            login,                                                       // user roots
         ]
 
         var results: [Data] = []
@@ -53,7 +53,7 @@ enum TrustStore {
         return results
     }
 
-    /// `security find-certificate -a -p <keychain>` → certificats au format PEM.
+    /// `security find-certificate -a -p <keychain>` → certificates in PEM format.
     private static func runSecurityExport(keychain: String) -> Data? {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
@@ -65,8 +65,8 @@ enum TrustStore {
 
         do {
             try process.run()
-            // Lecture jusqu'à EOF AVANT waitUntilExit : évite le deadlock si la
-            // sortie dépasse la taille du buffer du pipe.
+            // Read to EOF BEFORE waitUntilExit: avoids deadlock if output
+            // exceeds the pipe buffer size.
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             process.waitUntilExit()
             return data

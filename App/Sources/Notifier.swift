@@ -2,8 +2,8 @@ import Foundation
 import UserNotifications
 import AppKit
 
-/// Notifications système de fin de téléchargement. Un clic sur la notification
-/// révèle le fichier dans le Finder.
+/// System notifications of download completion. Clicking the notification
+/// reveals the file in Finder.
 final class Notifier: NSObject, UNUserNotificationCenterDelegate, @unchecked Sendable {
     static let shared = Notifier()
 
@@ -21,14 +21,14 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate, @unchecked Sen
         center.delegate = self
     }
 
-    /// Demande l'autorisation au premier lancement (silencieux si refusé).
+    /// Request authorization on first launch (silent if refused).
     func requestAuthorization() {
         center.requestAuthorization(options: [.alert, .sound]) { [weak self] granted, _ in
             self?.authorized = granted
         }
     }
 
-    /// Poste une notification « téléchargement terminé ».
+    /// Post a "download complete" notification.
     func downloadFinished(title: String, fileURL: URL?) {
         guard authorized else { return }
         let content = UNMutableNotificationContent()
@@ -42,7 +42,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate, @unchecked Sen
         center.add(request)
     }
 
-    // Affiche la bannière même si l'app est au premier plan.
+    // Show the banner even if the app is in the foreground.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
@@ -51,7 +51,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate, @unchecked Sen
         completionHandler([.banner, .sound])
     }
 
-    // Clic sur la notification → révèle le fichier dans le Finder.
+    // Click on notification → reveal the file in Finder.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,

@@ -1,27 +1,26 @@
 import Foundation
 import SwiftUI
 
-/// Une entrée persistée de la bibliothèque : un fichier réellement produit.
-/// Contrairement à `DownloadJob` (file d'attente de la session), ceci survit
-/// au redémarrage de l'app.
+/// A persisted library entry: an actual produced file.
+/// Unlike `DownloadJob` (session queue), this survives app restart.
 struct LibraryItem: Identifiable, Codable, Sendable, Equatable {
     let id: UUID
     var title: String
     var channel: String?
     var thumbnailURL: String?
-    /// Libellé du format tel qu'affiché (« MP4 · 1080p »).
+    /// Format label as displayed ("MP4 · 1080p").
     var formatLabel: String
     var kind: MediaKind
-    /// Chemin du fichier final. Stocké en chaîne pour rester Codable/stable.
+    /// Path of the final file. Stored as string to stay Codable/stable.
     var filePath: String
     var fileSize: Int64?
     var addedAt: Date
-    /// URL YouTube d'origine, pour « Download Again » et « Copy Link ».
+    /// Original YouTube URL, for "Download Again" and "Copy Link".
     var sourceURL: String
 
     var fileURL: URL { URL(fileURLWithPath: filePath) }
 
-    /// Le fichier est-il toujours là ? (L'utilisateur peut l'avoir déplacé.)
+    /// Is the file still there? (The user might have moved it.)
     var fileExists: Bool { FileManager.default.fileExists(atPath: filePath) }
 
     init(job: DownloadJob, fileURL: URL) {
@@ -38,11 +37,11 @@ struct LibraryItem: Identifiable, Codable, Sendable, Equatable {
     }
 }
 
-/// Bibliothèque persistante des téléchargements terminés.
+/// Persistent library of completed downloads.
 ///
-/// Stockage : un simple JSON dans Application Support. Pas de SwiftData —
-/// l'app cible macOS 13 et un fichier plat suffit largement pour cette volumétrie,
-/// tout en restant lisible/réparable à la main.
+/// Storage: plain JSON in Application Support. No SwiftData — the app targets
+/// macOS 13 and a flat file is more than enough for this volume, while staying
+/// readable/repairable by hand.
 @MainActor
 final class LibraryStore: ObservableObject {
 
@@ -55,9 +54,9 @@ final class LibraryStore: ObservableObject {
         load()
     }
 
-    // MARK: - Lecture
+    // MARK: - Reading
 
-    /// Entrées les plus récentes d'abord.
+    /// Most recent entries first.
     var sorted: [LibraryItem] { items.sorted { $0.addedAt > $1.addedAt } }
 
     func matching(_ query: String) -> [LibraryItem] {
@@ -68,11 +67,11 @@ final class LibraryStore: ObservableObject {
         }
     }
 
-    /// Entrée existante pour la même vidéo et le même type de média.
+    /// Existing entry for the same video and media type.
     ///
-    /// La comparaison porte sur l'identifiant YouTube, pas sur l'URL : le même
-    /// lien s'écrit de dix façons (`youtu.be`, paramètre `t=`, `si=` de
-    /// partage…) et comparer les chaînes ne détecterait presque jamais rien.
+    /// Comparison is on the YouTube identifier, not the URL: the same link
+    /// writes ten ways (`youtu.be`, `t=` parameter, `si=` sharing, etc.) and
+    /// comparing strings would almost never detect anything.
     func existing(forURL url: String, kind: MediaKind) -> LibraryItem? {
         guard let videoID = YouTubeLink.videoID(from: url) else { return nil }
         return sorted.first {
@@ -82,13 +81,13 @@ final class LibraryStore: ObservableObject {
         }
     }
 
-    // MARK: - Écriture
+    // MARK: - Writing
 
-    /// Enregistre un job terminé. Idempotent : rejoue sans dupliquer.
+    /// Record a completed job. Idempotent: replay without duplicating.
     func add(job: DownloadJob, fileURL url: URL) {
         var item = LibraryItem(job: job, fileURL: url)
-        // Taille non renseignée par le job (fichier écrit juste après l'event) :
-        // on la relit sur le disque.
+        // Size not set by the job (file written just after the event): re-read
+        // it from disk.
         if item.fileSize == nil,
            let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize {
             item.fileSize = Int64(size)
@@ -107,7 +106,7 @@ final class LibraryStore: ObservableObject {
         save()
     }
 
-    /// Retire les entrées dont le fichier a disparu du disque.
+    /// Remove entries whose file disappeared from disk.
     func pruneMissingFiles() {
         let before = items.count
         items.removeAll { !$0.fileExists }
@@ -120,7 +119,7 @@ final class LibraryStore: ObservableObject {
         save()
     }
 
-    // MARK: - Persistance
+    // MARK: - Persistence
 
     private func load() {
         guard let data = try? Data(contentsOf: fileURL) else { return }

@@ -1,10 +1,10 @@
 import Foundation
 
-/// Validation des liens acceptés. Hors acteur : appelée depuis les callbacks
-/// de glisser-déposer, qui ne tournent pas sur le main actor.
+/// Validation of accepted links. Off-actor: called from drag-and-drop callbacks,
+/// which do not run on the main actor.
 enum YouTubeLink {
 
-    /// Hôtes autorisés — l'app ne télécharge que depuis YouTube.
+    /// Allowed hosts — the app downloads only from YouTube.
     static let allowedHosts: Set<String> = [
         "youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com",
         "youtu.be", "www.youtu.be",
@@ -19,11 +19,11 @@ enum YouTubeLink {
         return allowedHosts.contains(host)
     }
 
-    /// Identifiant de la vidéo, lu directement dans l'URL.
+    /// Video identifier, read directly from the URL.
     ///
-    /// Sert à afficher la vignette AVANT toute réponse réseau : interroger
-    /// yt-dlp prend plusieurs secondes, et la ligne restait vide pendant ce
-    /// temps alors que l'information est déjà là, dans le lien collé.
+    /// Used to display the thumbnail BEFORE any network response: querying
+    /// yt-dlp takes several seconds, and the field would stay empty during that
+    /// time even though the information is already there, in the pasted link.
     static func videoID(from string: String) -> String? {
         let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let components = URLComponents(string: trimmed),
@@ -47,9 +47,8 @@ enum YouTubeLink {
         return nil
     }
 
-    /// Un identifiant YouTube fait 11 caractères de l'alphabet base64-url. On
-    /// vérifie plutôt que de faire confiance à l'URL : cette chaîne part
-    /// ensuite dans une URL de vignette.
+    /// A YouTube identifier is 11 characters of base64-url alphabet. We verify
+    /// rather than trust the URL: this string goes into a thumbnail URL next.
     private static func sanitize(_ raw: some StringProtocol) -> String? {
         let id = String(raw)
         let allowed = CharacterSet(charactersIn:
@@ -58,11 +57,11 @@ enum YouTubeLink {
         return id
     }
 
-    /// Identifiant de playlist, si le lien en désigne une.
+    /// Playlist identifier, if the link designates one.
     ///
-    /// Un lien peut porter les DEUX : `watch?v=…&list=…` désigne une vidéo
-    /// *dans* une playlist. C'est le cas ambigu — d'où la question posée à
-    /// l'utilisateur plutôt qu'un choix fait à sa place.
+    /// A link can carry BOTH: `watch?v=…&list=…` designates a video *inside*
+    /// a playlist. This is the ambiguous case — hence the question asked to the
+    /// user rather than a choice made for them.
     static func playlistID(from string: String) -> String? {
         let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let components = URLComponents(string: trimmed),
@@ -71,19 +70,19 @@ enum YouTubeLink {
               let list = components.queryItems?.first(where: { $0.name == "list" })?.value,
               !list.isEmpty
         else { return nil }
-        // `RD…` = mix généré à la volée par YouTube, sans contenu stable :
-        // le proposer donnerait une liste différente à chaque ouverture.
+        // `RD…` = mix generated on-the-fly by YouTube, without stable content:
+        // offering it would give a different list on each opening.
         guard !list.hasPrefix("RD") else { return nil }
         return list
     }
 
-    /// URL canonique d'une playlist, débarrassée de la vidéo courante.
+    /// Canonical URL of a playlist, without the current video.
     static func playlistURL(from string: String) -> String? {
         playlistID(from: string).map { "https://www.youtube.com/playlist?list=\($0)" }
     }
 
-    /// Vignette officielle d'une vidéo, déductible sans aucun appel réseau.
-    /// `mqdefault` (320×180) suffit largement aux tailles où on l'affiche.
+    /// Official thumbnail of a video, deducible without any network call.
+    /// `mqdefault` (320×180) is plenty for the sizes we display it at.
     static func thumbnailURL(for string: String) -> String? {
         videoID(from: string).map { "https://i.ytimg.com/vi/\($0)/mqdefault.jpg" }
     }

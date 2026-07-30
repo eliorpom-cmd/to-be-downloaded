@@ -1,22 +1,21 @@
 import AppKit
 import Quartz
 
-/// Aperçu Quick Look, déclenché par la barre d'espace comme dans le Finder.
+/// Quick Look preview, triggered by spacebar like in Finder.
 ///
-/// SwiftUI n'expose rien pour cela : on pilote directement le panneau partagé.
-/// Comme aucune autre vue de l'app ne revendique le contrôle du panneau, lui
-/// fournir la source de données sans passer par la chaîne des répondeurs suffit.
-/// Pas de `@MainActor` sur la classe : `QLPreviewPanelDataSource` est un
-/// protocole Objective-C non isolé, et le conformer depuis un type isolé
-/// traverse la frontière d'acteur. Le panneau n'appelle sa source que depuis le
-/// fil principal, où tout le reste de la classe est appelé aussi.
+/// SwiftUI exposes nothing for this: drive the shared panel directly. Since no
+/// other view claims control of the panel, giving it a data source without
+/// going through the responder chain suffices. No `@MainActor` on the class:
+/// `QLPreviewPanelDataSource` is an unisolated Objective-C protocol, and
+/// conforming from an isolated type crosses the actor boundary. The panel only
+/// calls its source from the main thread, where the rest of the class is called too.
 final class QuickLook: NSObject, @unchecked Sendable {
     @MainActor static let shared = QuickLook()
 
     private var urls: [URL] = []
 
-    /// Ouvre l'aperçu, ou le referme s'il montre déjà ce fichier — c'est le
-    /// comportement de la barre d'espace dans le Finder.
+    /// Open the preview, or close it if it's already showing this file — that's
+    /// the spacebar behavior in Finder.
     func toggle(_ url: URL) {
         guard let panel = QLPreviewPanel.shared() else { return }
         if panel.isVisible, urls.first == url {

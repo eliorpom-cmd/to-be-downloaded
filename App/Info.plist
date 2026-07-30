@@ -10,17 +10,17 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
-	<!-- Le menu de l'app, à côté de la pomme : « To be downloaded », « Quit To
-	     be downloaded ». Distinct du nom de fichier ($(PRODUCT_NAME) = TBD). -->
+	<!-- The app menu, next to the Apple logo: "To be downloaded", "Quit To
+	     be downloaded". Distinct from the file name ($(PRODUCT_NAME) = TBD). -->
 	<key>CFBundleName</key>
 	<string>$(INFOPLIST_KEY_CFBundleName)</string>
-	<!-- Finder et Spotlight : le sigle seul ne dirait rien à qui cherche. -->
+	<!-- Finder and Spotlight: the acronym alone would mean nothing to anyone searching. -->
 	<key>CFBundleDisplayName</key>
 	<string>$(INFOPLIST_KEY_CFBundleDisplayName)</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
-	<!-- L'icône vit dans Assets.car (compilée depuis App/Resources/AppIcon.icon)
-	     et non plus en .icns à côté : c'est CFBundleIconName qui la désigne. -->
+	<!-- The icon lives in Assets.car (compiled from App/Resources/AppIcon.icon)
+	     and no longer as a .icns file next to it: CFBundleIconName designates it. -->
 	<key>CFBundleIconName</key>
 	<string>AppIcon</string>
 	<key>CFBundleShortVersionString</key>
@@ -35,7 +35,7 @@
 	<true/>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
-	<!-- Cible des liens envoyés par l'extension de partage. -->
+	<!-- Target for links sent by the share extension. -->
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -49,14 +49,14 @@
 			</array>
 		</dict>
 	</array>
-	<!-- Entrée du menu Services : marche depuis n'importe quelle app dès qu'un
-	     lien YouTube est sélectionné. -->
+	<!-- Services menu entry: works in any app as long as a
+	     YouTube link is selected. -->
 	<key>NSServices</key>
 	<array>
 		<dict>
-			<!-- Le sigle et non le nom complet : l'entrée s'insère dans un
-			     menu déjà chargé, « Download with To be downloaded » s'y
-			     lirait mal. -->
+			<!-- The acronym, not the full name: the entry is inserted into an
+			     already-loaded menu, "Download with To be downloaded" would read
+			     poorly there. -->
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>
@@ -64,7 +64,7 @@
 			</dict>
 			<key>NSMessage</key>
 			<string>downloadYouTubeLink</string>
-			<!-- Doit désigner l'exécutable, donc PRODUCT_NAME. -->
+			<!-- Must designate the executable, hence PRODUCT_NAME. -->
 			<key>NSPortName</key>
 			<string>$(PRODUCT_NAME)</string>
 			<key>NSSendTypes</key>

@@ -1,13 +1,13 @@
 import Foundation
 
-/// Requête de téléchargement reçue de l'UI web.
+/// Download request received from the web UI.
 struct DownloadRequestDTO: Codable, Sendable {
     let url: String
     let kind: String        // "video" | "audio"
-    let quality: String?    // "360".."1080" / "max"  ou  "128".."320"
+    let quality: String?    // "360".."1080" / "max"  or  "128".."320"
 
-    /// `defaults` porte ce que la page web n'expose pas (conteneur audio,
-    /// sous-titres) : ces choix appartiennent aux réglages de l'app.
+    /// `defaults` carries what the web page does not expose (audio container,
+    /// subtitles): these choices belong to the app's settings.
     func toFormat(defaults: DownloadFormat) -> DownloadFormat {
         let mediaKind = MediaKind(rawValue: kind) ?? .video
         var format = defaults
@@ -30,7 +30,7 @@ struct DownloadRequestDTO: Codable, Sendable {
     }
 }
 
-/// Instantané d'un job exposé en JSON à l'UI web.
+/// Snapshot of a job exposed as JSON to the web UI.
 struct JobDTO: Codable, Sendable {
     let id: String
     let title: String
@@ -38,10 +38,10 @@ struct JobDTO: Codable, Sendable {
     let thumbnail: String?
     let format: String
     let state: String
-    /// Progression GLOBALE [0...1], identique à la barre de l'app native :
-    /// une seule course, du premier octet à la fin de l'assemblage.
+    /// OVERALL progress [0...1], same as the native app's bar:
+    /// one continuous race, from the first byte to the end of assembly.
     let progress: Double
-    /// Progression du flux en cours, pour les compteurs d'octets.
+    /// Current stream progress, for byte counters.
     let fraction: Double?
     let downloaded: Int64?
     let total: Int64?
@@ -72,7 +72,7 @@ struct JobDTO: Codable, Sendable {
     }
 }
 
-/// Aperçu métadonnées exposé à l'UI web (endpoint /api/metadata).
+/// Metadata preview exposed to the web UI (endpoint /api/metadata).
 struct MetadataDTO: Codable, Sendable {
     let title: String
     let channel: String?

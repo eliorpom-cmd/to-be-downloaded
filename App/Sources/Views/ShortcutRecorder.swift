@@ -1,12 +1,12 @@
 import SwiftUI
 import AppKit
 
-/// Champ d'enregistrement de raccourci, comme dans les Réglages Système :
-/// on clique, on tape la combinaison, elle s'inscrit.
+/// Shortcut recording field, like in System Settings: click, type the
+/// combo, it's recorded.
 ///
-/// Un moniteur d'événements LOCAL suffit — on n'écoute que pendant que
-/// l'utilisateur enregistre, et seulement dans cette app. Rien à voir avec le
-/// raccourci global lui-même, qui passe par Carbon.
+/// A LOCAL event monitor suffices — we only listen while the user records,
+/// and only in this app. Nothing to do with the global shortcut itself, which
+/// goes through Carbon.
 struct ShortcutRecorder: View {
     @ObservedObject var settings: AppSettings
 
@@ -50,12 +50,12 @@ struct ShortcutRecorder: View {
         settings.clearShortcutRejection()
         recording = true
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            // Échap annule sans rien changer.
+            // Escape cancels without changing anything.
             if event.keyCode == 53 { stop(); return nil }
 
             let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            // Une touche seule ne fait pas un raccourci global : elle serait
-            // capturée partout, y compris en pleine saisie de texte.
+            // A single key doesn't make a global shortcut: it would be
+            // captured everywhere, even during text entry.
             guard !flags.intersection([.command, .option, .control]).isEmpty else {
                 NSSound.beep()
                 return nil

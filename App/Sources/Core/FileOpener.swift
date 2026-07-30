@@ -1,16 +1,17 @@
 import AppKit
 
-/// Ouverture des fichiers produits.
+/// Opening produced files.
 enum FileOpener {
 
-    /// Lance le fichier dans le lecteur par défaut, et à défaut le montre dans
-    /// le Finder.
+    /// Launch the file in the default player, and if that fails, show it in
+    /// the Finder.
     ///
-    /// `NSWorkspace.open` échoue silencieusement quand l'application associée
-    /// refuse de démarrer (fraîchement installée et encore en quarantaine, par
-    /// exemple) : macOS affiche alors « Élément non ouvert » et l'utilisateur
-    /// se retrouve sans rien. Révéler le fichier laisse au moins une porte de
-    /// sortie.
+    /// `NSWorkspace.open` fails silently when the associated application
+    /// refuses to start (freshly installed and still quarantined, for example):
+    /// macOS then displays "Item could not be opened" and the user is left with
+    /// nothing. Revealing the file at least leaves a way out.
+    ///
+    /// See `NSWorkspace.open(_:)`.
     static func play(_ url: URL) {
         guard FileManager.default.fileExists(atPath: url.path) else {
             reveal(url)

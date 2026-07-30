@@ -1,19 +1,19 @@
 import AppKit
 
-/// Progression dessinée sur l'icône du Dock.
+/// Progress drawn on the Dock icon.
 ///
-/// Le badge à lui seul dit « il se passe quelque chose » mais pas « où ça en
-/// est ». La barre, elle, se lit d'un coup d'œil depuis une autre app — c'est
-/// tout l'intérêt d'avoir une icône dans le Dock.
+/// The badge alone says "something's happening" but not "how far along".
+/// The bar reads at a glance from another app — that's the whole point of
+/// having an icon in the Dock.
 @MainActor
 enum DockProgress {
 
     private static let tileView = DockTileView()
-    /// Dernier centième dessiné : la progression arrive plusieurs fois par
-    /// seconde, redessiner l'icône à chaque ligne ne changerait rien à l'œil.
+    /// Last hundredth drawn: progress arrives many times a second, redrawing
+    /// the icon every frame would make no visible difference.
     private static var lastDrawn: Int?
 
-    /// `fraction` à `nil` remet l'icône normale.
+    /// Pass `fraction` as `nil` to restore the normal icon.
     static func update(fraction: Double?, badge: Int) {
         let tile = NSApp.dockTile
         tile.badgeLabel = badge > 0 ? "\(badge)" : nil
@@ -36,13 +36,13 @@ enum DockProgress {
     }
 }
 
-/// Icône de l'app surmontée d'une barre de progression.
+/// App icon topped with a progress bar.
 private final class DockTileView: NSView {
     var fraction: Double = 0
 
     override func draw(_ dirtyRect: NSRect) {
-        // L'icône d'abord : remplacer la `contentView` du Dock la retire, il
-        // faut donc la redessiner soi-même.
+        // Draw the icon first: replacing the Dock's `contentView` removes it,
+        // so we must redraw it ourselves.
         NSApp.applicationIconImage?.draw(
             in: bounds, from: .zero, operation: .sourceOver, fraction: 1)
 
@@ -52,13 +52,13 @@ private final class DockTileView: NSView {
                            width: bounds.width - inset * 2, height: height)
         let radius = height / 2
 
-        // Piste sombre translucide : lisible sur une icône claire comme sombre.
+        // Dark translucent track: readable on both light and dark icons.
         NSColor(white: 0, alpha: 0.55).setFill()
         NSBezierPath(roundedRect: track, xRadius: radius, yRadius: radius).fill()
 
         guard fraction > 0 else { return }
         var filled = track
-        // Jamais moins large que haute, sinon la pastille arrondie se déforme.
+        // Never narrower than tall, else the rounded pill deforms.
         filled.size.width = max(height, track.width * CGFloat(fraction))
         NSColor.white.setFill()
         NSBezierPath(roundedRect: filled, xRadius: radius, yRadius: radius).fill()

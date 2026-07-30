@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// Réglages, en panneau de sidebar (et non en fenêtre séparée) : ⌘, y mène.
+/// Settings, as a sidebar panel (not a separate window): ⌘, opens it.
 struct SettingsPane: View {
     @ObservedObject var settings: AppSettings
     let manager: DownloadManager
@@ -95,8 +95,8 @@ struct SettingsPane: View {
                 }
 
                 section("Application") {
-                    // Le nom complet : c'est la ligne où l'on vient vérifier ce
-                    // qu'on a installé, le sigle seul n'y suffirait pas.
+                    // Full name: this is where you verify what was installed,
+                    // the acronym alone wouldn't be enough.
                     row("\(AppConfig.fullName) \(appUpdater.currentVersion)",
                         detail: appUpdateDetail) {
                         appUpdateControl
@@ -139,10 +139,10 @@ struct SettingsPane: View {
                             .labelsHidden()
                     }
                     divider
-                    // FFmpeg est téléchargé, jamais livré : le build qu'on
-                    // embarquait n'était pas redistribuable. Cette ligne dit
-                    // d'où il vient — c'est le seul composant que l'app va
-                    // chercher ailleurs que chez elle-même ou chez yt-dlp.
+                    // FFmpeg is downloaded, never shipped: the build we used
+                    // wasn't redistribution-legal. This row shows where it
+                    // comes from — it's the only component the app fetches
+                    // from anywhere but itself or yt-dlp.
                     row("FFmpeg", detail: ffmpegDetail) {
                         HStack(spacing: Theme.Space.s8) {
                             if ffmpeg.status.isBusy {
@@ -215,9 +215,8 @@ struct SettingsPane: View {
                         detail: "byelior.com · github.com/eliorpom-cmd · @elior.create") {
                         HStack(spacing: Theme.Space.s2) {
                             link("globe", AppConfig.Author.website, help: "byelior.com")
-                            // Vraies marques pour GitHub et Instagram ; le site
-                            // personnel garde le globe système, il n'a pas de
-                            // logo à lui.
+                            // Real brands for GitHub and Instagram; the personal
+                            // site keeps the system globe, it has no logo.
                             logoLink("github", fallback: "chevron.left.forwardslash.chevron.right",
                                      AppConfig.Author.github, help: "GitHub — eliorpom-cmd")
                             logoLink("instagram", fallback: "camera",
@@ -244,9 +243,8 @@ struct SettingsPane: View {
         .scrollContentBackground(.hidden)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .onAppear { portText = String(settings.port) }
-        // Le motif de nommage vit dans la configuration du moteur : il faut le
-        // reconstruire, sinon le changement n'aurait d'effet qu'au prochain
-        // lancement de l'app.
+        // The naming pattern lives in the engine config: must be rebuilt
+        // or the change only takes effect on the next app launch.
         .onChange(of: settings.filenameTemplate) { _ in manager.reconfigure() }
         .onChange(of: settings.filenameCustom) { _ in manager.reconfigure() }
         .task { await updater.refreshInstalledVersion() }
@@ -263,8 +261,8 @@ struct SettingsPane: View {
         }
     }
 
-    /// Un raccourci refusé ne se voit pas autrement : Carbon rend une erreur,
-    /// mais rien ne se passe à l'écran si on ne la dit pas.
+    /// A rejected shortcut won't show otherwise: Carbon returns an error,
+    /// but nothing happens on screen unless we say so.
     private var shortcutDetail: String {
         if settings.shortcutRejected {
             return "Already taken by another app — pick another one"
@@ -272,15 +270,15 @@ struct SettingsPane: View {
         return settings.globalShortcut ? "Click to change it" : "Turn the shortcut on first"
     }
 
-    /// Exemple concret sous le réglage : un gabarit de nommage ne se comprend
-    /// qu'en voyant ce qu'il produit.
+    /// Concrete example below the setting: a naming template only makes
+    /// sense by seeing what it produces.
     private var filenameDetail: String {
         settings.filenameTemplate == .custom
             ? "Your own yt-dlp pattern"
             : settings.filenameTemplate.example
     }
 
-    // MARK: - Mise à jour de l'app
+    // MARK: - App Update
 
     private var appUpdateDetail: String {
         switch appUpdater.status {
@@ -311,8 +309,8 @@ struct SettingsPane: View {
             EmptyView()
         case .ready:
             Button("Relaunch") {
-                // Libère le port avant de rendre la main : sinon la nouvelle
-                // instance démarrerait sur un port encore occupé par celle-ci.
+                // Release the port before returning: otherwise the new
+                // instance would start on a port still held by this one.
                 server.stop()
                 appUpdater.relaunch()
             }
@@ -331,15 +329,15 @@ struct SettingsPane: View {
         }
     }
 
-    // MARK: - Moteur
+    // MARK: - Engine
 
-    /// Ligne de détail : version, provenance, et résultat du dernier contrôle.
+    /// Detail row: version, source, and result of the last check.
     private var engineDetail: String {
         var parts: [String] = []
         parts.append(updater.installedVersion.map { "Version \($0)" } ?? "Version unknown")
         if let channel = updater.installedChannel {
-            // Rend visible un décalage entre le binaire installé et le canal
-            // choisi : sinon on croit tourner en stable avec une nightly.
+            // Makes visible a mismatch between installed binary and chosen
+            // channel: otherwise you'd think you're on stable with a nightly.
             parts.append(channel == settings.updateChannel
                 ? "updated copy"
                 : "\(channel.label.lowercased()) build — will switch on next check")
@@ -360,8 +358,8 @@ struct SettingsPane: View {
         return parts.joined(separator: " · ")
     }
 
-    /// Même esprit que `engineDetail`, avec la provenance en plus : c'est le
-    /// seul binaire que l'app va chercher hors de GitHub, autant que ça se lise.
+    /// Same spirit as `engineDetail`, plus the source: it's the only binary
+    /// the app fetches from outside GitHub, so make that clear.
     private var ffmpegDetail: String {
         var parts: [String] = []
         if let version = ffmpeg.installedVersion {
@@ -383,8 +381,8 @@ struct SettingsPane: View {
         return parts.joined(separator: " · ")
     }
 
-    /// Changer de canal relance immédiatement un contrôle : sinon le réglage
-    /// n'aurait aucun effet visible avant le lendemain.
+    /// Changing channels immediately triggers a check: otherwise the
+    /// setting would have no visible effect until tomorrow.
     private var channelBinding: Binding<UpdateChannel> {
         Binding(
             get: { settings.updateChannel },
@@ -395,12 +393,11 @@ struct SettingsPane: View {
             })
     }
 
-    // MARK: - Crédits
+    // MARK: - Credits
 
-    /// Ce que l'app doit à d'autres. `docs/THIRD-PARTY.md` en donne la version
-    /// longue ; cette section-ci est là pour que le crédit soit visible SANS
-    /// aller lire le dépôt — l'app ne télécharge rien elle-même, et son icône
-    /// n'est pas de la main de son auteur.
+    /// What the app owes others. `docs/THIRD-PARTY.md` gives the long version;
+    /// this section ensures credit is VISIBLE WITHOUT reading the repo — the
+    /// app doesn't download anything itself, and the icon isn't the author's work.
     private var creditsSection: some View {
         section("Credits") {
             creditRow("App icon by \(AppConfig.Credits.Icon.author)",
@@ -430,14 +427,14 @@ struct SettingsPane: View {
         }
     }
 
-    /// Ligne de crédit : la ligne ENTIÈRE est le lien. Un glyphe de lien en bout
-    /// de ligne, comme dans « About », conviendrait pour une ligne qui a par
-    /// ailleurs un réglage ; ici la ligne ne dit rien d'autre que « va voir là ».
+    /// Credit row: the ENTIRE row is the link. A link glyph at the end of
+    /// the line, like in "About", would suit a row that has other controls;
+    /// here the row says nothing but "go look there".
     private func creditRow(_ title: String, detail: String, url: URL) -> some View {
         CreditRow(title: title, detail: detail, url: url)
     }
 
-    // MARK: - Briques de mise en page
+    // MARK: - Layout Blocks
 
     private func section<Content: View>(
         _ title: String, @ViewBuilder content: () -> Content
@@ -478,15 +475,15 @@ struct SettingsPane: View {
         .padding(.vertical, Theme.Space.s10)
     }
 
-    /// Lien externe réduit à son glyphe : trois adresses en toutes lettres
-    /// tiendraient la largeur de la ligne, la ligne de détail les donne déjà.
+    /// External link reduced to a glyph: three full addresses would take
+    /// the row width; the detail line already shows them.
     private func link(_ symbol: String, _ url: URL, help: String) -> some View {
         IconButton(symbol: symbol, size: 13, help: help) {
             NSWorkspace.shared.open(url)
         }
     }
 
-    /// Même chose, avec le logo de la plateforme à la place d'un glyphe système.
+    /// Same thing, with the platform logo instead of a system glyph.
     private func logoLink(
         _ logo: String, fallback: String, _ url: URL, help: String
     ) -> some View {
@@ -495,7 +492,7 @@ struct SettingsPane: View {
         }
     }
 
-    /// Popup macOS discret, aligné sur le style de la maquette.
+    /// Subtle macOS popup, aligned with mockup style.
     private func picker<T: Hashable & Identifiable>(
         _ selection: Binding<T>,
         values: [T],
@@ -509,6 +506,8 @@ struct SettingsPane: View {
     }
 
     // MARK: - Actions
+
+
 
     private func chooseFolder() {
         let panel = NSOpenPanel()
@@ -529,14 +528,14 @@ struct SettingsPane: View {
     }
 }
 
-// MARK: - Ligne de crédit
+// MARK: - Credit Row
 
-/// Ligne de réglages entièrement cliquable, qui ouvre une page.
+/// Settings row that is entirely clickable and opens a page.
 ///
-/// Vue à part et non fonction dans `SettingsPane` : il lui faut son propre
-/// `@State` de survol, sinon les cinq lignes s'allumeraient ensemble. Le
-/// survol est la seule affordance disponible — le design system est monochrome,
-/// on ne peut pas colorer un lien en bleu.
+/// Separate view, not a function in `SettingsPane`: it needs its own
+/// hover `@State`, otherwise all five rows would light up together. Hover is
+/// the only affordance available — the design system is monochrome,
+/// so you can't color a link blue.
 private struct CreditRow: View {
     let title: String
     let detail: String
@@ -545,19 +544,19 @@ private struct CreditRow: View {
     @State private var hovering = false
 
     var body: some View {
-        // PAS un `Button`. Sur macOS 26, un bouton reçoit une chrome de survol
-        // du système — une pastille arrondie et en retrait, posée PAR-DESSUS le
-        // fond de la ligne — et aucun `ButtonStyle` ne la reprend. Une vue nue
-        // avec `onTapGesture` ne rend QUE ce qui est écrit ici ; les traits
-        // d'accessibilité rendent le rôle de lien malgré tout.
+        // NOT a `Button`. On macOS 26, a button gets system hover chrome —
+        // a rounded inset pill placed ON TOP OF the row background — and no
+        // `ButtonStyle` overrides it. A plain view with `onTapGesture` renders
+        // ONLY what's written here; accessibility traits still convey the
+        // link role.
         HStack(spacing: Theme.Space.s12) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
                     .font(Theme.Text.body)
                     .foregroundStyle(Theme.label)
-                    // Le survol se lit sur le TEXTE, pas sur un aplat. Un lien
-                    // souligné dit ce qu'il fait, et aucune forme ne peut mal
-                    // s'aligner : la géométrie de la ligne n'entre plus en jeu.
+                    // Hover reads on TEXT, not a solid. An underlined link
+                    // says what it does, and no shape can misalign: row
+                    // geometry is no longer a factor.
                     .underline(hovering)
                 Text(detail)
                     .font(Theme.Text.caption)

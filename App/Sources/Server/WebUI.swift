@@ -1,10 +1,10 @@
 import Foundation
 
 enum WebUI {
-    /// Manifest PWA : permet « Ajouter à l'écran d'accueil » en plein écran.
+    /// PWA manifest: enables "Add to Home Screen" in full screen.
     ///
-    /// `shortName` est le libellé sous l'icône une fois la page ajoutée à
-    /// l'écran d'accueil : iOS y coupe au-delà d'une douzaine de caractères.
+    /// `shortName` is the label under the icon once the page is added to the home screen:
+    /// iOS truncates it beyond a dozen characters.
     static func manifestJSON(appName: String, shortName: String) -> String {
         """
         {
@@ -21,18 +21,18 @@ enum WebUI {
         """
     }
 
-    /// Page unique servie aux appareils du réseau. Autonome (CSS + JS inline).
+    /// Single page served to network devices. Self-contained (CSS + JS inline).
     ///
-    /// Reprend EXACTEMENT la grammaire de l'app native : les mêmes tokens de
-    /// couleur (copie des variables Figma, cf. Theme.swift), le même logo, le
-    /// même champ en capsule avec son bouton rond, la même bascule Video/Audio,
-    /// et surtout les mêmes capsules dont le FOND se remplit au fil de la
-    /// progression — pas de barre séparée. Monochrome strict : la hiérarchie
-    /// vient de la typo et de l'espace, jamais d'une couleur.
-    /// `audioBitrateSelectable` reflète le réglage de l'app : en M4A la piste
-    /// d'origine est conservée, il n'y a pas de débit à choisir. La page web
-    /// proposait encore la liste des débits alors que l'app ne la montrait
-    /// plus — deux interfaces qui promettent des choses différentes.
+    /// Mirrors the native app's grammar EXACTLY: the same color tokens (copied
+    /// from Figma variables, cf. Theme.swift), the same logo, the same capsule
+    /// field with its round button, the same Video/Audio toggle, and above all
+    /// the same capsules whose BACKGROUND fills as progress advances — not a
+    /// separate bar. Strict monochrome: hierarchy comes from typography and
+    /// spacing, never color.
+    /// `audioBitrateSelectable` reflects the app's setting: in M4A the source
+    /// track is kept, so there is no bitrate to choose. The web page was still
+    /// offering the bitrate list when the app had stopped showing it — two
+    /// interfaces promising different things.
     static func indexHTML(appName: String, shortName: String,
                           audioBitrateSelectable: Bool) -> String {
         """
@@ -53,7 +53,7 @@ enum WebUI {
         <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
         <meta name="theme-color" content="#1E1E1E" media="(prefers-color-scheme: dark)">
         <style>
-          /* Tokens : copie des variables du fichier Figma, comme Theme.swift. */
+          /* Tokens: copy of Figma file variables, like Theme.swift. */
           :root {
             --window:#FFFFFF; --card:#FFFFFF;
             --fill-1:rgba(120,120,128,.20); --fill-2:rgba(120,120,128,.12);
@@ -89,15 +89,15 @@ enum WebUI {
                     calc(28px + env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left));
           }
 
-          /* --- En-tête : logo, champ, contrôles (comme l'écran Download) --- */
+          /* --- Header: logo, field, controls (like the Download screen) --- */
           .hero { display:flex; flex-direction:column; align-items:center; padding:22px 0 6px; }
-          /* Le logo est l'ICÔNE de l'app, pastille comprise — la même que le
-             favicon de l'onglet et que l'icône ajoutée à l'écran d'accueil.
-             C'est un tracé peint en currentColor : il s'inverse tout seul en
-             thème sombre, là où un PNG resterait noir sur noir. L'évidement
-             laisse passer le fond de la page, comme dans l'app. */
-          /* Carrée : 56px de côté, une pastille pleine pesant plus qu'un glyphe
-             évidé de même hauteur. */
+          /* The logo is the app's ICON, tile included — the same as the tab's
+             favicon and the icon added to the home screen. It is a path painted in
+             currentColor: it inverts itself in dark theme, where a PNG would stay
+             black on black. The hollowed out space lets the page background through,
+             like in the app. */
+          /* Square: 56px per side, a solid tile heavier than a hollowed glyph
+             of the same height. */
           .logo { width:56px; color:var(--ink); margin-bottom:26px; }
           .logo svg { width:100%; height:auto; display:block; fill:currentColor; }
 
@@ -149,7 +149,7 @@ enum WebUI {
             background-size:4px 4px, 4px 4px; background-repeat:no-repeat;
           }
 
-          /* --- Liste : capsules dont le fond se remplit --- */
+          /* --- List: capsules whose background fills --- */
           .list { margin-top:34px; flex:1; }
           .head {
             display:flex; align-items:baseline; justify-content:space-between;
@@ -321,8 +321,8 @@ enum WebUI {
             } finally { onInput(); }
           };
 
-          // Une capsule = une ligne. Le fond se remplit, exactement comme dans
-          // l'app : jamais de barre séparée, jamais de retour en arrière.
+          // One capsule = one line. Background fills, exactly like in the app:
+          // never a separate bar, never going backwards.
           function capsule(j) {
             const active = ["queued","downloading","paused","merging"].includes(j.state);
             const pct = Math.round((j.progress || 0) * 100);
@@ -332,8 +332,8 @@ enum WebUI {
             else if (j.state === "queued")   meta = "Preparing…";
             else if (j.state === "paused")   meta = `Paused · ${pct}%`;
             else if (j.state === "merging")  meta = "Finishing up…";
-            // Sur le téléphone, la taille du fichier n'aide pas : ce qu'on
-            // veut savoir, c'est qu'on peut le récupérer ICI, d'un geste.
+            // On the phone, file size doesn't help: what matters is that you can
+            // fetch it HERE, with one gesture.
             else if (j.state === "completed") meta = "Save · " + human(j.fileSize);
             else if (j.state === "failed")   meta = "Failed";
             else if (j.state === "cancelled") meta = "Cancelled";
@@ -341,8 +341,8 @@ enum WebUI {
             if (active) {
               action = `<button class="act" aria-label="Cancel" onclick="cancelJob(event,'${j.id}')">${ICON.cancel}</button>`;
             } else if (j.state === "completed" && j.canFetch) {
-              // La capsule entière devient un lien de téléchargement : n'importe
-              // quelle vidéo de la session du Mac se récupère sur l'appareil.
+              // The entire capsule becomes a download link: any video from the
+              // Mac's session can be fetched to the device.
               action = `<span class="act">${ICON.get}</span>`;
               href = `/api/file/${j.id}`;
             } else if (j.state === "failed" || j.state === "cancelled") {
@@ -371,7 +371,7 @@ enum WebUI {
             document.getElementById("jobs").innerHTML = jobs.map(capsule).join("");
             const done = jobs.some(j => ["completed","failed","cancelled"].includes(j.state));
             document.getElementById("clear").style.display = done ? "block" : "none";
-            // Pas de message quand il n'y a rien : l'absence se comprend seule.
+            // No message when there is nothing: the absence speaks for itself.
             document.getElementById("headTitle").textContent = jobs.length ? "Downloads" : "";
           }
 
@@ -386,8 +386,8 @@ enum WebUI {
           async function refresh() {
             try { const r = await fetch("/api/jobs"); render(await r.json()); } catch(_) {}
           }
-          // Polling suspendu quand l'onglet est masqué : inutile de réveiller la
-          // radio du téléphone pour rien.
+          // Polling suspended when the tab is hidden: no point waking the phone's
+          // radio for nothing.
           let pollTimer = null;
           function startPolling() {
             if (pollTimer) return;
@@ -401,7 +401,7 @@ enum WebUI {
             document.hidden ? stopPolling() : startPolling());
           startPolling();
 
-          // Deep-link : /?url=… (Raccourci iOS « Partager vers … »).
+          // Deep-link: /?url=… (iOS Shortcut "Share to …").
           const initialURL = new URLSearchParams(location.search).get("url");
           if (initialURL) { urlEl.value = initialURL; onInput(); }
         </script>

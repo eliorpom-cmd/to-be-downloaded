@@ -2,15 +2,15 @@ import Foundation
 import CryptoKit
 
 extension Notification.Name {
-    /// Le binaire yt-dlp effectif a changé : le moteur doit être reconstruit.
+    /// The effective yt-dlp binary has changed: the engine must rebuild.
     static let engineBinaryDidChange = Notification.Name("engineBinaryDidChange")
 }
 
-/// Canal de publication yt-dlp.
+/// yt-dlp release channel.
 ///
-/// YouTube change ses parades anti-bot en continu. Un correctif atterrit dans
-/// `nightly` en quelques heures, dans `stable` en quelques jours à semaines —
-/// d'où l'intérêt de laisser le choix.
+/// YouTube changes its anti-bot measures continuously. A fix lands in `nightly`
+/// in hours, in `stable` in days to weeks — hence the value of leaving the
+/// choice.
 enum UpdateChannel: String, CaseIterable, Identifiable, Sendable {
     case stable, nightly
 
@@ -30,7 +30,7 @@ enum UpdateChannel: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// Dépôt GitHub qui publie ce canal.
+    /// GitHub repository that publishes this channel.
     var repository: String {
         switch self {
         case .stable:  return "yt-dlp/yt-dlp"
@@ -39,14 +39,14 @@ enum UpdateChannel: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// Maintient à jour le yt-dlp utilisé par l'app.
+/// Keeps the yt-dlp used by the app up to date.
 ///
-/// Le binaire livré dans le `.app` n'est qu'une **amorce** : elle garantit que
-/// l'app fonctionne hors ligne dès l'installation, sans rien demander à
-/// l'utilisateur. Mais on ne le remplace jamais sur place — écrire dans
-/// `Contents/Resources` invaliderait la signature du bundle, et `/Applications`
-/// n'est pas toujours accessible en écriture. La version réellement exécutée
-/// vit donc dans `Application Support/<App>/bin`, que l'app remplace à volonté.
+/// The binary shipped in the `.app` is only a **bootstrap**: it guarantees the
+/// app works offline right after install, asking nothing of the user. But it is
+/// never replaced in place — writing to `Contents/Resources` would invalidate
+/// the bundle's signature, and `/Applications` is not always writable. The
+/// actually-executed version thus lives in `Application Support/<App>/bin`,
+/// which the app can replace at will.
 @MainActor
 final class EngineUpdater: ObservableObject {
 
@@ -61,13 +61,13 @@ final class EngineUpdater: ObservableObject {
         var isBusy: Bool { self == .checking || self == .downloading }
     }
 
-    /// Asset universal2 (x86_64 + arm64) des releases yt-dlp, déjà signé en
-    /// ad-hoc à la source — indispensable : sur Apple Silicon, un exécutable
-    /// sans signature valide ne démarre pas du tout.
+    /// universal2 asset (x86_64 + arm64) of yt-dlp releases, already ad-hoc
+    /// signed at source — essential: on Apple Silicon, an executable without a
+    /// valid signature won't start at all.
     private static let assetName = "yt-dlp_macos"
     private static let checksumsName = "SHA2-256SUMS"
-    /// Une vérification par jour suffit : yt-dlp ne publie pas plus souvent
-    /// côté stable, et le nightly reste bon plusieurs jours.
+    /// One check per day is enough: yt-dlp does not release more frequently on
+    /// stable, and nightly stays good for several days.
     private static let checkInterval: TimeInterval = 24 * 3600
 
     @Published private(set) var status: Status = .idle
@@ -75,14 +75,13 @@ final class EngineUpdater: ObservableObject {
     @Published private(set) var availableVersion: String?
     @Published private(set) var lastCheck: Date?
 
-    /// Vrai quand la copie exécutée vient d'Application Support (donc mise à
-    /// jour au moins une fois) et non du bundle.
+    /// True when the executed copy comes from Application Support (so updated
+    /// at least once) and not from the bundle.
     var usesManagedCopy: Bool { BinaryLocator.hasManagedYtDlp }
 
-    /// Canal d'où provient la copie installée. Peut différer du canal choisi
-    /// tant que le prochain contrôle n'a pas eu lieu — d'où son affichage dans
-    /// les réglages : un binaire nightly sous un réglage « Stable » doit se
-    /// voir, pas se deviner.
+    /// Channel the installed copy comes from. May differ from the chosen channel
+    /// until the next check happens — hence its display in settings: a nightly
+    /// binary under a "Stable" setting must be visible, not guessed.
     var installedChannel: UpdateChannel? {
         guard BinaryLocator.hasManagedYtDlp else { return nil }
         return UpdateChannel(rawValue: store.string(forKey: Key.installedChannel) ?? "")
@@ -101,7 +100,7 @@ final class EngineUpdater: ObservableObject {
         }
     }
 
-    // MARK: - Lecture de la version installée
+    // MARK: - Reading installed version
 
     func refreshInstalledVersion() async {
         guard let url = try? BinaryLocator.effectiveYtDlp() else {
@@ -111,8 +110,8 @@ final class EngineUpdater: ObservableObject {
         installedVersion = await version(of: url)
     }
 
-    /// `yt-dlp --version`, mémorisé tant que le fichier ne change pas : le
-    /// binaire est un bundle PyInstaller, son démarrage coûte ~1 s.
+    /// `yt-dlp --version`, cached as long as the file does not change: the
+    /// binary is a PyInstaller bundle, starting it costs ~1 s.
     private func version(of url: URL) async -> String? {
         let mtime = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
             .contentModificationDate?.timeIntervalSince1970 ?? 0
@@ -133,11 +132,11 @@ final class EngineUpdater: ObservableObject {
         return value
     }
 
-    // MARK: - Mise à jour
+    // MARK: - Update
 
-    /// Vérifie le canal et installe si une version plus récente existe.
-    /// - Parameter userInitiated: `true` court-circuite l'intervalle de 24 h et
-    ///   le réglage « check automatically ».
+    /// Check the channel and install if a newer version exists.
+    /// - Parameter userInitiated: `true` bypasses the 24-hour interval and
+    ///   the "check automatically" setting.
     func checkForUpdate(userInitiated: Bool) async {
         let channel = AppSettings.shared.updateChannel
 
@@ -157,9 +156,8 @@ final class EngineUpdater: ObservableObject {
             lastCheck = now
             store.set(now.timeIntervalSince1970, forKey: Key.lastCheck)
 
-            // Un changement de canal force la réinstallation : repasser de
-            // nightly à stable est un downgrade, que la comparaison de version
-            // refuserait toute seule.
+            // A channel change forces reinstall: switching from nightly to stable
+            // is a downgrade, which version comparison would refuse on its own.
             let channelChanged = store.string(forKey: Key.installedChannel) != channel.rawValue
                 && BinaryLocator.hasManagedYtDlp
             let needsInstall = channelChanged
@@ -178,24 +176,24 @@ final class EngineUpdater: ObservableObject {
             store.set(channel.rawValue, forKey: Key.installedChannel)
             installedVersion = version
             status = .installed(version)
-            // Le moteur pointe encore sur l'ancien chemin : il doit se recâbler.
+            // The engine still points to the old path: it must rewire.
             NotificationCenter.default.post(name: .engineBinaryDidChange, object: nil)
         } catch {
             status = .failed(error.localizedDescription)
         }
     }
 
-    /// Appelé quand l'utilisateur change de canal dans les réglages.
+    /// Called when the user changes channel in settings.
     func channelDidChange() {
         availableVersion = nil
         Task { await checkForUpdate(userInitiated: true) }
     }
 
-    // MARK: - Diagnostic
+    // MARK: - Diagnosis
 
-    /// Reconnaît les échecs qui trahissent un yt-dlp dépassé par une nouvelle
-    /// parade YouTube — les seuls cas où proposer une mise à jour a du sens.
-    /// Un « video unavailable » ou une URL privée n'en font pas partie.
+    /// Recognizes failures that betray an outdated yt-dlp facing a new YouTube
+    /// measure — the only cases where suggesting an update makes sense. A
+    /// "video unavailable" or private URL does not.
     private static let breakageMarkers = [
         "sign in to confirm",
         "not a bot",
@@ -216,7 +214,7 @@ final class EngineUpdater: ObservableObject {
         return breakageMarkers.contains { lower.contains($0) }
     }
 
-    // MARK: - Release GitHub
+    // MARK: - GitHub Release
 
     private struct Release: Sendable {
         let version: String
@@ -259,7 +257,7 @@ final class EngineUpdater: ObservableObject {
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.setValue("\(AppConfig.shortName)/\(AppConfig.version)", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 20
-        // Le cache HTTP renverrait une release périmée juste après une sortie.
+        // HTTP cache would return a stale release right after a release.
         request.cachePolicy = .reloadIgnoringLocalCacheData
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -277,10 +275,10 @@ final class EngineUpdater: ObservableObject {
         )
     }
 
-    /// Télécharge l'asset et vérifie son SHA-256 contre le fichier de sommes de
-    /// la release. Le but n'est pas de se protéger d'un GitHub compromis (les
-    /// deux fichiers viennent de la même source) mais de ne jamais installer un
-    /// binaire tronqué par une coupure réseau.
+    /// Download the asset and verify its SHA-256 against the release's checksum
+    /// file. The goal is not to protect from a compromised GitHub (both files
+    /// come from the same source) but to never install a binary truncated by a
+    /// network break.
     private static func downloadVerifiedBinary(_ release: Release) async throws -> URL {
         let (temp, response) = try await URLSession.shared.download(from: release.asset)
         if let http = response as? HTTPURLResponse, http.statusCode != 200 {
@@ -288,8 +286,8 @@ final class EngineUpdater: ObservableObject {
             throw UpdateError.http(http.statusCode)
         }
 
-        // `download(from:)` détruit son fichier temporaire dès le retour : on le
-        // déplace tout de suite.
+        // `download(from:)` destroys its temp file on return: move it
+        // immediately.
         let staged = FileManager.default.temporaryDirectory
             .appendingPathComponent("yt-dlp-\(UUID().uuidString)")
         try FileManager.default.moveItem(at: temp, to: staged)
@@ -305,7 +303,7 @@ final class EngineUpdater: ObservableObject {
         return staged
     }
 
-    /// Lignes du type `<hash>  yt-dlp_macos`.
+    /// Lines like `<hash>  yt-dlp_macos`.
     private static func expectedHash(from url: URL) async throws -> String? {
         var request = URLRequest(url: url)
         request.timeoutInterval = 20
@@ -330,18 +328,17 @@ final class EngineUpdater: ObservableObject {
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
-    /// Installe le binaire téléchargé dans le dossier géré, après l'avoir
-    /// réellement exécuté une fois. Le remplacement est atomique et sans danger
-    /// pour un téléchargement en cours : sous POSIX, le process déjà lancé garde
-    /// l'ancien inode ouvert.
+    /// Install the downloaded binary in the managed folder after running it
+    /// once. Replacement is atomic and safe during an ongoing download: on POSIX,
+    /// an already-running process keeps the old inode open.
     private static func install(_ downloaded: URL) async throws -> String {
         let fm = FileManager.default
         let destination = BinaryLocator.managedYtDlp
         try fm.createDirectory(at: BinaryLocator.managedDirectory, withIntermediateDirectories: true)
 
         try fm.setAttributes([.posixPermissions: NSNumber(value: 0o755)], ofItemAtPath: downloaded.path)
-        // URLSession ne pose pas la quarantaine, mais un profil de sécurité ou
-        // un antivirus peuvent le faire : on la retire par précaution.
+        // URLSession doesn't apply quarantine, but a security profile or
+        // antivirus might: remove it as a precaution.
         BinaryLocator.stripQuarantine(at: downloaded)
 
         let probe = try await ProcessRunner.run(executable: downloaded, arguments: ["--version"])
@@ -364,11 +361,11 @@ final class EngineUpdater: ObservableObject {
         return version
     }
 
-    // MARK: - Comparaison de versions
+    // MARK: - Version comparison
 
-    /// Les versions yt-dlp sont datées : `2026.07.04`, et `2026.07.23.234303`
-    /// pour un nightly. Comparaison composante par composante, en entiers —
-    /// l'ordre lexicographique se tromperait sur `2026.7.4` vs `2026.07.23`.
+    /// yt-dlp versions are dated: `2026.07.04`, and `2026.07.23.234303` for
+    /// nightly. Component-by-component comparison as integers — lexicographic
+    /// order would fail on `2026.7.4` vs `2026.07.23`.
     static func isNewer(_ candidate: String, than current: String) -> Bool {
         let a = candidate.split(separator: ".").map { Int($0) ?? 0 }
         let b = current.split(separator: ".").map { Int($0) ?? 0 }

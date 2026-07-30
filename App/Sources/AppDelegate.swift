@@ -1,24 +1,24 @@
 import AppKit
 
 extension Notification.Name {
-    /// Lien reçu de l'extérieur : schéma `tbd://`, service macOS,
-    /// extension de partage.
+    /// Link received from outside: `tbd://` scheme, macOS service,
+    /// share extension.
     static let externalDownloadRequest = Notification.Name("externalDownloadRequest")
 }
 
-/// Réception des liens venus d'ailleurs que de la fenêtre.
+/// Receiving links from outside the window.
 ///
-/// Passe par un délégué d'application et non par `.onOpenURL` : ce dernier
-/// n'est délivré qu'à une scène affichée, alors que l'app peut très bien
-/// tourner sans fenêtre ouverte, réduite à son icône de barre des menus.
+/// Goes through an application delegate rather than `.onOpenURL`: the latter
+/// is only delivered to a displayed scene, whereas the app can run fine with
+/// no window open, reduced to its menu bar icon.
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private let services = ServiceProvider()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.servicesProvider = services
-        // Sans cela, l'entrée n'apparaît dans le menu Services qu'après un
-        // redémarrage de session.
+        // Without this, the entry won't appear in the Services menu until
+        // the session is restarted.
         NSUpdateDynamicServices()
     }
 
@@ -26,7 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for url in urls { Self.handle(url) }
     }
 
-    /// `tbd://download?url=<lien encodé>`
+    /// `tbd://download?url=<encoded link>`
     static func handle(_ url: URL) {
         guard url.scheme?.lowercased() == AppConfig.urlScheme,
               let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
@@ -42,12 +42,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-/// Entrée « Download with … » du menu Services, disponible dès qu'un lien
-/// YouTube est sélectionné dans n'importe quelle app.
+/// "Download with …" entry in the Services menu, available as soon as a
+/// YouTube link is selected in any app.
 ///
-/// C'est le complément de l'extension de partage : un service est fourni par
-/// l'app elle-même, donc il fonctionne quoi qu'il arrive, là où une extension
-/// est un bundle distinct que le système peut refuser de charger.
+/// This complements the share extension: a service is provided by
+/// the app itself, so it works no matter what, whereas an extension
+/// is a separate bundle that the system might refuse to load.
 final class ServiceProvider: NSObject {
     @objc func downloadYouTubeLink(
         _ pasteboard: NSPasteboard,

@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 #
-# Construit l'app en Release, la signe en ad-hoc (gratuit, sans compte Apple)
-# et produit un DMG distribuable.
+# Builds the app in Release, ad-hoc signs it (free, no Apple account),
+# and produces a distributable DMG.
 #
-# Usage :  ./scripts/build.sh
+# Usage: ./scripts/build.sh
 #
 set -euo pipefail
 
-# APP_NAME = PRODUCT_NAME du project.yml : le nom du schéma, du .app et du DMG.
+# APP_NAME = PRODUCT_NAME from project.yml: the name of the scheme, .app, and DMG.
 APP_NAME="TBD"
-# Nom du volume monté dans le Finder, seul endroit du build où le sigle est
-# développé — c'est ce que voit quelqu'un qui ouvre le DMG.
+# Name of the volume mounted in Finder, the only place in the build where the
+# acronym is spelled out — this is what someone opening the DMG sees.
 VOLUME_NAME="TBD - To be downloaded"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DERIVED="$ROOT/build/ReleaseDerivedData"
@@ -18,10 +18,10 @@ DIST="$ROOT/dist"
 
 cd "$ROOT"
 
-echo "▶ Génération du projet Xcode…"
+echo "▶ Generating the Xcode project…"
 xcodegen generate >/dev/null
 
-echo "▶ Compilation Release…"
+echo "▶ Release build…"
 xcodebuild -project "$APP_NAME.xcodeproj" -scheme "$APP_NAME" \
   -configuration Release -derivedDataPath "$DERIVED" \
   CODE_SIGNING_ALLOWED=NO build >/dev/null
@@ -29,29 +29,29 @@ xcodebuild -project "$APP_NAME.xcodeproj" -scheme "$APP_NAME" \
 APP_SRC="$DERIVED/Build/Products/Release/$APP_NAME.app"
 [ -d "$APP_SRC" ] || { echo "❌ App introuvable : $APP_SRC"; exit 1; }
 
-echo "▶ Préparation de dist/…"
+echo "▶ Preparing dist/…"
 rm -rf "$DIST"
 mkdir -p "$DIST"
 cp -R "$APP_SRC" "$DIST/"
 APP="$DIST/$APP_NAME.app"
 
-echo "▶ Signature ad-hoc (de l'intérieur vers l'extérieur)…"
-# ffmpeg/ffprobe ne sont PAS ici : ils ne sont pas livrés avec l'app. Le build
-# statique qu'on embarquait était compilé --enable-nonfree, donc juridiquement
-# non redistribuable ; l'app les télécharge au premier lancement chez leur
-# éditeur (cf. App/Sources/Core/FFmpegInstaller.swift).
+echo "▶ Ad-hoc signing (inside out)…"
+# ffmpeg/ffprobe are NOT here: they are not shipped with the app. The static
+# build we bundled was compiled --enable-nonfree, so legally not redistributable;
+# the app downloads them on first launch from their publisher
+# (cf. App/Sources/Core/FFmpegInstaller.swift).
 for bin in yt-dlp; do
   codesign --force --sign - "$APP/Contents/Resources/bin/$bin"
 done
-# L'extension AVANT l'app : signer l'app scelle le contenu de PlugIns, donc
-# signer l'extension ensuite invaliderait la signature de l'app.
+# Extension BEFORE the app: signing the app seals the PlugIns contents, so
+# signing the extension afterward would invalidate the app's signature.
 for appex in "$APP/Contents/PlugIns/"*.appex; do
   [ -e "$appex" ] || continue
   codesign --force --sign - "$appex"
 done
 codesign --force --sign - "$APP"
 
-echo "▶ Création du DMG…"
+echo "▶ Creating the DMG…"
 STAGING="$(mktemp -d)"
 cp -R "$APP" "$STAGING/"
 ln -s /Applications "$STAGING/Applications"
@@ -61,9 +61,9 @@ hdiutil create -volname "$VOLUME_NAME" -srcfolder "$STAGING" -ov -format UDZO "$
 rm -rf "$STAGING"
 
 echo ""
-echo "✅ Terminé"
-echo "   App : $APP"
-echo "   DMG : $DMG"
+echo "✅ Done"
+echo "   App: $APP"
+echo "   DMG: $DMG"
 echo ""
-echo "ℹ️  Sur un AUTRE Mac, au 1er lancement : clic droit sur l'app → Ouvrir,"
+echo "ℹ️  On a DIFFERENT Mac, on first launch: right-click app → Open,"
 echo "    ou en Terminal :  xattr -dr com.apple.quarantine /chemin/vers/$APP_NAME.app"

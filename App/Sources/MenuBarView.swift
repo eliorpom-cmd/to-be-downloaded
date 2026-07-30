@@ -1,17 +1,17 @@
 import SwiftUI
 import AppKit
 
-/// Contenu du menu de la barre des menus.
+/// Menu bar menu content.
 ///
-/// Pensé comme un raccourci utile et non comme un doublon de la fenêtre : coller
-/// un lien et lancer un téléchargement sans rien ouvrir, suivre ce qui tourne,
-/// retrouver les derniers fichiers.
+/// Designed as a useful shortcut, not a window duplicate: paste a link and
+/// launch a download without opening anything, track what's running, find
+/// recent files.
 struct MenuBarView: View {
     @ObservedObject var manager: DownloadManager
     @ObservedObject var server: ServerController
     @ObservedObject var settings: AppSettings
 
-    /// Lien YouTube présent dans le presse-papier, réévalué à l'ouverture.
+    /// YouTube link in the clipboard, reevaluated on open.
     @State private var clipboardLink: String?
 
     private var active: [DownloadJob] { manager.activeJobs }
@@ -88,8 +88,8 @@ struct MenuBarView: View {
             Divider()
 
             HStack(spacing: Theme.Space.s12) {
-                // Le sigle : la fenêtre de la barre des menus est étroite et
-                // ce bouton partage sa ligne avec Quit.
+                // The acronym: the menu bar window is narrow and this
+                // button shares its line with Quit.
                 Button("Open \(AppConfig.shortName)", action: openMainWindow)
                 Spacer(minLength: 0)
                 Button("Quit") { NSApp.terminate(nil) }
@@ -101,7 +101,7 @@ struct MenuBarView: View {
         .task { refreshClipboard() }
     }
 
-    // MARK: - Morceaux
+    // MARK: - Pieces
 
     private var header: some View {
         HStack(spacing: Theme.Space.s8) {
@@ -157,7 +157,7 @@ struct MenuBarView: View {
                     manager.cancel(job.id)
                 }
             }
-            // Une seule barre, la même que dans la fenêtre.
+            // One bar, the same as in the window.
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Theme.fillTertiary)

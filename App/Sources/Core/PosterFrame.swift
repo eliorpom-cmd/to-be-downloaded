@@ -1,13 +1,12 @@
 import AVFoundation
 import AppKit
 
-/// Vignette de repli extraite du fichier lui-même.
+/// Fallback thumbnail extracted from the file itself.
 ///
-/// La miniature YouTube n'est pas toujours connue : si les métadonnées sont
-/// arrivées trop tard, ou si l'entrée vient d'une ancienne version, l'URL est
-/// nulle. Plutôt qu'une case grise, on prend une image dans la vidéo — ce qui a
-/// l'avantage de rester valable hors ligne et de survivre à la disparition de
-/// la vidéo d'origine.
+/// The YouTube thumbnail is not always known: if metadata arrived too late, or
+/// if the entry comes from an old version, the URL is nil. Rather than a gray
+/// box, we take an image from the video — which has the advantage of staying
+/// valid offline and surviving the disappearance of the original video.
 enum PosterFrame {
 
     private static var directory: URL {
@@ -19,8 +18,8 @@ enum PosterFrame {
         directory.appendingPathComponent("\(id.uuidString).jpg")
     }
 
-    /// Renvoie la vignette en cache, en la produisant au besoin.
-    /// `nil` pour un fichier audio ou une vidéo illisible.
+    /// Return the cached thumbnail, generating it if needed.
+    /// `nil` for an audio file or unreadable video.
     static func image(for id: UUID, file: URL) async -> NSImage? {
         let cached = cachedURL(for: id)
         if let image = NSImage(contentsOf: cached) { return image }
@@ -33,9 +32,9 @@ enum PosterFrame {
             return NSImage(cgImage: generated, size: .zero)
         }
 
-        // Repli ffmpeg : AVFoundation ne décode pas l'AV1 sur la plupart des
-        // Mac, et c'est justement ce que YouTube sert de plus en plus. Le
-        // décodeur logiciel qu'on embarque déjà, lui, ne s'en soucie pas.
+        // FFmpeg fallback: AVFoundation does not decode AV1 on most Macs, and
+        // that is exactly what YouTube increasingly serves. The software decoder
+        // we already ship does not mind.
         if await extractFrameWithFFmpeg(from: file, to: cached) {
             return NSImage(contentsOf: cached)
         }
@@ -55,9 +54,9 @@ enum PosterFrame {
         else { return nil }
 
         let generator = AVAssetImageGenerator(asset: asset)
-        generator.appliesPreferredTrackTransform = true   // respecte la rotation
+        generator.appliesPreferredTrackTransform = true   // respects rotation
         generator.maximumSize = CGSize(width: 480, height: 480)
-        // 10 % du film : évite les fondus au noir et les cartons de début.
+        // 10% into the video: avoids black fades and intro cards.
         let seconds = min(max(duration.seconds * 0.1, 1), 30)
         let time = CMTime(seconds: seconds, preferredTimescale: 600)
         generator.requestedTimeToleranceBefore = CMTime(seconds: 1, preferredTimescale: 600)
@@ -66,15 +65,15 @@ enum PosterFrame {
         return try? await generator.image(at: time).image
     }
 
-    /// Extrait une image à 10 s avec le ffmpeg embarqué. Arguments en tableau,
-    /// jamais de shell.
+    /// Extract a frame at 10s with the shipped ffmpeg. Arguments as array,
+    /// never shell.
     private static func extractFrameWithFFmpeg(from file: URL, to destination: URL) async -> Bool {
-        // Pas de FFmpeg installé (premier lancement en cours) : pas de vignette,
-        // et surtout pas d'erreur — elle se fabriquera à la prochaine demande.
+        // No FFmpeg installed (first launch underway): no thumbnail, and no
+        // error — it will be made on the next request.
         guard let ffmpeg = try? BinaryLocator.effectiveFFmpeg() else { return false }
         let arguments = [
             "-y",
-            "-ss", "10",          // avant l'entrée : décodage rapide, sans lire tout le fichier
+            "-ss", "10",          // before input: fast decode, no reading whole file
             "-i", file.path,
             "-frames:v", "1",
             "-vf", "scale=480:-2",
@@ -84,7 +83,7 @@ enum PosterFrame {
         guard let result = try? await ProcessRunner.run(executable: ffmpeg, arguments: arguments),
               result.exitCode == 0
         else {
-            // Vidéo plus courte que 10 s : on retente sur la toute première image.
+            // Video shorter than 10s: retry on the very first frame.
             guard let retry = try? await ProcessRunner.run(
                 executable: ffmpeg,
                 arguments: ["-y", "-i", file.path, "-frames:v", "1",

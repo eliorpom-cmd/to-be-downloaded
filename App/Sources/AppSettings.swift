@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// Préférence d'apparence de l'app, indépendante du réglage système.
+/// App appearance preference, independent of system settings.
 enum AppearancePreference: String, CaseIterable, Identifiable {
     case system, light, dark
 
@@ -15,7 +15,7 @@ enum AppearancePreference: String, CaseIterable, Identifiable {
         }
     }
 
-    /// SF Symbol du bouton bascule (reflète l'état courant).
+    /// SF Symbol for the toggle button (reflects current state).
     var symbol: String {
         switch self {
         case .system: return "circle.lefthalf.filled"
@@ -24,7 +24,7 @@ enum AppearancePreference: String, CaseIterable, Identifiable {
         }
     }
 
-    /// `nil` = suit le système ; sinon force clair/sombre.
+    /// `nil` = follows system; otherwise forces light/dark.
     var colorScheme: ColorScheme? {
         switch self {
         case .system: return nil
@@ -34,9 +34,9 @@ enum AppearancePreference: String, CaseIterable, Identifiable {
     }
 }
 
-/// Préférences persistées (UserDefaults) : dossier de sortie, format par défaut,
-/// port du serveur, apparence. Les changements sont appliqués explicitement par
-/// les vues (rebuild du moteur / redémarrage du serveur).
+/// Persisted preferences (UserDefaults): output folder, default format,
+/// server port, appearance. Changes are applied explicitly by
+/// the views (engine rebuild / server restart).
 @MainActor
 final class AppSettings: ObservableObject {
     static let shared = AppSettings()
@@ -85,12 +85,12 @@ final class AppSettings: ObservableObject {
         }
     }
 
-    /// Applique l'apparence à l'application entière.
+    /// Apply appearance to the entire application.
     ///
-    /// On passe par `NSApp.appearance` et NON par `.preferredColorScheme` :
-    /// une fois qu'une fenêtre SwiftUI a été forcée en clair ou en sombre,
-    /// repasser `nil` ne la rend PAS au réglage système — elle reste figée.
-    /// `NSApp.appearance = nil` le fait, lui.
+    /// Goes through `NSApp.appearance` not `.preferredColorScheme`: once a
+    /// SwiftUI window is forced to light or dark, passing `nil` does NOT
+    /// take it back to system settings — it stays frozen.
+    /// `NSApp.appearance = nil` does.
     static func applyAppearance(_ preference: AppearancePreference) {
         let appearance: NSAppearance?
         switch preference {
@@ -100,33 +100,32 @@ final class AppSettings: ObservableObject {
         }
         NSApplication.shared.appearance = appearance
     }
-    /// Canal yt-dlp suivi par le mécanisme de mise à jour.
+    /// yt-dlp channel tracked by the update mechanism.
     @Published var updateChannel: UpdateChannel {
         didSet { store.set(updateChannel.rawValue, forKey: Key.updateChannel) }
     }
-    /// Vérification quotidienne, au lancement puis toutes les heures tant que
-    /// l'app tourne. Activée par défaut : sans elle, l'app casse dès la
-    /// prochaine parade anti-bot de YouTube.
+    /// Daily check on launch, then hourly while the app runs. On by default:
+    /// without it, the app breaks at the next YouTube bot defense.
     @Published var autoUpdateEngine: Bool {
         didSet { store.set(autoUpdateEngine, forKey: Key.autoUpdateEngine) }
     }
-    /// Mise à jour automatique de l'app elle-même (releases GitHub signées).
+    /// Automatic update of the app itself (signed GitHub releases).
     @Published var autoUpdateApp: Bool {
         didSet { store.set(autoUpdateApp, forKey: Key.autoUpdateApp) }
     }
-    /// Conteneur audio produit (M4A sans ré-encodage par défaut).
+    /// Audio container produced (M4A no re-encoding by default).
     @Published var audioFormat: AudioFormat {
         didSet { store.set(audioFormat.rawValue, forKey: Key.audioFormat) }
     }
-    /// Incruster les sous-titres dans les vidéos.
+    /// Embed subtitles in videos.
     @Published var embedSubtitles: Bool {
         didSet { store.set(embedSubtitles, forKey: Key.subtitles) }
     }
-    /// Téléchargements menés de front. Au-delà, ils attendent leur tour.
+    /// Concurrent downloads. Beyond that, they wait their turn.
     ///
-    /// Deux par défaut : lancer dix téléchargements en même temps ne va pas
-    /// plus vite — la bande passante est la même — mais retarde le premier
-    /// fichier utilisable et rend tous les temps restants faux.
+    /// Two by default: launching ten downloads at once is no faster —
+    /// bandwidth is the same — but delays the first usable file and makes
+    /// all remaining times wrong.
     @Published var maxConcurrent: Int {
         didSet { store.set(maxConcurrent, forKey: Key.maxConcurrent) }
     }
@@ -136,7 +135,7 @@ final class AppSettings: ObservableObject {
     @Published var filenameCustom: String {
         didSet { store.set(filenameCustom, forKey: Key.filenameCustom) }
     }
-    /// Raccourci global ⌥⌘V : coller et télécharger sans passer par la fenêtre.
+    /// Global shortcut ⌥⌘V: paste and download without opening the window.
     @Published var globalShortcut: Bool {
         didSet {
             store.set(globalShortcut, forKey: Key.globalShortcut)
@@ -146,12 +145,12 @@ final class AppSettings: ObservableObject {
     @Published private(set) var shortcutKeyCode: Int
     @Published private(set) var shortcutModifiers: UInt
     @Published private(set) var shortcutLabel: String
-    /// Vrai quand la dernière combinaison demandée a été refusée par le
-    /// système — presque toujours parce qu'une autre app l'a déjà prise.
+    /// True when the last requested combo was rejected by the system —
+    /// almost always because another app already took it.
     @Published private(set) var shortcutRejected = false
 
-    /// Change la combinaison. Renvoie `false` si elle est déjà prise, auquel
-    /// cas l'ancienne est remise en place.
+    /// Change the combo. Returns `false` if it's already taken, in which
+    /// case the old one is restored.
     @discardableResult
     func setShortcut(keyCode: Int, modifiers: UInt, label: String) -> Bool {
         let previous = (shortcutKeyCode, shortcutModifiers, shortcutLabel)
@@ -164,7 +163,7 @@ final class AppSettings: ObservableObject {
 
         guard globalShortcut else { return true }
         if applyGlobalShortcut() { return true }
-        // Refusée : on ne laisse pas l'utilisateur avec un raccourci mort.
+        // Rejected: don't leave the user with a dead shortcut.
         shortcutKeyCode = previous.0
         shortcutModifiers = previous.1
         shortcutLabel = previous.2
@@ -190,20 +189,20 @@ final class AppSettings: ObservableObject {
         return ok
     }
 
-    /// Motif `-o` effectif, extension comprise.
+    /// Effective `-o` pattern, extension included.
     var outputPattern: String {
         FilenameTemplate.outputPattern(filenameTemplate, custom: filenameCustom)
     }
 
-    /// Langues de sous-titres demandées : celle du système d'abord, puis
-    /// l'anglais — la seule qu'on retrouve à peu près partout.
+    /// Requested subtitle languages: system language first, then English —
+    /// the only one found almost everywhere.
     var subtitleLanguages: [String] {
         let system = Locale.current.language.languageCode?.identifier ?? "en"
         return system == "en" ? ["en"] : [system, "en"]
     }
 
-    /// Format correspondant aux réglages par défaut, pour les déclencheurs qui
-    /// n'ont pas d'UI de choix (menu de la barre des menus, ⌘⇧V).
+    /// Format matching default settings, for triggers without choice UI
+    /// (menu bar menu, ⌘⇧V).
     var currentDefaultFormat: DownloadFormat {
         DownloadFormat(kind: defaultKind,
                        videoQuality: defaultVideoQuality,
@@ -212,7 +211,7 @@ final class AppSettings: ObservableObject {
                        subtitles: embedSubtitles)
     }
 
-    /// Fait défiler Système → Clair → Sombre → Système (bouton bascule du header).
+    /// Cycle through System → Light → Dark → System (header toggle button).
     func cycleAppearance() {
         let all = AppearancePreference.allCases
         let next = (all.firstIndex(of: appearance).map { $0 + 1 } ?? 0) % all.count
@@ -220,12 +219,12 @@ final class AppSettings: ObservableObject {
     }
 
     private init() {
-        // Dossier de sortie
+        // Output folder
         if let path = store.string(forKey: Key.output), !path.isEmpty {
             outputDirectory = URL(fileURLWithPath: path, isDirectory: true)
         } else {
-            // Directement ~/Downloads : pas de sous-dossier au nom de l'app,
-            // les fichiers atterrissent là où les gens les cherchent.
+            // Straight to ~/Downloads: no subfolder named after the app,
+            // files land where people look for them.
             outputDirectory = FileManager.default
                 .urls(for: .downloadsDirectory, in: .userDomainMask).first
                 ?? FileManager.default.homeDirectoryForCurrentUser

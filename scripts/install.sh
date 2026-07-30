@@ -1,29 +1,27 @@
 #!/usr/bin/env bash
 #
-# Installe la version courante des sources dans /Applications.
+# Installs the current version from source into /Applications.
 #
-# Usage :  ./scripts/install.sh
+# Usage: ./scripts/install.sh
 #
-# À savoir sur macOS : il n'existe pas de base des « logiciels installés ». Une
-# app est un simple dossier, et Launch Services référence TOUTES les copies
-# qu'il a croisées — y compris celles que xcodebuild dépose dans build/ et que
-# Xcode enregistre lui-même à chaque compilation. C'est ainsi qu'on se retrouve
-# avec de vieilles versions dans Spotlight, parfaitement fonctionnelles et
-# parfaitement périmées.
+# About macOS: there is no database of "installed software". An app is just
+# a folder, and Launch Services indexes ALL copies it encounters — including those
+# xcodebuild puts in build/ and Xcode itself registers on each build. That's how
+# you end up with old versions in Spotlight that work fine but are stale.
 #
-# Ce script tranche : /Applications est la SEULE copie installée, tout le reste
-# est du produit de build jetable, désinscrit et supprimé au passage.
+# This script fixes it: /Applications is the ONLY installed copy, everything else
+# is disposable build output, unregistered and deleted along the way.
 #
 set -euo pipefail
 
-# Nom du produit de build : court et sans espace, c'est lui qu'on manipule dans
-# le dépôt, les scripts et le Terminal.
+# Build product name: short with no spaces, this is what we work with in the
+# repo, scripts, and Terminal.
 APP_NAME="TBD"
-# Nom du bundle UNE FOIS INSTALLÉ. Différent exprès : Spotlight indexe une app
-# par son NOM DE FICHIER et ignore CFBundleDisplayName — installée sous « TBD »,
-# l'app resterait introuvable en cherchant « to be downloaded ».
-# Renommer le dossier d'un bundle est sans effet sur sa signature (elle couvre
-# le contenu) et sur l'exécutable (CFBundleExecutable reste « TBD »).
+# Bundle name ONCE INSTALLED. Different on purpose: Spotlight indexes an app by
+# its FILE NAME and ignores CFBundleDisplayName — installed as "TBD" the app would
+# be unfindable searching for "to be downloaded". Renaming a bundle's folder
+# has no effect on its signature (which covers the contents) or the executable
+# (CFBundleExecutable stays "TBD").
 INSTALLED_NAME="TBD - To be downloaded"
 BUNDLE_ID="com.byelior.tbd"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -32,8 +30,8 @@ LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Versions/A/Framewo
 
 cd "$ROOT"
 
-# Remplacer le bundle d'une app qui tourne ne la met pas à jour : le processus
-# en vol garde son ancien code mappé en mémoire (POSIX). Autant la quitter.
+# Replacing the bundle of a running app doesn't update it: the process keeps
+# its old code mapped in memory (POSIX). Might as well quit it.
 if /usr/bin/pgrep -x "$APP_NAME" >/dev/null 2>&1; then
   echo "▶ $APP_NAME tourne — fermeture…"
   /usr/bin/osascript -e "quit app id \"$BUNDLE_ID\"" 2>/dev/null || true
@@ -46,25 +44,23 @@ fi
 "$ROOT/scripts/build.sh"
 
 SOURCE="$ROOT/dist/$APP_NAME.app"
-[ -d "$SOURCE" ] || { echo "❌ Introuvable après build : $SOURCE"; exit 1; }
+[ -d "$SOURCE" ] || { echo "❌ Not found after build: $SOURCE"; exit 1; }
 
-# Accolades obligatoires : collé à « … », bash avale les octets UTF-8 dans le
-# nom de la variable.
-echo "▶ Installation dans ${TARGET}…"
-# Supprimer puis ditto, et surtout pas un cp par-dessus : le cache d'icônes de
-# Launch Services reste collé à l'ancienne icône tant que le bundle garde le
-# même inode. Un dossier neuf le force à relire le .icns.
+# Braces required: attached to "…", bash would eat UTF-8 bytes in the var name.
+echo "▶ Installing into ${TARGET}…"
+# Remove then ditto, definitely not cp over: Launch Services' icon cache
+# sticks to the old icon as long as the bundle keeps the same inode. A new
+# folder forces it to reread the .icns.
 rm -rf "$TARGET"
 /usr/bin/ditto "$SOURCE" "$TARGET"
 
-echo "▶ Enregistrement auprès de Launch Services…"
+echo "▶ Registering with Launch Services…"
 "$LSREGISTER" -f "$TARGET"
 
-# Désinscription de TOUTE copie autre que celle de /Applications : les bundles
-# disparus (anciens produits de build) comme ceux encore présents dans build/ et
-# dist/, que la compilation vient elle-même d'enregistrer. Ils reviendront au
-# prochain build — d'où la purge ICI, après, plutôt qu'avant : au sortir de ce
-# script, Spotlight ne connaît qu'une seule copie de l'app.
+# Unregister every copy except the one in /Applications: both missing bundles
+# (old build products) and those still in build/ and dist/ that the build just
+# registered. They'll be back next build — hence the purge HERE, after, not before:
+# when this script ends, Spotlight knows only one copy of the app.
 PURGED=0
 while IFS= read -r path; do
   [ "$path" = "$TARGET" ] && continue
@@ -76,15 +72,14 @@ done < <("$LSREGISTER" -dump 2>/dev/null \
   | /usr/bin/grep -E "/($APP_NAME|$INSTALLED_NAME)\.app$" \
   | sort -u)
 
-# Spotlight n'interroge PAS le registre de Launch Services : il indexe le
-# système de fichiers. Un bundle désinscrit mais toujours sur le disque ressort
-# donc quand même dans la recherche. Le seul remède est qu'il n'existe plus.
+# Spotlight does NOT query Launch Services' registry: it indexes the
+# filesystem. An unregistered but still-present bundle will still show up
+# in search. The only fix is for it not to exist.
 #
-# On ne retire que les .app produites, pas les dossiers de build qui les
-# entourent : les objets compilés vivent dans Intermediates.noindex, la
-# prochaine compilation reste incrémentale (elle réédite les liens, sans tout
-# recompiler). Le DMG est conservé, Spotlight n'indexe pas l'intérieur d'une
-# image disque non montée.
+# We only delete .app files, not the build folders around them: compiled
+# objects live in Intermediates.noindex, and the next build stays
+# incremental (re-links, doesn't recompile). The DMG is kept; Spotlight
+# does not index inside an unmounted disk image.
 for stray in \
   "$ROOT/dist/$APP_NAME.app" \
   "$ROOT/build/ReleaseDerivedData/Build/Products/Release/$APP_NAME.app" \
@@ -97,10 +92,10 @@ done
 VERSION="$(/usr/bin/defaults read "$TARGET/Contents/Info" CFBundleShortVersionString)"
 
 echo ""
-echo "✅ $INSTALLED_NAME $VERSION installée dans /Applications"
-[ "$PURGED" -gt 0 ] && echo "   ($PURGED copie(s) parallèle(s) désinscrite(s) de Launch Services)"
+echo "✅ $INSTALLED_NAME $VERSION installed in /Applications"
+[ "$PURGED" -gt 0 ] && echo "   ($PURGED parallel copy/copies unregistered from Launch Services)"
 echo ""
-echo "ℹ️  Copies de l'app présentes sur le disque :"
+echo "ℹ️  Copies of the app present on disk:"
 /usr/bin/mdfind "kMDItemKind == 'Application'" 2>/dev/null \
   | /usr/bin/grep -E "/($APP_NAME|$INSTALLED_NAME)\.app$" | sort -u \
   | /usr/bin/sed 's/^/    /'

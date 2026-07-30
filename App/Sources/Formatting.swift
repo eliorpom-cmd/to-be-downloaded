@@ -12,13 +12,13 @@ enum Format {
         return "\(s)/s"
     }
 
-    /// Temps restant, ARRONDI à une granularité qui grandit avec la valeur.
+    /// Remaining time, ROUNDED to a granularity that grows with the value.
     ///
-    /// L'estimation de yt-dlp sautille à chaque paquet : brute, elle donnait
-    /// « 47 s », « 1 min 3 s », « 52 s » d'une seconde à l'autre — un compte à
-    /// rebours qui remonte et dont la largeur change à chaque image. On la
-    /// quantifie donc, comme le font les navigateurs : le chiffre affiché
-    /// devient stable et ne prétend plus à une précision qu'il n'a pas.
+    /// yt-dlp's estimate jitters with each packet: raw, it gave "47 s",
+    /// "1 min 3 s", "52 s" from one second to the next — a countdown that went
+    /// backwards and changed width every frame. We quantize it like browsers do:
+    /// the displayed number becomes stable and no longer claims precision it
+    /// doesn't have.
     static func eta(_ seconds: Double?) -> String {
         guard let seconds, seconds > 0, seconds.isFinite, seconds < 24 * 3600 else { return "" }
         let total = Int(seconds)
@@ -39,16 +39,16 @@ enum Format {
         max(step, ((value + step / 2) / step) * step)
     }
 
-    /// « 2 hours ago », pour les horodatages discrets des réglages.
-    /// Formateur créé à la volée : `RelativeDateTimeFormatter` n'est pas
-    /// `Sendable`, donc impossible à partager en `static let` sous Swift 6.
+    /// "2 hours ago" for discrete timestamps in settings. Formatter created on
+    /// the fly: `RelativeDateTimeFormatter` is not `Sendable`, so it can't be
+    /// shared as `static let` under Swift 6.
     static func relative(_ date: Date) -> String {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
         return formatter.localizedString(for: date, relativeTo: Date())
     }
 
-    /// Durée d'un média : `1:04:07` ou `4:07`.
+    /// Duration of a media: `1:04:07` or `4:07`.
     static func duration(_ seconds: Double?) -> String {
         guard let seconds, seconds > 0, seconds.isFinite else { return "" }
         let total = Int(seconds)

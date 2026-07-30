@@ -4,69 +4,69 @@ import AppKit
 /// Design system: monochrome (no accent color), neutral gray undertone.
 /// Hierarchy comes from weight/size/space, not hue.
 ///
-/// Les valeurs sont la copie exacte des variables du fichier Figma de référence
-/// (collections `Color` et `Layout`) : c'est la source de vérité du design.
-/// Si un token change dans Figma, il change ici — et nulle part ailleurs.
+/// The values are an exact copy of the variables from the reference Figma file
+/// (collections `Color` and `Layout`): it's the source of truth for design.
+/// If a token changes in Figma, it changes here — and nowhere else.
 enum Theme {
 
     // MARK: - Backgrounds
 
-    /// Fond de fenêtre (`bg/window`).
+    /// Window background (`bg/window`).
     static let window = adaptive(light: 0xFFFFFF, dark: 0x1E1E1E)
 
-    /// Fond de sidebar (`bg/sidebar`) — utilisé seulement là où le matériau
-    /// système ne s'applique pas.
+    /// Sidebar background (`bg/sidebar`) — used only where the system
+    /// material doesn't apply.
     static let sidebar = adaptive(light: 0xEDEDED, dark: 0x2E2E30)
 
-    /// Surface de carte / regroupement (`bg/card`).
+    /// Card / grouping surface (`bg/card`).
     static let card = adaptive(light: 0xFFFFFF, dark: 0x2A2A2C)
 
     // MARK: - Fill ramp
     //
-    // Gris neutre translucide, comme les `NSColor.systemFill` d'AppKit : la
-    // teinte suit le fond, ce qui évite les aplats sales en thème sombre.
+    // Neutral translucent gray, like AppKit's `NSColor.systemFill`: the
+    // tint follows the background, avoiding muddy flats in dark mode.
 
-    /// `fill/primary` — remplissage de progression, avatars.
+    /// `fill/primary` — progress fill, avatars.
     static let fillPrimary = adaptive(light: (0x787880, 0.20), dark: (0x787880, 0.36))
     /// `fill/secondary`
     static let fillSecondary = adaptive(light: (0x787880, 0.12), dark: (0x787880, 0.32))
-    /// `fill/tertiary` — fond des capsules et des champs.
+    /// `fill/tertiary` — background of capsules and fields.
     static let fillTertiary = adaptive(light: (0x767680, 0.08), dark: (0x767680, 0.24))
-    /// `fill/quaternary` — fond le plus discret (cartes internes).
+    /// `fill/quaternary` — most subtle fill (internal cards).
     static let fillQuaternary = adaptive(light: (0x747480, 0.05), dark: (0x767680, 0.18))
-    /// `fill/row-hover` — capsule survolée.
+    /// `fill/row-hover` — hovered capsule.
     static let rowHover = adaptive(light: (0x787880, 0.18), dark: (0x787880, 0.34))
 
     // MARK: - Labels
 
     /// `label/primary`
     static let label = adaptive(light: (0x000000, 0.85), dark: (0xFFFFFF, 1.0))
-    /// `label/secondary` — meta, sous-titres.
+    /// `label/secondary` — meta, subtitles.
     static let labelSecondary = adaptive(light: (0x000000, 0.50), dark: (0xFFFFFF, 0.55))
-    /// `label/tertiary` — placeholders, éléments désactivés.
+    /// `label/tertiary` — placeholders, disabled elements.
     static let labelTertiary = adaptive(light: (0x000000, 0.26), dark: (0xFFFFFF, 0.25))
 
-    // MARK: - Ink (bouton primaire)
+    // MARK: - Ink (Primary Button)
 
-    /// `ink/fill` — remplissage du bouton de téléchargement.
+    /// `ink/fill` — fill of the download button.
     static let ink = adaptive(light: 0x0A0A0A, dark: 0xF5F5F5)
-    /// `ink/on-fill` — libellé posé sur `ink`.
+    /// `ink/on-fill` — label placed on `ink`.
     static let inkOn = adaptive(light: 0xFFFFFF, dark: 0x0A0A0A)
 
     // MARK: - Strokes
 
     static let separator = adaptive(light: (0x000000, 0.10), dark: (0xFFFFFF, 0.12))
     static let strokeControl = adaptive(light: (0x000000, 0.12), dark: (0xFFFFFF, 0.14))
-    /// `stroke/emphasis` — liseré d'un état en erreur. **Pas de rouge** : une
-    /// erreur se signale par le liseré, l'icône et le texte à pleine force.
+    /// `stroke/emphasis` — stroke of an error state. **No red**: errors are
+    /// signaled by the stroke, icon, and text at full strength.
     static let strokeEmphasis = adaptive(light: (0x0A0A0A, 0.34), dark: (0xF5F5F5, 0.38))
-    /// `ring/focus` — halo de focus clavier, neutre (pas le bleu système).
+    /// `ring/focus` — keyboard focus halo, neutral (not system blue).
     static let focusRing = adaptive(light: (0x0A0A0A, 0.24), dark: (0xF5F5F5, 0.30))
 
-    // MARK: - Compatibilité
+    // MARK: - Compatibility
     //
-    // Anciens noms conservés pour ne pas casser les vues qui n'ont pas encore
-    // migré (MenuBarExtra, AppIcon…).
+    // Old names kept to avoid breaking views that haven't migrated yet
+    // (MenuBarExtra, AppIcon, etc.).
 
     static let canvas = window
     static let surface = card
@@ -76,7 +76,7 @@ enum Theme {
 
     // MARK: - Layout
 
-    /// Échelle d'espacement (collection Figma `Layout`).
+    /// Spacing scale (Figma collection `Layout`).
     enum Space {
         static let s2: CGFloat = 2
         static let s4: CGFloat = 4
@@ -123,11 +123,11 @@ enum Theme {
         static let subheadline = Font.system(size: 11, weight: .regular)
         static let footnote = Font.system(size: 10, weight: .regular)
         static let caption = Font.system(size: 10, weight: .medium)
-        /// En-tête de section en petites capitales (« DOWNLOADS »).
+        /// Section header in small caps ("DOWNLOADS").
         static let sectionHeader = Font.system(size: 10, weight: .semibold)
     }
 
-    // MARK: - Construction des couleurs
+    // MARK: - Color Construction
 
     private static func adaptive(light: Int, dark: Int) -> Color {
         adaptive(light: (light, 1.0), dark: (dark, 1.0))
@@ -143,7 +143,7 @@ enum Theme {
 }
 
 private extension NSColor {
-    /// Construit une couleur sRGB depuis un entier hexadécimal 0xRRGGBB.
+    /// Build an sRGB color from a hexadecimal integer 0xRRGGBB.
     convenience init(hex: Int, alpha: Double = 1) {
         self.init(
             srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
@@ -163,8 +163,8 @@ extension View {
             .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
     }
 
-    /// Regroupement de réglages : fond discret + liseré fin, comme les
-    /// « grouped boxes » des Réglages Système.
+    /// Settings grouping: subtle background + thin border, like the
+    /// "grouped boxes" in System Settings.
     func groupedCard() -> some View {
         self
             .background(Theme.fillQuaternary, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
@@ -177,7 +177,7 @@ extension View {
 
 // MARK: - Buttons
 
-/// Bouton d'action principal : capsule `ink`, libellé `ink/on-fill`.
+/// Primary action button: `ink` capsule, `ink/on-fill` label.
 struct PrimaryCapsuleButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
 

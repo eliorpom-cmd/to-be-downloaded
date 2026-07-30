@@ -2,8 +2,8 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
-/// Écran d'accueil : logo, champ URL en capsule, choix format/qualité,
-/// et les téléchargements de la session en capsules.
+/// Welcome screen: mascot, URL field in a capsule, format/quality choice,
+/// and session downloads in capsules.
 struct DownloadPane: View {
     @ObservedObject var manager: DownloadManager
     @ObservedObject var settings: AppSettings
@@ -35,16 +35,16 @@ struct DownloadPane: View {
     @State private var clipboardSuggestion: String?
     @State private var pasteHovering = false
     @State private var isDropTargeted = false
-    /// Métadonnées du lien saisi, pour l'estimation de poids. Rien n'en est
-    /// affiché d'autre : l'aperçu titre/miniature n'a pas été redemandé.
+    /// Metadata of the entered link, for weight estimation. Nothing else is
+    /// displayed: the title/thumbnail preview was not re-requested.
     @State private var preview: MediaMetadata?
     @State private var playlist: Playlist?
     @State private var loadingPlaylist = false
-    /// Liens déjà collés ou lancés depuis cette session : on ne les repropose
-    /// plus, le presse-papier gardant le lien longtemps après.
+    /// Links already pasted or launched in this session: we no longer suggest
+    /// them, as the clipboard keeps the link long after.
     @State private var handledLinks: Set<String> = []
 
-    /// Nombre de capsules affichées avant le fondu (cf. maquette).
+    /// Number of capsules shown before the fade (see mockup).
     private let visibleCapsules = 2
 
     private var trimmedURL: String { urlText.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -60,13 +60,13 @@ struct DownloadPane: View {
                        subtitles: settings.embedSubtitles)
     }
 
-    /// Entrée de bibliothèque correspondant au lien saisi, s'il y en a une.
+    /// Library entry matching the entered link, if there is one.
     private var alreadyDownloaded: LibraryItem? {
         guard isValidURL else { return nil }
         return library.existing(forURL: trimmedURL, kind: kind)
     }
 
-    /// Jobs de la session, du plus récent au plus ancien.
+    /// Session jobs, newest to oldest.
     private var sessionJobs: [DownloadJob] { manager.jobs }
 
     var body: some View {
@@ -77,8 +77,8 @@ struct DownloadPane: View {
             if let error = manager.setupError {
                 engineError(error)
             } else if manager.needsFFmpeg {
-                // Pas une erreur : l'app se complète. Le champ URL n'a aucun
-                // sens tant qu'aucun téléchargement ne peut aboutir.
+                // Not an error: the app is completing itself. The URL field makes
+                // no sense until a download can actually succeed.
                 ffmpegSetup
             } else {
                 content
@@ -92,7 +92,7 @@ struct DownloadPane: View {
         .overlay(dropHighlight)
         .onDrop(of: [.url, .text], isTargeted: $isDropTargeted, perform: handleDrop)
         .task { refreshClipboard() }
-        // Un lien tapé ou collé au clavier compte aussi comme « traité ».
+        // A link typed or pasted via keyboard also counts as "handled".
         .onChange(of: trimmedURL) { value in
             if YouTubeLink.isValid(value) { handledLinks.insert(value) }
         }
@@ -114,7 +114,7 @@ struct DownloadPane: View {
         }
     }
 
-    // MARK: - Contenu
+    // MARK: - Content
 
     private var content: some View {
         VStack(spacing: 0) {
@@ -151,20 +151,20 @@ struct DownloadPane: View {
 
             Spacer().frame(height: Theme.Space.s24)
 
-            // Plus large que les 320 pt d'origine : le débit et le temps
-            // restant sont partis en info-bulle, c'est au titre de récupérer
-            // la place, pas au vide.
+            // Wider than the original 320 pt: bitrate and remaining time
+            // moved to a tooltip, so the title can reclaim the space
+            // instead of leaving it empty.
             sessionList
                 .frame(maxWidth: 440)
         }
-        // L'animation vit ICI, sur le conteneur, et non sur la seule liste :
-        // ajouter une capsule pousse tout ce qui est au-dessus (logo, champ,
-        // contrôles). Animer la liste seule laissait ce déplacement se faire
-        // d'un coup pendant que la capsule, elle, s'animait — d'où l'à-coup.
+        // The animation lives HERE, on the container, not just on the list:
+        // adding a capsule pushes everything above it (mascot, field,
+        // controls). Animating just the list would let that movement happen
+        // all at once while the capsule itself animated — creating a stutter.
         .animation(.easeOut(duration: 0.22), value: sessionJobs.count)
     }
 
-    // MARK: - Bandeau moteur (yt-dlp dépassé par YouTube)
+    // MARK: - Engine banner (yt-dlp outdated by YouTube)
 
     private enum EngineNoticeKind: Equatable {
         case updating
@@ -174,9 +174,9 @@ struct DownloadPane: View {
         case updateFailed(String)
     }
 
-    /// Le dernier échec ressemble-t-il à une parade YouTube plutôt qu'à un
-    /// problème de lien ? C'est la seule situation où proposer une mise à jour
-    /// du moteur est pertinent.
+    /// Does the last failure look like YouTube pushing back rather than a
+    /// link problem? This is the only situation where suggesting an engine
+    /// update makes sense.
     private var lastBreakage: DownloadJob? {
         guard let job = manager.jobs.first(where: { $0.state == .failed }),
               let message = job.errorMessage,
@@ -242,7 +242,7 @@ struct DownloadPane: View {
         manager.retry(job.id)
     }
 
-    // MARK: - Champ URL
+    // MARK: - URL Field
 
     private var urlField: some View {
         HStack(spacing: Theme.Space.s8) {
@@ -253,9 +253,9 @@ struct DownloadPane: View {
                 .focused($urlFocused)
                 .onSubmit(start)
 
-            // Le presse-papier contient un lien : on le signale DANS le champ,
-            // par la seule icône que tout le monde reconnaît. Un bandeau sous
-            // la barre disait la même chose en occupant trois fois la place.
+            // The clipboard holds a link: signal it IN the field, with the
+            // one icon everyone recognizes. A banner below the bar said the
+            // same thing but took three times the space.
             if let suggestion = clipboardSuggestion, trimmedURL.isEmpty {
                 Button {
                     urlText = suggestion
@@ -280,9 +280,9 @@ struct DownloadPane: View {
                     Circle()
                         .fill(isValidURL ? Theme.ink : Theme.fillPrimary)
                         .frame(width: 40, height: 40)
-                    // La flèche reste visible en permanence : elle ne cède la
-                    // place qu'à la lecture d'une playlist, qui prend
-                    // réellement plusieurs secondes.
+                    // The arrow stays visible at all times: it only yields
+                    // to playlist loading, which actually takes several
+                    // seconds.
                     if loadingPlaylist {
                         ProgressView().controlSize(.small).scaleEffect(0.8)
                     } else {
@@ -303,7 +303,7 @@ struct DownloadPane: View {
         .animation(.easeOut(duration: 0.18), value: clipboardSuggestion)
         .background(Theme.fillTertiary, in: Capsule())
         .overlay {
-            // Halo de focus neutre (pas le bleu système) + liseré d'erreur.
+            // Neutral focus halo (not system blue) + error border.
             if hasInvalidInput {
                 Capsule().strokeBorder(Theme.strokeEmphasis, lineWidth: 1)
             } else if urlFocused {
@@ -312,17 +312,17 @@ struct DownloadPane: View {
         }
     }
 
-    /// `https://` retiré : l'infobulle est courte, chaque caractère compte.
+    /// `https://` removed: the tooltip is short, every character counts.
     private func displayLink(_ raw: String) -> String {
         raw.replacingOccurrences(of: "https://", with: "")
             .replacingOccurrences(of: "http://", with: "")
     }
 
-    // MARK: - Format et qualité
+    // MARK: - Format and Quality
 
     private var formatControls: some View {
         HStack(spacing: Theme.Space.s8) {
-            // Bascule Video / Audio.
+            // Video / Audio toggle.
             HStack(spacing: 2) {
                 formatButton(.video, symbol: "film", label: "Video")
                 formatButton(.audio, symbol: "music.note", label: "Audio")
@@ -332,9 +332,9 @@ struct DownloadPane: View {
 
             qualityMenu
 
-            // Poids attendu, dès que les formats sont connus. « ≈ » assumé :
-            // yt-dlp lui-même ne connaît qu'approximativement la taille des
-            // flux fragmentés.
+            // Expected size, once formats are known. "≈" is intentional:
+            // yt-dlp itself only knows the size of fragmented streams
+            // approximately.
             if let bytes = preview?.estimatedBytes(for: currentFormat), bytes > 0 {
                 Text("≈ \(Format.bytes(bytes))")
                     .font(Theme.Text.caption)
@@ -346,7 +346,7 @@ struct DownloadPane: View {
         .animation(.easeOut(duration: 0.2), value: preview)
     }
 
-    // MARK: - Reprise après fermeture
+    // MARK: - Resume After Close
 
     private var resumeNotice: some View {
         let count = manager.resumable.count
@@ -381,9 +381,9 @@ struct DownloadPane: View {
         .buttonStyle(.plain)
     }
 
-    /// Vrai popup button macOS (`Picker.menu`) : c'est le contrôle que la
-    /// maquette imite, et le seul qui rende la chrome système correctement —
-    /// `.menuStyle(.borderlessButton)` ignore les décorations du libellé.
+    /// Real macOS popup button (`Picker.menu`): it's the control the mockup
+    /// imitates, and the only one that renders system chrome correctly —
+    /// `.menuStyle(.borderlessButton)` ignores label decorations.
     @ViewBuilder
     private var qualityMenu: some View {
         switch kind {
@@ -394,8 +394,8 @@ struct DownloadPane: View {
             .labelsHidden()
             .fixedSize()
         case .audio:
-            // Le débit ne se règle que si l'on ré-encode. En M4A on garde la
-            // piste d'origine : proposer un choix serait mentir.
+            // Bitrate only adjusts if we re-encode. In M4A we keep the
+            // original track: offering a choice would be misleading.
             if settings.audioFormat.usesBitrate {
                 Picker("", selection: $audioBitrate) {
                     ForEach(AudioBitrate.allCases) { Text($0.label).tag($0) }
@@ -410,12 +410,12 @@ struct DownloadPane: View {
         }
     }
 
-    // MARK: - Liste de session
+    // MARK: - Session List
 
     @ViewBuilder
     private var sessionList: some View {
-        // Rien quand la liste est vide : l'absence se comprend d'elle-même,
-        // un message ne ferait qu'occuper l'écran.
+        // Nothing when the list is empty: the absence is self-explanatory,
+        // a message would only waste screen space.
         if !sessionJobs.isEmpty {
             VStack(spacing: Theme.Space.s8) {
                 ForEach(Array(sessionJobs.prefix(visibleCapsules))) { job in
@@ -423,12 +423,12 @@ struct DownloadPane: View {
                         .transition(.appearingCapsule)
                 }
 
-                // Au-delà de deux, la suivante s'estompe en dégradé et un bouton
-                // renvoie vers la liste complète (comportement de la maquette).
+                // Beyond two, the next one fades to a gradient and a button
+                // links to the full list (mockup behavior).
                 if sessionJobs.count > visibleCapsules {
                     let next = sessionJobs[visibleCapsules]
-                    // Fondu doux : la capsule s'efface progressivement au lieu
-                    // d'être tranchée net.
+                    // Soft fade: the capsule fades gradually instead of
+                    // being cut off sharply.
                     DownloadCapsule(job: next, manager: manager)
                         .mask(
                             LinearGradient(
@@ -460,13 +460,13 @@ struct DownloadPane: View {
         }
     }
 
-    // MARK: - Installation de FFmpeg (premier lancement)
+    // MARK: - FFmpeg Installation (First Launch)
 
-    /// FFmpeg n'est pas livré avec l'app : le build statique qu'on embarquait
-    /// était compilé `--enable-nonfree`, donc juridiquement non redistribuable.
-    /// Il se télécharge une fois, depuis chez celui qui a le droit de le
-    /// distribuer. Cet écran remplace l'accueil tant que c'est en cours — mieux
-    /// vaut une étape assumée qu'un champ URL qui échouerait sans dire pourquoi.
+    /// FFmpeg is not bundled with the app: the static build we shipped
+    /// was compiled `--enable-nonfree`, so it is legally non-redistributable.
+    /// It downloads once, from whoever has the right to distribute it.
+    /// This screen replaces the welcome screen while that happens — better
+    /// to own a setup step than a URL field that fails silently.
     private var ffmpegSetup: some View {
         VStack(spacing: 0) {
             MascotView(size: 96, isActive: ffmpeg.status.isBusy)
@@ -542,7 +542,7 @@ struct DownloadPane: View {
         }
     }
 
-    // MARK: - Erreur moteur
+    // MARK: - Engine Error
 
     private func engineError(_ message: String) -> some View {
         VStack(spacing: Theme.Space.s12) {
@@ -575,7 +575,7 @@ struct DownloadPane: View {
 
     private func start() {
         guard isValidURL, manager.isReady, !loadingPlaylist else { return }
-        // Un lien de playlist ne se télécharge pas tout seul : on demande.
+        // A playlist link doesn't download by itself: ask first.
         if YouTubeLink.playlistURL(from: trimmedURL) != nil {
             loadPlaylist()
             return
@@ -597,8 +597,8 @@ struct DownloadPane: View {
         Task {
             let found = await manager.fetchPlaylist(urlString: listURL)
             loadingPlaylist = false
-            // Playlist illisible (privée, mix, réseau) : plutôt que d'échouer,
-            // on fait ce que l'utilisateur voulait manifestement — la vidéo.
+            // Unreadable playlist (private, mix, network): rather than fail,
+            // do what the user clearly wanted — the video.
             guard let found else { launch(trimmedURL); return }
             playlist = found
         }
@@ -613,8 +613,8 @@ struct DownloadPane: View {
         refreshClipboard()
     }
 
-    /// Charge les métadonnées du lien saisi, uniquement pour l'estimation de
-    /// poids. Debounce : on ne lance pas yt-dlp à chaque frappe.
+    /// Load metadata of the entered link, for weight estimation only.
+    /// Debounced: we don't launch yt-dlp on every keystroke.
     private func loadPreview() async {
         preview = nil
         guard isValidURL, YouTubeLink.playlistURL(from: trimmedURL) == nil else { return }
@@ -642,8 +642,8 @@ struct DownloadPane: View {
             return
         }
         let link = copied.trimmingCharacters(in: .whitespacesAndNewlines)
-        // Un lien déjà collé ou déjà lancé ne se repropose pas : le
-        // presse-papier, lui, le garde longtemps après.
+        // A link already pasted or launched is not suggested again: the
+        // clipboard keeps it long after.
         clipboardSuggestion = handledLinks.contains(link) ? nil : link
     }
 

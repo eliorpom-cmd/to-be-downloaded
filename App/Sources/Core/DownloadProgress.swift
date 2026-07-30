@@ -1,27 +1,27 @@
 import Foundation
 
-/// Progression d'un téléchargement, issue de `--progress-template %(progress)j`.
-/// Le dictionnaire JSON de yt-dlp peut contenir des `null` : tout est optionnel.
+/// Download progress from `--progress-template %(progress)j`.
+/// yt-dlp's JSON dict may contain `null` values: everything is optional.
 struct DownloadProgress: Sendable, Equatable {
     var status: String
     var downloadedBytes: Int64?
     var totalBytes: Int64?
-    var speed: Double?   // octets/seconde
-    var eta: Double?     // secondes restantes
-    /// Fichier en cours d'écriture. Sert à repérer le passage d'un flux au
-    /// suivant : une vidéo YouTube se télécharge en DEUX temps (piste vidéo,
-    /// puis piste audio), et chacun repart de 0 %.
+    var speed: Double?   // bytes/second
+    var eta: Double?     // seconds remaining
+    /// File currently being written. Used to detect the transition from one
+    /// stream to the next: a YouTube video downloads in TWO stages (video track,
+    /// then audio track), and each starts from 0%.
     var filename: String?
 
-    /// Fraction téléchargée [0...1], ou nil si la taille totale est inconnue.
+    /// Fraction downloaded [0...1], or nil if total size is unknown.
     var fraction: Double? {
         guard let total = totalBytes, total > 0, let done = downloadedBytes else { return nil }
         return min(1.0, Double(done) / Double(total))
     }
 
-    /// Champs (séparés par tabulation) émis par `--progress-template`, dans
-    /// l'ordre : status, downloaded_bytes, total_bytes, total_bytes_estimate,
-    /// speed, eta. Les valeurs absentes valent "NA".
+    /// Fields (tab-separated) emitted by `--progress-template`, in
+    /// order: status, downloaded_bytes, total_bytes, total_bytes_estimate,
+    /// speed, eta. Missing values equal "NA".
     static let templateFieldOrder = [
         "%(progress.status)s",
         "%(progress.downloaded_bytes)s",
@@ -29,12 +29,12 @@ struct DownloadProgress: Sendable, Equatable {
         "%(progress.total_bytes_estimate)s",
         "%(progress.speed)s",
         "%(progress.eta)s",
-        // En dernier : un nom de fichier peut contenir à peu près n'importe
-        // quoi, on ne veut pas qu'il décale les champs suivants.
+        // Last: a filename can contain pretty much anything; we don't want
+        // it to offset the following fields.
         "%(progress.filename)s",
     ]
 
-    /// Parse la charge utile (après le marqueur) : champs séparés par tabulation.
+    /// Parses the payload (after the marker): fields separated by tabs.
     static func parse(_ payload: String) -> DownloadProgress? {
         let parts = payload.components(separatedBy: "\t")
         guard parts.count >= 6 else { return nil }
