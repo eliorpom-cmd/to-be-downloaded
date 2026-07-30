@@ -93,7 +93,9 @@ enum WebUI {
           .hero { display:flex; flex-direction:column; align-items:center; padding:22px 0 6px; }
           /* Le logo est un tracé, peint en currentColor : il s'inverse tout seul
              en thème sombre, là où un PNG resterait noir sur noir. */
-          .logo { width:76px; color:var(--ink); margin-bottom:26px; }
+          /* Largeur et non hauteur : la mascotte est plus haute que large, 56px
+             de large la posent à ~76px de haut. */
+          .logo { width:56px; color:var(--ink); margin-bottom:26px; }
           .logo svg { width:100%; height:auto; display:block; fill:currentColor; }
 
           .field {
@@ -200,7 +202,7 @@ enum WebUI {
         <div class="wrap">
           <div class="hero">
             <div class="logo">
-              <svg viewBox="0 0 100 98.9" role="img" aria-label="\(appName)">
+              <svg viewBox="\(MascotImage.svgViewBox)" role="img" aria-label="\(appName)">
                 <path fill-rule="nonzero" d="\(MascotImage.svgPathData())"/>
               </svg>
             </div>
