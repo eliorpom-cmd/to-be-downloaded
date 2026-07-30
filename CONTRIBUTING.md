@@ -60,6 +60,26 @@ Match the file you're editing rather than converting it.
 - Update `CHANGELOG.md` under `Unreleased` if the change is user-visible.
 - Update the relevant doc under `docs/` if you change behavior it describes.
 
+## Licensing of contributions
+
+TBD is [AGPL-3.0](LICENSE), and your contribution goes in under that same
+license — nothing surprising there.
+
+There is one extra term, and it is worth stating plainly rather than burying:
+**by opening a pull request you also grant Elior Pommier a perpetual,
+worldwide, irrevocable, royalty-free right to use your contribution under other
+licenses, including commercial ones.** You keep your copyright; you are not
+signing it away, and your contribution stays AGPL for everyone else, forever.
+
+Why it's asked: the copyright holder can only offer a paid commercial license
+for code he is allowed to relicense. One merged patch without this grant would
+lock that door for the whole project. Contributors who would rather not grant it
+are welcome to say so in the PR — the change can usually be reimplemented, or
+kept as a fork, without hard feelings.
+
+Add a `Signed-off-by:` line to your commits (`git commit -s`) to certify that
+the work is yours to submit and that you accept the above.
+
 ## Reporting a bug
 
 Use the issue template. What actually helps:
