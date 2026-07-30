@@ -128,4 +128,47 @@ enum AppConfig {
         else { return false }
         return trustedUpdateHosts.contains(host)
     }
+
+    // MARK: - FFmpeg
+
+    /// FFmpeg n'est PAS livré dans le bundle, et ce n'est pas une question de
+    /// poids : le build statique qu'on embarquait était compilé
+    /// `--enable-nonfree`, ce qui le rend **juridiquement non redistribuable**
+    /// (son propre `ffmpeg -L` le dit). Aucune licence posée sur ce dépôt n'y
+    /// change quoi que ce soit : on ne peut pas accorder de droits sur du code
+    /// qu'on ne possède pas. Le télécharger au premier lancement déplace la
+    /// distribution vers celui qui a le droit de la faire.
+    ///
+    /// Source retenue : les builds de Martin Riedl. `--enable-gpl
+    /// --enable-version3` **sans** `--enable-nonfree`, donc GPLv3 et
+    /// redistribuables ; arm64 natif ; signés Developer ID (vérifié à
+    /// l'installation) ; et surtout des URLs « latest » stables, avec un
+    /// `.sha256` publié à côté de chaque archive.
+    enum FFmpegSource {
+        /// Renvoie un 307 vers l'archive versionnée — d'où l'on tire la version
+        /// disponible sans télécharger les 28 Mo.
+        static let latestBase = "https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release"
+
+        /// Les deux exécutables sont publiés séparément. yt-dlp a besoin des
+        /// DEUX : ffprobe lui sert à sonder les flux avant l'assemblage.
+        static let components = ["ffmpeg", "ffprobe"]
+
+        /// Identifiant d'équipe Apple attendu sur la signature des binaires.
+        /// C'est la vraie garantie de la chaîne : le SHA-256 vient du même hôte
+        /// que l'archive et ne protège donc que d'un transfert tronqué, tandis
+        /// qu'une signature Developer ID ne peut pas être fabriquée par
+        /// quelqu'un qui prendrait le contrôle du serveur.
+        static let signingTeam = "KU3N25YGLU"
+
+        static let homepage = URL(string: "https://ffmpeg.martin-riedl.de")!
+
+        private static let trustedHosts: Set<String> = ["ffmpeg.martin-riedl.de"]
+
+        static func isTrustedURL(_ url: URL) -> Bool {
+            guard url.scheme?.lowercased() == "https",
+                  let host = url.host?.lowercased()
+            else { return false }
+            return trustedHosts.contains(host)
+        }
+    }
 }

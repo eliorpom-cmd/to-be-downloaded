@@ -36,7 +36,11 @@ cp -R "$APP_SRC" "$DIST/"
 APP="$DIST/$APP_NAME.app"
 
 echo "▶ Signature ad-hoc (de l'intérieur vers l'extérieur)…"
-for bin in yt-dlp ffmpeg ffprobe; do
+# ffmpeg/ffprobe ne sont PAS ici : ils ne sont pas livrés avec l'app. Le build
+# statique qu'on embarquait était compilé --enable-nonfree, donc juridiquement
+# non redistribuable ; l'app les télécharge au premier lancement chez leur
+# éditeur (cf. App/Sources/Core/FFmpegInstaller.swift).
+for bin in yt-dlp; do
   codesign --force --sign - "$APP/Contents/Resources/bin/$bin"
 done
 # L'extension AVANT l'app : signer l'app scelle le contenu de PlugIns, donc

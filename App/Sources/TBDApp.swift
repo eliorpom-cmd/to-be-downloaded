@@ -16,6 +16,7 @@ struct TBDApp: App {
     @StateObject private var settings = AppSettings.shared
     @StateObject private var updater = EngineUpdater()
     @StateObject private var appUpdater = AppUpdater()
+    @StateObject private var ffmpeg = FFmpegInstaller()
 
     init() {
         let store = LibraryStore()
@@ -28,7 +29,8 @@ struct TBDApp: App {
     var body: some Scene {
         WindowGroup {
             RootView(manager: manager, server: server, settings: settings,
-                     library: library, updater: updater, appUpdater: appUpdater)
+                     library: library, updater: updater, appUpdater: appUpdater,
+                     ffmpeg: ffmpeg)
                 .tint(Theme.ink)
                 // Pas de `.preferredColorScheme` : l'apparence est pilotée par
                 // NSApp (cf. AppSettings.applyAppearance), seul moyen de

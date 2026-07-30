@@ -1,0 +1,79 @@
+name: Bug report
+description: Something in the app misbehaves
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: downloads failing with **"sign in to confirm you're not a
+        bot"**, **HTTP 403**, or **"requested format is not available"** are
+        almost always yt-dlp being out of date against a YouTube change, not a
+        bug in TBD. Try **Settings → Engine → Check Now**, or switch to the
+        nightly channel, first.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Paste this link…
+        2. Pick Audio / MP3…
+        3. …
+    validations:
+      required: true
+
+  - type: input
+    id: link
+    attributes:
+      label: Link that failed
+      description: If it isn't private. Many bugs are specific to one video or site.
+
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: Settings → About
+    validations:
+      required: true
+
+  - type: input
+    id: ytdlp-version
+    attributes:
+      label: yt-dlp version and channel
+      description: Settings → Engine
+    validations:
+      required: true
+
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and Mac model
+      placeholder: "macOS 15.3, MacBook Pro M2"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install it?
+      options:
+        - Homebrew cask
+        - DMG / manual copy
+        - Built from source
+    validations:
+      required: true
+
+  - type: textarea
+    id: message
+    attributes:
+      label: Error message
+      description: Verbatim, as the app showed it.
+      render: text
