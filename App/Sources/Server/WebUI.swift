@@ -1,3 +1,5 @@
+// TBD — To be downloaded. Copyright (C) 2026 Elior Pommier.
+// Licensed under the GNU AGPL v3 or later. See LICENSE and NOTICE.
 import Foundation
 
 enum WebUI {
@@ -33,6 +35,11 @@ enum WebUI {
     /// track is kept, so there is no bitrate to choose. The web page was still
     /// offering the bitrate list when the app had stopped showing it — two
     /// interfaces promising different things.
+    ///
+    /// The footer is not a courtesy: this page IS the app being used through a
+    /// network, the case AGPL §13 is written for, and it requires offering the
+    /// source to whoever uses it that way. Settings names the license for the
+    /// person at the Mac; nobody on a phone ever sees that screen.
     static func indexHTML(appName: String, shortName: String,
                           audioBitrateSelectable: Bool) -> String {
         """
@@ -199,6 +206,14 @@ enum WebUI {
           .act:active { opacity:.5; }
           .act svg { width:15px; height:15px; }
           .err { font-size:12px; color:var(--label-2); margin:-2px 4px 10px 60px; word-break:break-word; }
+
+          /* --- Source offer (AGPL §13) --- */
+          .legal {
+            margin-top:28px; padding-top:14px; border-top:1px solid var(--separator);
+            font-size:11px; line-height:1.5; color:var(--label-3); text-align:center;
+          }
+          .legal a { color:var(--label-2); text-decoration:none; }
+          .legal a:hover { text-decoration:underline; }
         </style>
         </head>
         <body>
@@ -238,6 +253,12 @@ enum WebUI {
             </div>
             <div id="jobs"></div>
           </div>
+
+          <footer class="legal">
+            \(appName) is free software under the
+            <a href="\(AppConfig.Credits.license.absoluteString)" target="_blank" rel="noopener">AGPL-3.0</a>.
+            <a href="\(AppConfig.Credits.source.absoluteString)" target="_blank" rel="noopener">Get the source</a>.
+          </footer>
         </div>
 
         <script>

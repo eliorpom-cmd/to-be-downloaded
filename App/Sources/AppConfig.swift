@@ -1,3 +1,5 @@
+// TBD — To be downloaded. Copyright (C) 2026 Elior Pommier.
+// Licensed under the GNU AGPL v3 or later. See LICENSE and NOTICE.
 import Foundation
 
 /// Central configuration for the app.
@@ -118,6 +120,13 @@ enum AppConfig {
         /// of letting it sleep in a repository file.
         static let license = URL(
             string: "https://github.com/\(updateRepository)/blob/main/LICENSE")!
+
+        /// The Corresponding Source, which AGPL §13 requires us to OFFER to
+        /// whoever uses the app through a network — not merely to publish
+        /// somewhere. Everyone reaching Network Access from their phone is
+        /// such a user, so the web page carries this link in its footer.
+        /// Settings shows the license; the page has to show the source.
+        static let source = URL(string: "https://github.com/\(updateRepository)")!
     }
 
     // MARK: - App Updates
