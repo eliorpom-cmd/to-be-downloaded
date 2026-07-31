@@ -1,3 +1,5 @@
+// TBD — To be downloaded. Copyright (C) 2026 Elior Pommier.
+// Licensed under the GNU AGPL v3 or later. See LICENSE and NOTICE.
 import Foundation
 
 /// A download job tracked by the UI.
