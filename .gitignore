@@ -13,3 +13,7 @@ TBD.xcodeproj/
 # SPM
 .swiftpm/
 Package.resolved
+
+# Local tooling settings — one machine's permissions, nobody else's business
+.claude/
+.impeccable/

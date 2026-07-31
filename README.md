@@ -23,8 +23,10 @@ A native macOS downloader built on yt-dlp — that your phone can drive too.
 
 <!-- SCREENSHOT TO TAKE — hero.png: entire window, Download screen, light theme,
      one download in progress (capsule at ~60%) + one finished. Window separated
-     from background (⌘⇧4 then Space on window, shadow preserved). -->
+     from background (⌘⇧4 then Space on window, shadow preserved).
+     Drop the file in docs/assets/ and uncomment the line below.
 <img src="docs/assets/hero.png" width="820" alt="The TBD window: one URL field, and downloads filling up as capsules">
+-->
 
 </div>
 
@@ -50,8 +52,10 @@ says so and offers it in one click. The thumbnail and title appear in about
 200 ms — before yt-dlp has even finished looking at the page.
 
 <!-- SCREENSHOT TO TAKE — clipboard.png: URL field with clipboard icon visible,
-     light theme, close-up of field (not entire window). -->
+     light theme, close-up of field (not entire window).
+     Drop the file in docs/assets/ and uncomment the line below.
 <img src="docs/assets/clipboard.png" width="700" alt="The URL field offering a link found in the clipboard">
+-->
 
 ### A progress bar that means something
 
@@ -62,8 +66,9 @@ doesn't jitter — and the bar *is* the row, filling the capsule as it goes.
 
 <!-- SCREENSHOT TO TAKE — progress.png: two or three stacked capsules, one in
      progress (~40%), one in "Merging", one done. Dark theme preferred, shows
-     filling better. -->
+     filling better. Drop the file in docs/assets/ and uncomment the line below.
 <img src="docs/assets/progress.png" width="700" alt="Download rows whose background fills up as the download progresses">
+-->
 
 ### Your phone drives, your Mac works
 
@@ -73,8 +78,10 @@ is the same design as the app, installable as a PWA, and it can hand you the
 finished file over HTTP.
 
 <!-- SCREENSHOT TO TAKE — network.png: Network Access screen with QR code.
-     Ideally next to it, a screenshot of the web page on iPhone (docs/assets/webui.png). -->
+     Ideally next to it, a screenshot of the web page on iPhone (docs/assets/webui.png).
+     Drop the file in docs/assets/ and uncomment the line below.
 <img src="docs/assets/network.png" width="700" alt="The Network Access screen with its QR code">
+-->
 
 ### It behaves like a Mac app
 
@@ -83,8 +90,10 @@ icon fill up. Hit ⌥⌘V from anywhere to download whatever is in your clipboar
 Right-click a link in Safari → **Services** → *Download with TBD*.
 
 <!-- SCREENSHOT TO TAKE — library.png: Library screen with a few entries and
-     their thumbnails. Bonus: menubar.png, menu bar item menu open. -->
+     their thumbnails. Bonus: menubar.png, menu bar item menu open.
+     Drop the file in docs/assets/ and uncomment the line below.
 <img src="docs/assets/library.png" width="700" alt="The Library screen listing downloaded files with thumbnails">
+-->
 
 ## Everything else
 
