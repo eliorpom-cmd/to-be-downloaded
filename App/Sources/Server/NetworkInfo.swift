@@ -1,3 +1,5 @@
+// TBD — To be downloaded. Copyright (C) 2026 Elior Pommier.
+// Licensed under the GNU AGPL v3 or later. See LICENSE and NOTICE.
 import Foundation
 
 enum NetworkInfo {
@@ -23,7 +25,12 @@ enum NetworkInfo {
                                      nil, 0, NI_NUMERICHOST)
             guard result == 0 else { continue }
             let name = String(cString: ptr.pointee.ifa_name)
-            let ip = String(cString: host)
+            // `String(cString:)` over an ARRAY is deprecated in Swift 6 (the
+            // pointer overload on the line above is not). getnameinfo leaves a
+            // C string in a buffer sized for the longest possible one, so the
+            // null terminator is where the address ends.
+            let ip = String(decoding: host.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) },
+                            as: UTF8.self)
             candidates.append((name, ip))
         }
 

@@ -1,3 +1,5 @@
+// TBD — To be downloaded. Copyright (C) 2026 Elior Pommier.
+// Licensed under the GNU AGPL v3 or later. See LICENSE and NOTICE.
 import Foundation
 import SwiftUI
 import AppKit
@@ -68,7 +70,7 @@ final class DownloadManager: ObservableObject {
         ) { [weak self] note in
             guard let link = note.userInfo?["url"] as? String else { return }
             MainActor.assumeIsolated {
-                self?.startDownload(
+                _ = self?.startDownload(
                     urlString: link, format: AppSettings.shared.currentDefaultFormat)
             }
         }
@@ -162,7 +164,7 @@ final class DownloadManager: ObservableObject {
     @discardableResult
     func startDownload(urlString: String, format: DownloadFormat, id: UUID = UUID()) -> UUID? {
         let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let engine else { return nil }
+        guard !trimmed.isEmpty, engine != nil else { return nil }
 
         let job = DownloadJob(url: trimmed, format: format, id: id)
         jobs.insert(job, at: 0)

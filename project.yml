@@ -57,7 +57,7 @@ targets:
         buildPhase: resources
     dependencies:
       - package: FlyingFox
-      # « Download with … » dans le menu Partager de Safari.
+      # "Download with …" in Safari's Share menu.
       - target: ShareExtension
         embed: true
     settings:
@@ -75,6 +75,12 @@ targets:
         # → Switch to YES when Developer ID notarization is set up.
         ENABLE_HARDENED_RUNTIME: NO
         MACOSX_DEPLOYMENT_TARGET: "13.0"
+        # CONTRIBUTING promises "no warnings", so the build enforces it rather
+        # than trusting anyone to read the log. Set on the TARGET and not on the
+        # project or the xcodebuild command line: those reach the SwiftPM
+        # dependencies too, which compile with -suppress-warnings, and the two
+        # flags together are a hard compiler error.
+        SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
         LD_RUNPATH_SEARCH_PATHS:
           - "$(inherited)"
           - "@executable_path/../Frameworks"
@@ -105,6 +111,7 @@ targets:
         CODE_SIGN_ENTITLEMENTS: Extension/Share/Share.entitlements
         SKIP_INSTALL: YES
         MACOSX_DEPLOYMENT_TARGET: "13.0"
+        SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
         LD_RUNPATH_SEARCH_PATHS:
           - "$(inherited)"
           - "@executable_path/../../../../Frameworks"
