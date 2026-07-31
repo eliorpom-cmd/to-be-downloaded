@@ -9,28 +9,49 @@ the first time in the open.
 ## Before the repository becomes public
 
 The moment it flips, everything in the history is readable by everyone,
-forever. Check in this order.
+forever. Most of this list is done; what is left is marked as such.
 
-- [ ] **Search the whole history for secrets**, not just the working tree. The
-      Ed25519 private keys live in `~/.config/tbd-release/` and were never
-      committed, which is the point, but check anyway:
+- [x] **The history was rewritten**, and this is the entry that matters most
+      here. Removing the nonfree FFmpeg from the working tree left 91 MB of it
+      reachable in every clone — `git clone` downloads objects, not the current
+      snapshot, so publishing the repository would have redistributed the exact
+      binary [THIRD-PARTY.md](THIRD-PARTY.md) explains nobody may redistribute.
+      `git filter-repo --invert-paths` dropped `App/Resources/bin/ffmpeg` and
+      `ffprobe` from all 19 commits (58 MB → 37 MB), and the French commit
+      messages were translated in the same pass. Every hash below the initial
+      commit changed. Nothing was lost: the tree of the last commit is
+      byte-identical to what it was before.
+
+      If a clone made before 2026-07-31 ever turns up, it still contains the
+      binaries and must not be pushed anywhere.
+- [x] **Searched the whole history for secrets**, not just the working tree.
+      The Ed25519 private keys live in `~/.config/tbd-release/` and were never
+      committed, which is the point. Nothing found — the only hit is the
+      command itself, on the next line:
 
       ```bash
       git log -p --all | grep -nE 'BEGIN [A-Z ]*PRIVATE KEY|ghp_|gho_|sk-[A-Za-z0-9]'
       ```
 
-      Anything found means rewriting history or starting a fresh repository.
-      Rotating the key afterwards is not enough on its own.
-- [ ] **Read the commit messages.** They become part of the project's public
-      voice, and the early ones were written for an audience of one.
-- [ ] **Check every path in the code and docs** for the machine it was built
-      on: `/Users/elior/…` in a comment is harmless but reads as unfinished.
-- [ ] **LICENSE is present and correct** for a project that bundles yt-dlp
-      (Unlicense) and downloads FFmpeg (GPL/LGPL depending on the build).
-      [THIRD-PARTY.md](THIRD-PARTY.md) already has the reasoning; the licence
-      file has to agree with it.
+      Worth re-running before the flip. Anything found means rewriting history
+      again; rotating the key afterwards is not enough on its own.
+- [x] **The commit messages are English and written for strangers.** They are
+      part of the project's public voice, and the early ones were written for
+      an audience of one.
+- [x] **No path from the machine it was built on.** `/Users/elior/…` appears
+      once, in this file, as the example of what to look for.
+- [x] **LICENSE agrees with THIRD-PARTY.md**: AGPL-3.0 for the project's own
+      code, the icon carved out in [NOTICE](../NOTICE), yt-dlp bundled under
+      the Unlicense, FFmpeg downloaded rather than shipped. The web page also
+      offers the source now, which is what AGPL §13 asks of a program used
+      over a network — see `WebUI.indexHTML`.
 - [ ] **Decide about issues and discussions.** Public repository, public bug
-      tracker. If issues stay off, say where bugs go instead.
+      tracker. If issues stay off, say where bugs go instead. Issues are on
+      today, with templates in `.github/`, and that is the only item on this
+      list still open.
+- [ ] **Take the six README screenshots.** The `<img>` tags are commented out
+      next to the shot each one wants, and `docs/assets/README.md` has the
+      method. Not a blocker, but the README opens on an empty space until then.
 
 ## The Homebrew side
 
