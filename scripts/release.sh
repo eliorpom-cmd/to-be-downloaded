@@ -84,7 +84,12 @@ rm -f "$DIST/$ZIP_NAME" "$DIST/$ZIP_NAME.sig"
 /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$APP" "$DIST/$ZIP_NAME"
 
 echo "▶ Ed25519 signature (${KEY_KIND:-current} key)…"
+# $KEY_KIND is deliberately unquoted: it is empty for the current key, and
+# quoting it would pass an empty argument that signing.swift would read as a
+# key kind it does not know.
+# shellcheck disable=SC2086
 "$ROOT/scripts/signing.swift" sign "$DIST/$ZIP_NAME" $KEY_KIND >/dev/null
+# shellcheck disable=SC2086
 PUBKEY="$("$ROOT/scripts/signing.swift" pubkey $KEY_KIND)"
 "$ROOT/scripts/signing.swift" verify "$DIST/$ZIP_NAME" "$DIST/$ZIP_NAME.sig" "$PUBKEY"
 

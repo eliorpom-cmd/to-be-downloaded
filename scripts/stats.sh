@@ -33,6 +33,9 @@ fi
 
 printf '%s\n\n' "Downloads — $REPO"
 
+# The single quotes are the point: what follows is a jq program, and $tag is
+# jq's variable, not the shell's.
+# shellcheck disable=SC2016
 gh api "repos/$REPO/releases" --paginate --jq '
   .[] | .tag_name as $tag
   | .assets[]

@@ -1,0 +1,73 @@
+# What CI can honestly check on a pull request.
+#
+# Not much, and that is the point of writing it down: the app spawns yt-dlp and
+# FFmpeg, talks to YouTube and serves a page on the local network. None of that
+# survives a runner. CONTRIBUTING therefore asks contributors to say what they
+# tested by hand, and this workflow guards the two things a machine does better
+# than a human — that it still builds without warnings, and that the scripts
+# still parse.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push to a PR makes the previous run pointless.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (Debug)
+    # macOS 26 image: AppIcon.icon is an Icon Composer bundle, and only the
+    # actool from Xcode 26 knows how to compile it. An older image fails on the
+    # asset catalog, not on the code.
+    runs-on: macos-26
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      # TBD.xcodeproj is git-ignored: project.yml is the source of truth, so CI
+      # generates the project the same way a contributor does.
+      - name: Generate the Xcode project
+        run: xcodegen generate
+
+      # No signing identity on a runner, and none needed to prove it compiles.
+      # Warnings are errors, but that lives in project.yml, on the targets:
+      # setting it here would reach the SwiftPM dependencies as well, and
+      # -warnings-as-errors on top of their -suppress-warnings does not compile.
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild -project TBD.xcodeproj -scheme TBD \
+            -configuration Debug \
+            -derivedDataPath build/CIDerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+  scripts:
+    name: Shell scripts
+    runs-on: macos-26
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # `bash -n` catches the syntax error that would otherwise be found halfway
+      # through a release, by whoever is cutting it.
+      - name: Parse
+        run: |
+          for script in scripts/*.sh; do
+            echo "▶ $script"
+            bash -n "$script"
+          done
+
+      - name: ShellCheck
+        run: |
+          brew install shellcheck
+          shellcheck scripts/*.sh

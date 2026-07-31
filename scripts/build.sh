@@ -27,7 +27,7 @@ xcodebuild -project "$APP_NAME.xcodeproj" -scheme "$APP_NAME" \
   CODE_SIGNING_ALLOWED=NO build >/dev/null
 
 APP_SRC="$DERIVED/Build/Products/Release/$APP_NAME.app"
-[ -d "$APP_SRC" ] || { echo "❌ App introuvable : $APP_SRC"; exit 1; }
+[ -d "$APP_SRC" ] || { echo "❌ App not found: $APP_SRC"; exit 1; }
 
 echo "▶ Preparing dist/…"
 rm -rf "$DIST"
@@ -40,6 +40,9 @@ echo "▶ Ad-hoc signing (inside out)…"
 # build we bundled was compiled --enable-nonfree, so legally not redistributable;
 # the app downloads them on first launch from their publisher
 # (cf. App/Sources/Core/FFmpegInstaller.swift).
+# One name in the list today, and it stays a list: ffmpeg and ffprobe were in
+# it until they stopped being shipped, and a future binary would go here.
+# shellcheck disable=SC2043
 for bin in yt-dlp; do
   codesign --force --sign - "$APP/Contents/Resources/bin/$bin"
 done
