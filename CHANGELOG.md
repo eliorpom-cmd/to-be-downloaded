@@ -7,7 +7,13 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-No version has been published yet. Everything below is what `0.1.0` will contain.
+Nothing yet.
+
+## [0.1.0] - 2026-07-31
+
+First build handed to beta testers. Private beta: the repository is not public
+and the release is marked as a pre-release, so no installed app picks it up on
+its own.
 
 ### Added
 
@@ -82,4 +88,5 @@ No version has been published yet. Everything below is what `0.1.0` will contain
 - 4K downloads are VP9 (YouTube has no H.264 above 1080p) and need a player like
   IINA or VLC.
 
-[Unreleased]: https://github.com/eliorpom-cmd/to-be-downloaded/commits/main
+[Unreleased]: https://github.com/eliorpom-cmd/to-be-downloaded/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/eliorpom-cmd/to-be-downloaded/releases/tag/v0.1.0
