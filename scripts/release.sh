@@ -121,7 +121,9 @@ cask "$CASK_TOKEN" do
   # The app updates itself (Ed25519-signed releases), so Homebrew shouldn't
   # worry about seeing a newer version than its own.
   auto_updates true
-  depends_on macos: ">= :ventura"
+  # A bare symbol means "this version or newer". The ">= :ventura" string form
+  # is deprecated since Homebrew 6 and warns on every tap.
+  depends_on macos: :ventura
 
   # Installed with the full name: Spotlight indexes an app by its FILE NAME
   # and ignores CFBundleDisplayName. Under "TBD.app" the app would be unfound
@@ -129,10 +131,11 @@ cask "$CASK_TOKEN" do
   app "$APP_NAME.app", target: "TBD - To be downloaded.app"
 
   caveats <<~EOS
-    This app is signed ad-hoc, not notarised by Apple, so install it with
-    --no-quarantine (otherwise macOS refuses to open it):
+    This app is signed ad-hoc and is not notarised by Apple, so macOS
+    quarantines it and refuses to open it. Homebrew dropped --no-quarantine in
+    5.1, so the attribute has to come off by hand, once:
 
-      brew install --cask --no-quarantine eliorpom-cmd/tap/$CASK_TOKEN
+      xattr -dr com.apple.quarantine "/Applications/TBD - To be downloaded.app"
 
     Updates afterwards are automatic and are verified against the developer's
     Ed25519 key before anything is installed.
