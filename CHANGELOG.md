@@ -9,6 +9,38 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 Nothing yet.
 
+## [1.0.0] - 2026-08-08
+
+The first public release. The repository is open, and this is a normal release
+rather than a pre-release — which is the thing the updater was waiting for.
+Every app installed from here on asks GitHub for releases once a day, checks
+the Ed25519 signature, and updates itself. Beta builds never could: a private
+repository answers 404, and the updater ignores pre-releases by design.
+
+What the app does has not changed since 0.1.0. What changed is everything
+around it — the licence on every file, the documentation a stranger reads
+first, and the fact that there is now source to read at all.
+
+### Added
+
+- **Homebrew cask**, in the public tap `eliorpom-cmd/homebrew-tap`:
+  `brew install --cask --no-quarantine eliorpom-cmd/tap/to-be-downloaded`.
+- **Continuous integration** on every push: the project builds from
+  `project.yml` with warnings as errors, and the scripts are shellchecked.
+- **A source offer on the web UI.** The LAN server hands the app to a browser,
+  which under AGPL §13 means it has to hand over where the source lives too.
+- **[docs/GOING-PUBLIC.md](docs/GOING-PUBLIC.md)**, which records what had to be
+  true before the repository could be published — including the history rewrite
+  that removed the nonfree FFmpeg binaries from all 19 commits.
+
+### Changed
+
+- **Warnings are errors** in the build settings, rather than a promise in a
+  contributing guide.
+- **An AGPL-3.0 header on every source file**, so a file read on its own still
+  says what it is licensed under.
+- Nothing in the repository points at the machine it was built on any more.
+
 ## [0.1.0] - 2026-07-31
 
 First build handed to beta testers. Private beta: the repository is not public
@@ -88,5 +120,6 @@ its own.
 - 4K downloads are VP9 (YouTube has no H.264 above 1080p) and need a player like
   IINA or VLC.
 
-[Unreleased]: https://github.com/eliorpom-cmd/to-be-downloaded/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/eliorpom-cmd/to-be-downloaded/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/eliorpom-cmd/to-be-downloaded/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/eliorpom-cmd/to-be-downloaded/releases/tag/v0.1.0
