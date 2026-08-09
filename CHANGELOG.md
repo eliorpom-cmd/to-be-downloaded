@@ -24,7 +24,12 @@ first, and the fact that there is now source to read at all.
 ### Added
 
 - **Homebrew cask**, in the public tap `eliorpom-cmd/homebrew-tap`:
-  `brew install --cask --no-quarantine eliorpom-cmd/tap/to-be-downloaded`.
+  `brew install --cask eliorpom-cmd/tap/to-be-downloaded`, followed by an
+  `xattr -dr com.apple.quarantine` on the installed app. Homebrew dropped
+  `--no-quarantine` in 5.1 — it refuses the option outright — so lifting the
+  quarantine is now something the person installing does knowingly rather than
+  something a package manager does for them. `TBD.dmg` is attached to the
+  release for anyone who would rather not open a terminal at all.
 - **Continuous integration** on every push: the project builds from
   `project.yml` with warnings as errors, and the scripts are shellchecked.
 - **A source offer on the web UI.** The LAN server hands the app to a browser,

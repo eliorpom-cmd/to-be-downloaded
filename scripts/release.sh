@@ -30,7 +30,7 @@ KEY_KIND="${2:-}"   # "" (current key) or "backup"
 APP_NAME="TBD"
 # Cask token = what the user types after the tap. Spelled out because you type
 # it only once and it must be guessable:
-#   brew install --cask --no-quarantine eliorpom-cmd/tap/to-be-downloaded
+#   brew install --cask eliorpom-cmd/tap/to-be-downloaded
 CASK_TOKEN="to-be-downloaded"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$ROOT/dist"
@@ -153,13 +153,19 @@ echo ""
 echo "✅ Ready in dist/"
 echo "   $ZIP_NAME        ($(/usr/bin/du -h "$DIST/$ZIP_NAME" | /usr/bin/awk '{print $1}'))"
 echo "   $ZIP_NAME.sig    (Ed25519 signature)"
+echo "   $APP_NAME.dmg              (direct download)"
 echo "   $CASK_TOKEN.rb    (Homebrew cask, sha256 $SHA)"
 echo ""
 echo "1) Publish the release:"
 echo ""
+# The DMG ships under its bare name, never versioned: the site links it through
+# `releases/latest/download/TBD.dmg`, and a version in the filename would break
+# that link on every release. The ZIP keeps its version because the cask builds
+# its URL from the version it declares.
 echo "   gh release create v$VERSION \\"
 echo "     \"$DIST/$ZIP_NAME\" \\"
 echo "     \"$DIST/$ZIP_NAME.sig\" \\"
+echo "     \"$DIST/$APP_NAME.dmg\" \\"
 echo "     --repo $REPO --title \"v$VERSION\" --notes \"…\""
 echo ""
 echo "2) Update the tap (repo eliorpom-cmd/homebrew-tap):"

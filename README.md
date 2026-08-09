@@ -123,24 +123,33 @@ Right-click a link in Safari → **Services** → *Download with TBD*.
 
 ## Install
 
-### Homebrew (recommended, once a release exists)
+### Homebrew (recommended)
 
 ```bash
-brew install --cask --no-quarantine eliorpom-cmd/tap/to-be-downloaded
+brew install --cask eliorpom-cmd/tap/to-be-downloaded
+xattr -dr com.apple.quarantine "/Applications/TBD - To be downloaded.app"
 ```
 
-`--no-quarantine` is **required**. The app is ad-hoc signed, not notarized by
-Apple (notarization needs a paid Apple Developer account). Without the flag,
-macOS quarantines the bundle and refuses to open it. The flag affects this app
-only and disables nothing else.
+The second line is **required**, and it is worth knowing why. The app is ad-hoc
+signed and not notarized by Apple (notarization needs a paid Apple Developer
+account), so macOS tags the download with `com.apple.quarantine` and Gatekeeper
+refuses to open anything carrying that tag. Homebrew used to lift the tag itself
+with `--no-quarantine`; it dropped the flag in 5.1, on the grounds that
+disabling a security check on someone's behalf is not a package manager's call.
+The attribute is still yours to remove, and this is what removing it looks like.
+It affects this app only and disables nothing else.
 
-### Manually
+### Disk image
 
-Drag `TBD.app` into `/Applications` and launch it. On a Mac other than the one
-that built it, the first launch needs one of:
+Download `TBD.dmg` from the
+[latest release](https://github.com/eliorpom-cmd/to-be-downloaded/releases/latest),
+drag the app into `/Applications`, and open it. macOS will say it cannot verify
+the app: open **System Settings → Privacy & Security**, scroll to **Security**,
+click **Open Anyway**, and confirm. Asked once, then never again.
 
-- **right-click** the app → **Open** → **Open**, or
-- `xattr -dr com.apple.quarantine "/Applications/TBD - To be downloaded.app"`
+Control-clicking the app and choosing **Open** used to skip that; Apple removed
+the shortcut in macOS Sequoia. The `xattr` line above works here too and avoids
+the question entirely.
 
 ### From source
 

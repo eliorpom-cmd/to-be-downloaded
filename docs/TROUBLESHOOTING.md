@@ -5,9 +5,19 @@
 The app is ad-hoc signed and **not notarized** (notarization requires a paid
 Apple Developer account). macOS quarantines anything downloaded and unnotarized.
 
-- Homebrew: install with `--no-quarantine` (see the [README](../README.md#install)).
-- Manually: right-click the app → **Open** → **Open**, or
-  `xattr -dr com.apple.quarantine "/Applications/TBD - To be downloaded.app"`.
+Whichever way it was installed, this lifts the tag:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/TBD - To be downloaded.app"
+```
+
+Homebrew used to do it for you with `--no-quarantine` and dropped the flag in
+5.1, so the line is now run by hand — see the [README](../README.md#install).
+
+Without it, the way through is **System Settings → Privacy & Security →
+Security → Open Anyway**, after a first refused launch. Control-clicking the app
+and choosing **Open** no longer works: Apple removed that shortcut in macOS
+Sequoia, and most guides on the web still recommend it.
 
 On the Mac that built it, it opens directly.
 

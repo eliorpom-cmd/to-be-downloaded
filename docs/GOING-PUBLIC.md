@@ -55,29 +55,48 @@ forever. Most of this list is done; what is left is marked as such.
 
 ## The Homebrew side
 
-- [ ] **Create `eliorpom-cmd/homebrew-tap`** as a public repository containing
+- [x] **`eliorpom-cmd/homebrew-tap` created public**, containing
       `Casks/to-be-downloaded.rb`. Public matters: a tap in a private
       repository fails for everyone but you, with an unhelpful error.
 - [ ] **Copy the generated cask** from `dist/to-be-downloaded.rb` after each
       release, commit, push. `release.sh` regenerates it with the right
-      `sha256` every time.
-- [ ] **Test the command on a Mac that has never seen the app**, from a
-      genuinely empty state:
-
-      ```bash
-      brew uninstall --cask to-be-downloaded 2>/dev/null
-      brew untap eliorpom-cmd/tap 2>/dev/null
-      brew install --cask --no-quarantine eliorpom-cmd/tap/to-be-downloaded
-      ```
-
-      A second Mac, or a fresh user account on this one. The build machine
-      always works, which tells you nothing.
+      `sha256` every time. Done for 1.0.0; it is the step to remember for
+      every release after.
+- [x] **Tested from a genuinely empty state** — untapped, untrusted,
+      uninstalled. The cask resolves, the `sha256` matches, the app lands in
+      `/Applications`.
+- [ ] **Test on a Mac that has never seen the app.** A second Mac, or a fresh
+      user account on this one. The build machine always works, which tells
+      you nothing — and Gatekeeper is precisely what it cannot tell you about.
 - [ ] **Verify `brew upgrade --cask to-be-downloaded`** picks up the next
       version. That is the fallback if both signing keys are ever lost.
-- [ ] Later, and only once the project has some visible traction: submitting
-      the cask to `homebrew/cask` removes the tap from the install command
-      entirely and gets install counts published on formulae.brew.sh for free.
-      It has notability requirements the project does not meet yet.
+- [ ] ~~Later, submit the cask to `homebrew/cask`~~ — closed as long as the app
+      is not notarized. `homebrew/cask` deprecates casks that fail Gatekeeper
+      and removes them on **2026-09-01**. That deadline applies to the official
+      repository only, so this tap is unaffected, but the door to the official
+      one is shut until notarization happens.
+
+### `--no-quarantine` is gone, and it was the install command
+
+Homebrew removed the flag in **5.1**. It is not deprecated with a warning; the
+option does not parse, so the published command installed nothing at all:
+
+```
+Error: invalid option: --no-quarantine
+```
+
+Homebrew removed the flag, not the capability — bypassing Gatekeeper is simply
+no longer something a package manager does on the user's behalf. So the install
+is two commands now, and the second is the same outcome the flag produced:
+
+```bash
+brew install --cask eliorpom-cmd/tap/to-be-downloaded
+xattr -dr com.apple.quarantine "/Applications/TBD - To be downloaded.app"
+```
+
+Someone who skips the second line gets a refused launch and then **System
+Settings → Privacy & Security → Open Anyway**. Control-click → Open, which most
+of the web still recommends, was removed in macOS Sequoia.
 
 ## The updater, which only starts working in public
 
@@ -85,11 +104,14 @@ While the repository is private, the app asks GitHub for releases, gets a 404,
 and treats it as "nothing published". Auto-update does nothing for beta
 testers, by construction.
 
-- [ ] **Publish the first public release as a normal release**, not a
+- [x] **First public release published as a normal release**, not a
       pre-release: the updater ignores drafts and pre-releases by design, so
-      `v0.1.0` will stay invisible to it.
-- [ ] **Attach both files**, `TBD-<version>-macos.zip` and its `.sig`. Without
-      the signature every installed app refuses the update.
+      `v0.1.0` stayed invisible to it and `v1.0.0` is what it finally sees.
+- [x] **Both files attached**, `TBD-<version>-macos.zip` and its `.sig`.
+      Without the signature every installed app refuses the update. `TBD.dmg`
+      rides along for people who will not open a terminal — under that exact
+      name, unversioned, because the site links it through
+      `releases/latest/download/TBD.dmg`.
 - [ ] **Test an actual upgrade** between two published versions, on a Mac where
       the old one is installed. This is the one path that cannot be tested
       before the repository is public, and the one that breaks silently for
@@ -100,9 +122,11 @@ testers, by construction.
 ## Notarization, or the choice not to
 
 Today the app is ad-hoc signed: no hardened runtime, not notarized, and the
-install command needs `--no-quarantine`. That flag is a real cost. It is the
-one thing on the site that has to be explained rather than stated, and some
-people will stop there.
+install takes a second command that lifts the quarantine attribute. That is a
+real cost, and Homebrew's removal of `--no-quarantine` made it a visibly larger
+one: a tidy flag on a `brew` line became a raw `xattr` command, which is a much
+easier thing to point at and call a red flag. It is the one thing on the site
+that has to be explained rather than stated, and some people will stop there.
 
 Fixing it costs 99 € a year for an Apple Developer account, plus:
 
@@ -111,18 +135,21 @@ Fixing it costs 99 € a year for an Apple Developer account, plus:
 - [ ] sign with a Developer ID certificate instead of `-`,
 - [ ] add a notarization step to `build.sh` (`xcrun notarytool submit --wait`,
       then `xcrun stapler staple`),
-- [ ] drop `--no-quarantine` from the cask and from every page that prints the
-      command,
+- [ ] drop the `xattr` line from the cask caveats and from every page that
+      prints it, and delete the Gatekeeper walkthrough the disk image needs,
 - [ ] check that the bundled yt-dlp still starts: signing a PyInstaller binary
       under the hardened runtime is exactly what the
       `com.apple.security.cs.allow-*` entitlements are there for.
 
+It also reopens `homebrew/cask`, which the 2026-09-01 Gatekeeper deadline
+closes otherwise.
+
 Decide it on purpose, not by drift. Shipping unsigned is a defensible choice
-for a free tool; pretending the flag is a detail is not.
+for a free tool; pretending the second command is a detail is not.
 
 ## The day itself
 
-- [ ] Repository public.
+- [x] Repository public.
 - [ ] `SOURCE_PUBLIC = true` in the site's `config.ts`, which brings back the
       GitHub links and switches the "the code goes public when it leaves beta"
       sentence to the present tense.
