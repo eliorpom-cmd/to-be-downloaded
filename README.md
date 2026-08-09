@@ -126,11 +126,10 @@ Right-click a link in Safari → **Services** → *Download with TBD*.
 ### Homebrew (recommended)
 
 ```bash
-brew install --cask eliorpom-cmd/tap/to-be-downloaded
-xattr -dr com.apple.quarantine "/Applications/TBD - To be downloaded.app"
+brew install --cask eliorpom-cmd/tap/to-be-downloaded && xattr -dr com.apple.quarantine "/Applications/TBD - To be downloaded.app"
 ```
 
-The second line is **required**, and it is worth knowing why. The app is ad-hoc
+The second half is **required**, and it is worth knowing why. The app is ad-hoc
 signed and not notarized by Apple (notarization needs a paid Apple Developer
 account), so macOS tags the download with `com.apple.quarantine` and Gatekeeper
 refuses to open anything carrying that tag. Homebrew used to lift the tag itself
