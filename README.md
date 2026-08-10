@@ -21,12 +21,7 @@ A native macOS downloader built on yt-dlp — that your phone can drive too.
 [![Stars](https://img.shields.io/github/stars/eliorpom-cmd/to-be-downloaded?style=flat-square&color=0A0A0A)](https://github.com/eliorpom-cmd/to-be-downloaded/stargazers)
 -->
 
-<!-- SCREENSHOT TO TAKE — hero.png: entire window, Download screen, light theme,
-     one download in progress (capsule at ~60%) + one finished. Window separated
-     from background (⌘⇧4 then Space on window, shadow preserved).
-     Drop the file in docs/assets/ and uncomment the line below.
 <img src="docs/assets/hero.png" width="820" alt="The TBD window: one URL field, and downloads filling up as capsules">
--->
 
 </div>
 
@@ -77,11 +72,11 @@ any device on the same Wi-Fi — phone, tablet, someone else's laptop. The web U
 is the same design as the app, installable as a PWA, and it can hand you the
 finished file over HTTP.
 
-<!-- SCREENSHOT TO TAKE — network.png: Network Access screen with QR code.
-     Ideally next to it, a screenshot of the web page on iPhone (docs/assets/webui.png).
-     Drop the file in docs/assets/ and uncomment the line below.
 <img src="docs/assets/network.png" width="700" alt="The Network Access screen with its QR code">
--->
+
+<!-- STILL TO TAKE — webui.png: the web page on an iPhone. Goes next to the shot
+     above once you have it. -->
+
 
 ### It behaves like a Mac app
 
@@ -89,11 +84,9 @@ Drag a finished file into the Finder. Hit space for Quick Look. Watch the Dock
 icon fill up. Hit ⌥⌘V from anywhere to download whatever is in your clipboard.
 Right-click a link in Safari → **Services** → *Download with TBD*.
 
-<!-- SCREENSHOT TO TAKE — library.png: Library screen with a few entries and
-     their thumbnails. Bonus: menubar.png, menu bar item menu open.
-     Drop the file in docs/assets/ and uncomment the line below.
 <img src="docs/assets/library.png" width="700" alt="The Library screen listing downloaded files with thumbnails">
--->
+
+<img src="docs/assets/menubar.png" width="460" alt="The menu bar item, open, offering to download the link sitting in the clipboard">
 
 ## Everything else
 
