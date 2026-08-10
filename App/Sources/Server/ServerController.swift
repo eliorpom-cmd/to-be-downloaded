@@ -99,14 +99,14 @@ final class ServerController: ObservableObject {
                 appName: appName, shortName: shortName,
                 audioBitrateSelectable: audioBitrateSelectable)
             return HTTPResponse(statusCode: .ok,
-                                headers: [.contentType: "text/html; charset=utf-8"],
+                                headers: [.contentType: "text/html; charset=utf-8"] as HTTPHeaders,
                                 body: Data(html.utf8))
         }
 
         // PWA manifest ("Add to Home Screen").
         await server.appendRoute("GET /manifest.webmanifest") { _ in
             HTTPResponse(statusCode: .ok,
-                         headers: [.contentType: "application/manifest+json"],
+                         headers: [.contentType: "application/manifest+json"] as HTTPHeaders,
                          body: Data(WebUI.manifestJSON(appName: appName,
                                                        shortName: shortName).utf8))
         }
@@ -117,7 +117,7 @@ final class ServerController: ObservableObject {
                 return HTTPResponse(statusCode: .notFound, body: Data())
             }
             return HTTPResponse(statusCode: .ok,
-                                headers: [.contentType: "image/png"],
+                                headers: [.contentType: "image/png"] as HTTPHeaders,
                                 body: iconData)
         }
 
@@ -127,7 +127,7 @@ final class ServerController: ObservableObject {
                 return HTTPResponse(statusCode: .notFound, body: Data())
             }
             return HTTPResponse(statusCode: .ok,
-                                headers: [.contentType: "image/png"],
+                                headers: [.contentType: "image/png"] as HTTPHeaders,
                                 body: faviconData)
         }
 
@@ -137,7 +137,7 @@ final class ServerController: ObservableObject {
             let jobs = await downloads.snapshot()
             let data = (try? JSONEncoder().encode(jobs)) ?? Data("[]".utf8)
             return HTTPResponse(statusCode: .ok,
-                                headers: [.contentType: "application/json"],
+                                headers: [.contentType: "application/json"] as HTTPHeaders,
                                 body: data)
         }
 
@@ -146,12 +146,12 @@ final class ServerController: ObservableObject {
             let url = request.query["url"]?.trimmingCharacters(in: .whitespaces) ?? ""
             guard !url.isEmpty, let meta = await downloads.fetchMetadata(urlString: url) else {
                 return HTTPResponse(statusCode: .notFound,
-                                    headers: [.contentType: "application/json"],
+                                    headers: [.contentType: "application/json"] as HTTPHeaders,
                                     body: Data(#"{"error":"unavailable"}"#.utf8))
             }
             let data = (try? JSONEncoder().encode(MetadataDTO(meta))) ?? Data("{}".utf8)
             return HTTPResponse(statusCode: .ok,
-                                headers: [.contentType: "application/json"],
+                                headers: [.contentType: "application/json"] as HTTPHeaders,
                                 body: data)
         }
 
@@ -161,7 +161,7 @@ final class ServerController: ObservableObject {
                   let dto = try? JSONDecoder().decode(DownloadRequestDTO.self, from: body),
                   !dto.url.trimmingCharacters(in: .whitespaces).isEmpty else {
                 return HTTPResponse(statusCode: .badRequest,
-                                    headers: [.contentType: "application/json"],
+                                    headers: [.contentType: "application/json"] as HTTPHeaders,
                                     body: Data(#"{"error":"invalid request"}"#.utf8))
             }
             // Audio container and subtitles follow the app's settings:
@@ -172,7 +172,7 @@ final class ServerController: ObservableObject {
             let payload = ["id": id?.uuidString ?? ""]
             let data = (try? JSONEncoder().encode(payload)) ?? Data("{}".utf8)
             return HTTPResponse(statusCode: .ok,
-                                headers: [.contentType: "application/json"],
+                                headers: [.contentType: "application/json"] as HTTPHeaders,
                                 body: data)
         }
 
@@ -180,7 +180,7 @@ final class ServerController: ObservableObject {
         await server.appendRoute("POST /api/cancel/:id") { (_: HTTPRequest, id: String) in
             if let uuid = UUID(uuidString: id) { await downloads.cancel(uuid) }
             return HTTPResponse(statusCode: .ok,
-                                headers: [.contentType: "application/json"],
+                                headers: [.contentType: "application/json"] as HTTPHeaders,
                                 body: Data("{}".utf8))
         }
 
@@ -188,7 +188,7 @@ final class ServerController: ObservableObject {
         await server.appendRoute("POST /api/clear") { _ in
             await downloads.removeCompleted()
             return HTTPResponse(statusCode: .ok,
-                                headers: [.contentType: "application/json"],
+                                headers: [.contentType: "application/json"] as HTTPHeaders,
                                 body: Data("{}".utf8))
         }
 
@@ -206,7 +206,7 @@ final class ServerController: ObservableObject {
                 headers: [
                     .contentType: "application/octet-stream",
                     .contentDisposition: "attachment; filename=\"\(name)\"; filename*=UTF-8''\(encoded)",
-                ],
+                ] as HTTPHeaders,
                 body: body
             )
         }
