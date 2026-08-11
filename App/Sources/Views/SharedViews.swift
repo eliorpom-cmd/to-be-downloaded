@@ -333,6 +333,27 @@ private enum BrandLogo {
     }
 }
 
+// MARK: - FFmpeg Picker
+
+/// Open panel for "use the FFmpeg I already have". Shared by the first-launch
+/// screens, the Download screen's setup card and Settings — three places that
+/// ask the same question and must ask it the same way.
+@MainActor
+enum FFmpegPicker {
+    static func choose(startingAt directory: URL?) -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        // Homebrew lives under /opt and /usr, which the panel hides by default.
+        panel.showsHiddenFiles = true
+        panel.prompt = "Use This FFmpeg"
+        panel.message = "Pick the ffmpeg executable. Its ffprobe must sit in the same folder."
+        panel.directoryURL = directory ?? URL(fileURLWithPath: "/opt/homebrew/bin")
+        return panel.runModal() == .OK ? panel.url : nil
+    }
+}
+
 // MARK: - Sidebar Material
 
 /// `NSVisualEffectView` in sidebar mode: the only way to get the exact

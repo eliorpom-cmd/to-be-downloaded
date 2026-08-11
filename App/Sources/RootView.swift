@@ -46,10 +46,14 @@ struct RootView: View {
     @State private var route: AppRoute = .download
 
     var body: some View {
-        HStack(spacing: 0) {
-            sidebar
-            Divider()
-            detail
+        Group {
+            if settings.onboarded {
+                shell
+            } else {
+                // No sidebar, no destinations: there is nothing to navigate to
+                // until the app can actually download something.
+                OnboardingView(settings: settings, ffmpeg: ffmpeg, manager: manager)
+            }
         }
         .frame(minWidth: 820, minHeight: 620)
         // The title bar is hidden, but SwiftUI still reserves its height in the
@@ -77,11 +81,12 @@ struct RootView: View {
             // but don't restart automatically — closing the app can mean "stop".
             manager.loadResumable()
             settings.applyGlobalShortcut()
-            // FFmpeg is not bundled (the one we shipped wasn't redistribution-legal):
-            // without it, nothing assembles and no download completes. It's the only
-            // download the app launches on its own, once, on first launch —
-            // the welcome screen shows progress.
-            await ffmpeg.installIfMissing()
+            // FFmpeg is NOT fetched here any more. It is a 56 MB download onto
+            // someone's machine, over whatever connection they are on, and the
+            // app used to start it before anyone had been asked — which is
+            // exactly what the first-launch screens now put a question in front
+            // of. Nothing on this path downloads without consent.
+            //
             // Silent check for yt-dlp: without it, the app breaks at the next
             // YouTube bot defense. Throttled to 24 h on the updater side, and
             // has no effect if the user disabled it.
@@ -110,6 +115,15 @@ struct RootView: View {
         // ⌘, replaces the Settings window: the destination lives in the sidebar.
         .onReceive(NotificationCenter.default.publisher(for: .openSettingsPane)) { _ in
             route = .settings
+        }
+    }
+
+    /// The app proper: sidebar plus detail panel.
+    private var shell: some View {
+        HStack(spacing: 0) {
+            sidebar
+            Divider()
+            detail
         }
     }
 

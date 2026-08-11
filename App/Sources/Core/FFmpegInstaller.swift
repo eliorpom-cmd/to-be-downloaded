@@ -79,15 +79,110 @@ final class FFmpegInstaller: ObservableObject {
         await run(force: true)
     }
 
+    // MARK: - Using an FFmpeg that is already on the machine
+
+    /// Where a Mac keeps an FFmpeg somebody installed themselves.
+    ///
+    /// Not read from `PATH`: a launched app inherits a minimal environment,
+    /// not the shell's, so `PATH` here would say almost nothing about what
+    /// the person has. These four cover Homebrew on both architectures and
+    /// MacPorts, and anything else is one file picker away.
+    static let commonLocations: [URL] = [
+        "/opt/homebrew/bin/ffmpeg",
+        "/usr/local/bin/ffmpeg",
+        "/opt/local/bin/ffmpeg",
+        "/usr/bin/ffmpeg",
+    ].map { URL(fileURLWithPath: $0) }
+
+    /// First of those that has both executables. `ffprobe` is not optional:
+    /// yt-dlp probes streams with it before asking ffmpeg to assemble them,
+    /// so half an install is no install.
+    static func detectExisting() -> URL? {
+        commonLocations.first { isUsablePair(at: $0) }
+    }
+
+    static func isUsablePair(at ffmpeg: URL) -> Bool {
+        let fm = FileManager.default
+        let ffprobe = ffmpeg.deletingLastPathComponent().appendingPathComponent("ffprobe")
+        return fm.isExecutableFile(atPath: ffmpeg.path)
+            && fm.isExecutableFile(atPath: ffprobe.path)
+    }
+
+    /// Point the app at an existing FFmpeg instead of downloading a second
+    /// copy of it.
+    ///
+    /// Symlinks rather than copies, for two reasons: 80 MB duplicated for
+    /// nothing, and a copy freezes at today's version while a link keeps
+    /// following whatever `brew upgrade` does. If the person later removes
+    /// theirs, the link dangles, `hasManagedFFmpeg` goes false, and the app
+    /// says FFmpeg is missing — which is exactly true.
+    @discardableResult
+    func useExisting(at ffmpeg: URL) async -> Bool {
+        guard !status.isBusy else { return false }
+        let ffprobe = ffmpeg.deletingLastPathComponent().appendingPathComponent("ffprobe")
+        guard Self.isUsablePair(at: ffmpeg) else {
+            status = .failed("No ffprobe next to that ffmpeg. Both are needed, "
+                             + "and they normally sit in the same folder.")
+            return false
+        }
+
+        status = .installing
+        // Run it before trusting it: a file with the right name and the
+        // executable bit is not proof of a working FFmpeg.
+        guard let version = await Self.probeVersion(of: ffmpeg) else {
+            status = .failed("That file did not answer to `ffmpeg -version`.")
+            return false
+        }
+
+        let fm = FileManager.default
+        do {
+            try fm.createDirectory(at: BinaryLocator.managedDirectory,
+                                   withIntermediateDirectories: true)
+            for (link, target) in [(BinaryLocator.managedFFmpeg, ffmpeg),
+                                   (BinaryLocator.managedFFprobe, ffprobe)] {
+                // removeItem, not a fileExists check: a DANGLING symlink left
+                // by a previous link is invisible to fileExists and would make
+                // createSymbolicLink fail.
+                try? fm.removeItem(at: link)
+                try fm.createSymbolicLink(at: link, withDestinationURL: target)
+            }
+        } catch {
+            status = .failed(error.localizedDescription)
+            return false
+        }
+
+        installedVersion = version
+        store.set(version, forKey: Key.installedVersion)
+        status = .installed(version)
+        NotificationCenter.default.post(name: .engineBinaryDidChange, object: nil)
+        return true
+    }
+
+    /// Is the FFmpeg in use one of ours or one of theirs? Settings says so:
+    /// "check for updates" means nothing for a symlink to Homebrew.
+    var usesExternalFFmpeg: Bool {
+        (try? FileManager.default.destinationOfSymbolicLink(
+            atPath: BinaryLocator.managedFFmpeg.path)) != nil
+    }
+
     /// Check for version, then install if a newer one exists.
     /// - Parameter userInitiated: `true` bypasses the 24-hour interval.
     func checkForUpdate(userInitiated: Bool) async {
         guard !status.isBusy else { return }
+        // Someone else's FFmpeg is not ours to update. Whoever installed it —
+        // Homebrew, MacPorts, by hand — updates it.
+        guard !usesExternalFFmpeg else { return }
         if !userInitiated {
             guard isInstalled else { return }
             if let lastCheck, Date().timeIntervalSince(lastCheck) < Self.checkInterval { return }
         }
         await run(force: false)
+    }
+
+    /// Stop using the machine's FFmpeg and fetch our own copy instead.
+    func installOwnCopy() async {
+        guard !status.isBusy else { return }
+        await run(force: true)
     }
 
     /// Re-read the actually installed version by querying the binary.
@@ -385,6 +480,13 @@ final class FFmpegInstaller: ObservableObject {
         try fm.createDirectory(at: BinaryLocator.managedDirectory, withIntermediateDirectories: true)
         for (component, binary) in verified {
             let destination = BinaryLocator.managedDirectory.appendingPathComponent(component)
+            // A symlink left by "use the FFmpeg I already have" must go FIRST.
+            // `fileExists` and `replaceItemAt` both follow symlinks, so writing
+            // over one would land on the file it points at — someone's Homebrew
+            // install, replaced without asking.
+            if (try? fm.destinationOfSymbolicLink(atPath: destination.path)) != nil {
+                try? fm.removeItem(at: destination)
+            }
             // Atomic replacement, safe during an ongoing download: on POSIX, an
             // already-running process keeps its inode.
             if fm.fileExists(atPath: destination.path) {

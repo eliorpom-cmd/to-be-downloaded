@@ -622,12 +622,29 @@ struct DownloadPane: View {
                     .foregroundStyle(Theme.labelSecondary)
                 }
             default:
-                Button("Download FFmpeg") {
-                    Task { await ffmpeg.installIfMissing() }
+                VStack(spacing: Theme.Space.s10) {
+                    Button("Download FFmpeg") {
+                        Task { await ffmpeg.installIfMissing() }
+                    }
+                    .buttonStyle(.push)
+
+                    // Same offer as the first-launch screen: someone who
+                    // reached this card by answering "Not Now" there should
+                    // find the same way out here.
+                    Button("Use an FFmpeg I already have…", action: linkExistingFFmpeg)
+                        .buttonStyle(.plain)
+                        .font(Theme.Text.body)
+                        .foregroundStyle(Theme.labelSecondary)
                 }
-                .buttonStyle(.push)
             }
         }
+    }
+
+    private func linkExistingFFmpeg() {
+        let detected = FFmpegInstaller.detectExisting()
+        guard let url = FFmpegPicker.choose(startingAt: detected?.deletingLastPathComponent())
+        else { return }
+        Task { await ffmpeg.useExisting(at: url) }
     }
 
     private var ffmpegSetupTitle: String {

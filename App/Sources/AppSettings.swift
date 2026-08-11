@@ -59,6 +59,7 @@ final class AppSettings: ObservableObject {
         static let maxConcurrent = "maxConcurrentDownloads"
         static let filenameTemplate = "filenameTemplate"
         static let filenameCustom = "filenameCustomPattern"
+        static let onboarded = "onboardingCompleted"
         static let remoteControl = "remoteControlEnabled"
         static let globalShortcut = "globalShortcutEnabled"
         static let shortcutKeyCode = "globalShortcutKeyCode"
@@ -137,6 +138,11 @@ final class AppSettings: ObservableObject {
     }
     @Published var filenameCustom: String {
         didSet { store.set(filenameCustom, forKey: Key.filenameCustom) }
+    }
+    /// Has the first-launch walkthrough been through? Until it has, the app
+    /// downloads nothing and assumes nothing about where files should go.
+    @Published var onboarded: Bool {
+        didSet { store.set(onboarded, forKey: Key.onboarded) }
     }
     /// Whether the LAN server may run at all.
     ///
@@ -268,6 +274,12 @@ final class AppSettings: ObservableObject {
         filenameTemplate = FilenameTemplate(
             rawValue: store.string(forKey: Key.filenameTemplate) ?? "") ?? .title
         filenameCustom = store.string(forKey: Key.filenameCustom) ?? "%(title)s"
+        // Anyone upgrading from 1.0 already has a working app and a folder
+        // they chose (or accepted): walking them through setup would be
+        // asking questions that were answered months ago. An existing
+        // FFmpeg is the tell.
+        onboarded = store.object(forKey: Key.onboarded) as? Bool
+            ?? BinaryLocator.hasManagedFFmpeg
         remoteControl = store.object(forKey: Key.remoteControl) as? Bool ?? false
         globalShortcut = store.object(forKey: Key.globalShortcut) as? Bool ?? false
         shortcutKeyCode = store.object(forKey: Key.shortcutKeyCode) as? Int
