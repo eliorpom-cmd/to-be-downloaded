@@ -407,6 +407,25 @@ final class DownloadManager: ObservableObject {
         pump()
     }
 
+    /// Forget a finished download completely.
+    ///
+    /// A library entry and the session row that produced it are the same
+    /// download seen twice — `LibraryItem` is built with the job's own id.
+    /// Removing only the entry left the row standing on the Download screen
+    /// and, because that list is what the LAN server serves, on every phone
+    /// pointed at this Mac.
+    func forget(_ itemID: UUID) {
+        library.remove(itemID)
+        remove(itemID)
+    }
+
+    /// Same, for "Clear Library". Only finished rows go: a download still
+    /// running has no entry yet and must not be cancelled by a list command.
+    func forgetAll() {
+        library.removeAll()
+        removeCompleted()
+    }
+
     /// Restarts a failed/canceled download with the same URL and format.
     @discardableResult
     func retry(_ jobID: UUID) -> UUID? {

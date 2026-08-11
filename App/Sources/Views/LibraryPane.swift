@@ -14,6 +14,9 @@ struct LibraryPane: View {
     /// Selected row: the one the spacebar previews.
     @State private var selectedID: UUID?
     @State private var spaceMonitor: Any?
+    /// Entry waiting on the "move to trash" confirmation. Deleting someone's
+    /// file is the one thing in this app that cannot be undone from inside it.
+    @State private var trashCandidate: LibraryItem?
 
     private var active: [DownloadJob] { manager.activeJobs }
     private var items: [LibraryItem] { library.matching(query) }
@@ -67,7 +70,8 @@ struct LibraryPane: View {
                                             isSelected: selectedID == item.id,
                                             onSelect: { selectedID = item.id },
                                             onDownloadAgain: { downloadAgain(item) },
-                                            onRemove: { library.remove(item.id) }
+                                            onRemove: { manager.forget(item.id) },
+                                            onTrash: { trashCandidate = item }
                                         )
                                         if index < items.count - 1 {
                                             Divider().overlay(Theme.separator)
@@ -91,6 +95,30 @@ struct LibraryPane: View {
             if let spaceMonitor { NSEvent.removeMonitor(spaceMonitor) }
             spaceMonitor = nil
         }
+        .confirmationDialog(
+            "Move this download to the Trash?",
+            isPresented: Binding(get: { trashCandidate != nil },
+                                 set: { if !$0 { trashCandidate = nil } }),
+            titleVisibility: .visible,
+            presenting: trashCandidate
+        ) { item in
+            Button("Move to Trash", role: .destructive) { moveToTrash(item) }
+            Button("Cancel", role: .cancel) { trashCandidate = nil }
+        } message: { item in
+            Text("“\(item.title)” goes to the Trash and leaves the library. "
+                 + "The Trash is where you get it back from.")
+        }
+    }
+
+    /// The file itself, not just the entry. Goes through the Trash rather
+    /// than `removeItem`: an app deleting someone's video outright, with no
+    /// way back, is not a thing this one does.
+    private func moveToTrash(_ item: LibraryItem) {
+        trashCandidate = nil
+        if item.fileExists {
+            NSWorkspace.shared.recycle([item.fileURL], completionHandler: nil)
+        }
+        manager.forget(item.id)
     }
 
     /// Spacebar = preview, like in Finder.
@@ -265,6 +293,7 @@ private struct LibraryRow: View {
     var onSelect: () -> Void = {}
     let onDownloadAgain: () -> Void
     let onRemove: () -> Void
+    let onTrash: () -> Void
 
     @State private var hovering = false
 
@@ -371,6 +400,13 @@ private struct LibraryRow: View {
         }
         Divider()
         Button("Download Again", action: onDownloadAgain)
-        Button("Remove from Library", action: onRemove)
+        Divider()
+        // Both halves spelled out. "Remove from Library" alone left people
+        // unsure whether their file was about to disappear, and a menu is
+        // read one line at a time — the answer has to be in the line itself,
+        // not in the one below it.
+        Button("Remove from Library (Keep File)", action: onRemove)
+        Button("Move File to Trash…", action: onTrash)
+            .disabled(!item.fileExists)
     }
 }

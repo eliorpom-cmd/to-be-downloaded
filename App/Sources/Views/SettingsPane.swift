@@ -259,7 +259,7 @@ struct SettingsPane: View {
             isPresented: $showClearConfirm,
             titleVisibility: .visible
         ) {
-            Button("Clear Library", role: .destructive) { library.removeAll() }
+            Button("Clear Library", role: .destructive) { manager.forgetAll() }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This only empties the list. The downloaded files stay on disk.")
