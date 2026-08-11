@@ -12,7 +12,7 @@ A native macOS downloader built on yt-dlp — that your phone can drive too.
 [![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-arm64-0A0A0A?style=flat-square)](#system-requirements)
 [![Swift](https://img.shields.io/badge/Swift-SwiftUI-0A0A0A?style=flat-square&logo=swift&logoColor=white)](#how-it-works)
 [![yt-dlp](https://img.shields.io/badge/engine-yt--dlp-0A0A0A?style=flat-square)](https://github.com/yt-dlp/yt-dlp)
-[![FFmpeg](https://img.shields.io/badge/FFmpeg-downloaded%20on%20first%20launch-0A0A0A?style=flat-square)](#first-launch)
+[![FFmpeg](https://img.shields.io/badge/FFmpeg-fetched%20or%20linked%20on%20first%20launch-0A0A0A?style=flat-square)](#first-launch)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-0A0A0A?style=flat-square)](LICENSE)
 
 <!-- Enable once the repository is public and the first release is published:
@@ -162,13 +162,17 @@ See [docs/BUILDING.md](docs/BUILDING.md) for the full build story.
 | **macOS** | 13 Ventura or later |
 | **Chip** | Apple Silicon (arm64) — no Intel build |
 | **Disk** | ~43 MB for the app, ~56 MB more once FFmpeg is fetched |
-| **Network** | Needed once on first launch (FFmpeg), then only to download |
+| **Network** | Needed once on first launch (FFmpeg), unless you link one you already have |
 | **Account** | None. Ever. |
 
 ## First launch
 
-The app downloads **FFmpeg** once (~56 MB) before the first download can run,
-and says so on screen while it does. It comes from
+First launch asks two questions: where downloads should go, and whether to
+fetch **FFmpeg**. Nothing is downloaded before you answer. If you already have
+an FFmpeg — Homebrew, MacPorts, or one you put there yourself — the app will
+find it and link to it instead of keeping a second copy.
+
+If you let it fetch its own, that is ~56 MB, once. It comes from
 [ffmpeg.martin-riedl.de](https://ffmpeg.martin-riedl.de), is checked against the
 published SHA-256, and must carry a valid Apple **Developer ID** signature from
 that publisher — otherwise it is thrown away rather than installed.

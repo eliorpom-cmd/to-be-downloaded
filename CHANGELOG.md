@@ -9,6 +9,88 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 Nothing yet.
 
+## [1.1.0] - 2026-08-11
+
+A release made of other people's reports. Two of them are about the app
+taking decisions that were never its to take: opening a network port on
+someone's machine at launch, and downloading 56 MB onto it without asking.
+Both are now questions. The rest is the accumulation of small things people
+noticed before they noticed the app.
+
+### Changed
+
+- **The LAN server is opt-in.** Launching the app binds nothing. Turning
+  Remote Control on opens the port and remembers the choice; turning it off,
+  or quitting, closes it. Requested repeatedly, and the most common single
+  complaint about 1.0.
+- **Network Access is called Remote Control**, and its screen explains the
+  feature instead of showing a dimmed QR code: what the page does, that
+  nothing is exposed to the internet, that the port's life is tied to the
+  switch, and that anyone on the Wi-Fi with the address can queue a download,
+  because there is no password.
+- **The app is written "To Be Downloaded"**, with capitals, everywhere it is
+  read. The folder in `/Applications` keeps its old lowercase name on
+  purpose: it exists on other people's disks, and renaming it would hand
+  them two copies of the app.
+- **Settings say what they do.** "At the same time" is now "Concurrent
+  downloads"; "Default format" is "Download as", since Video and Audio are
+  not formats. The Engine section is Components, and it leads with the fact
+  that yt-dlp and FFmpeg update themselves rather than with two Check Now
+  buttons. Em dashes are out of the copy.
+- **"Remove from Library" is "Remove from Library (Keep File)"**, with "Move
+  File to Trash…" beside it. Nobody could tell which one their file was
+  about to survive.
+- Library and Settings no longer print their own name at the top; the sidebar
+  already says where you are.
+
+### Added
+
+- **First-launch screens.** Where downloads go, and whether to fetch FFmpeg.
+  Nothing is downloaded before you answer. An FFmpeg already on the machine
+  (Homebrew, MacPorts, or one you point at) is linked instead of duplicated,
+  and the app then leaves its updates to whoever installed it. Upgrades from
+  1.0 skip all of this.
+- **A preview of the pasted link**, before the download rather than after:
+  thumbnail, title, channel, length. Nearly free — the thumbnail address
+  comes from the video id in the URL and the title from one oEmbed call — so
+  a stale clipboard is caught while it can still be fixed.
+- **A warning on Max quality**, once, dismissible. YouTube serves H.264 only
+  up to 1080p, so 4K arrives as VP9, and the TV app, QuickTime and Preview
+  open it with no picture. Reported as a broken download; the file is fine
+  and VLC plays it. Nothing is silently downgraded.
+- **Subtitle language and automatic captions** are now settings. The language
+  was the system's plus English, in code, with no way to say otherwise.
+
+### Fixed
+
+- **Removing a library entry removes the download it came from.** The two are
+  the same thing seen twice, so the row used to stay on the Download screen
+  and, since that list is what the LAN server serves, on every phone pointed
+  at the Mac.
+- **FFmpeg is checked for updates at launch**, not only in the hourly loop. A
+  Mac opened and closed inside an hour updated it exactly never, which is why
+  people believed it had to be done by hand.
+- **The Video/Audio toggle stops sliding sideways** when the quality control
+  changes width, in the app and on the web page.
+- **The web page stops offering a choice of one**: audio keeps the source
+  track, so it prints "Original quality" instead of drawing a dropdown.
+- **The favicon has a transparent background** instead of an opaque square.
+- **Settings centre on a wide window**, and their scroll bar sits on the
+  window edge rather than against the content.
+- **The focus ring is gone from the URL field.** The caret already says where
+  the keyboard goes, and the ring was what made the round button look
+  crooked — the arrow was measurably centred all along.
+- **The About panel is in English** and carries the copyright and licence,
+  instead of the words "Outil personnel".
+
+### Removed
+
+- **"New Window"**, and with it ⌘N and the tab bar macOS folds two windows
+  into. A second window showed the same single queue.
+- **⌘L and ⌘⇧V.** The field is already focused when the window opens, and
+  ⌘V then Return is the same number of keys. The system-wide ⌥⌘V in Settings
+  is untouched.
+
 ## [1.0.0] - 2026-08-08
 
 The first public release. The repository is open, and this is a normal release
@@ -125,6 +207,7 @@ its own.
 - 4K downloads are VP9 (YouTube has no H.264 above 1080p) and need a player like
   IINA or VLC.
 
-[Unreleased]: https://github.com/eliorpom-cmd/to-be-downloaded/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/eliorpom-cmd/to-be-downloaded/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/eliorpom-cmd/to-be-downloaded/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/eliorpom-cmd/to-be-downloaded/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/eliorpom-cmd/to-be-downloaded/releases/tag/v0.1.0
