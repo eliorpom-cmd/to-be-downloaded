@@ -21,19 +21,32 @@ enum AppIcon {
     private static let ink = CGColor(red: 0.04, green: 0.04, blue: 0.04, alpha: 1)
 
     /// Home screen icon: the tile and its margin, like in the Dock (80/1024,
-    /// the margin of the original SVG). iOS rounds the square itself.
+    /// the margin of the original SVG). iOS rounds the square itself, and
+    /// wants an opaque square to round — a transparent PWA icon gets
+    /// composited onto whatever the system feels like.
     static func png(size: Int) -> Data? {
-        render(size: size, marginRatio: 80.0 / 1024.0)
+        render(size: size, marginRatio: 80.0 / 1024.0, opaqueBackground: true)
     }
 
     /// Tab icon. The Dock's margin is calculated for a 128 px icon; at 16 px it
-    /// would reduce the tile to a dot. So we stick it to the edges: only the four
-    /// background corners remain.
+    /// would reduce the tile to a dot, so the tile goes edge to edge.
+    ///
+    /// **No background.** A browser tab is not a canvas we own, and an opaque
+    /// square sitting in it read as a sticker rather than an icon. What is
+    /// left is the ink tile with the mascot cut clean through it — the same
+    /// rendering as the SVG logo on the page itself.
+    ///
+    /// Filling the face instead was tried and abandoned. The mark is not a
+    /// closed shape: the arrow's stem runs to the top edge of the tile, so
+    /// the face is open to the outside, while the two eyes are enclosed.
+    /// Anything that paints the holes reaches the eyes and not the arrow, and
+    /// a half-opaque half-transparent face is worse than either.
     static func favicon(size: Int) -> Data? {
-        render(size: size, marginRatio: 0)
+        render(size: size, marginRatio: 0, opaqueBackground: false)
     }
 
-    private static func render(size: Int, marginRatio: CGFloat) -> Data? {
+    private static func render(size: Int, marginRatio: CGFloat,
+                               opaqueBackground: Bool) -> Data? {
         let s = CGFloat(size)
         guard let ctx = CGContext(
             data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0,
@@ -41,8 +54,10 @@ enum AppIcon {
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else { return nil }
 
-        ctx.setFillColor(paper)
-        ctx.fill(CGRect(x: 0, y: 0, width: s, height: s))
+        if opaqueBackground {
+            ctx.setFillColor(paper)
+            ctx.fill(CGRect(x: 0, y: 0, width: s, height: s))
+        }
 
         // The path is expressed in SwiftUI coordinates (y down) while CoreGraphics
         // counts from the bottom: without this flip, the mascot comes out upside down.
