@@ -18,6 +18,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let services = ServiceProvider()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Belt to the removed "New Window" menu item: macOS can still merge
+        // windows into tabs on its own (the ⌘N-free path — window menu, or a
+        // system preference set to "always"). One window, one queue, no tab bar.
+        NSWindow.allowsAutomaticWindowTabbing = false
         NSApp.servicesProvider = services
         // Without this, the entry won't appear in the Services menu until
         // the session is restarted.
