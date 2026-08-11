@@ -276,7 +276,7 @@ final class FFmpegInstaller: ObservableObject {
             case .checksumMismatch(let name):
                 return "The \(name) download was corrupted (checksum mismatch)."
             case .checksumMissing(let name):
-                return "No published checksum for \(name) — refusing to install it."
+                return "No published checksum for \(name), so it will not be installed."
             case .unpackFailed(let detail):
                 return "The FFmpeg archive could not be unpacked: \(detail)"
             case .missingBinary(let name):

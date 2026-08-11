@@ -199,7 +199,7 @@ struct DownloadCapsule: View {
         case .failed:
             return job.errorMessage ?? "Failed"
         case .completed:
-            return "Show in Library — \(job.displayTitle)"
+            return "Show in Library · \(job.displayTitle)"
         default:
             // Active states have the live tooltip above; the AppKit one
             // now only displays the full title.
@@ -260,7 +260,7 @@ struct DownloadCapsule: View {
                 .frame(width: 22, height: 22)
         case .completed:
             IconButton(symbol: "checkmark.circle.fill", size: 15,
-                       help: "Remove from this list — the file stays on disk",
+                       help: "Remove from this list. The file stays on disk.",
                        action: onDismiss)
         case .failed, .cancelled:
             IconButton(symbol: "arrow.clockwise", size: 13, help: "Try again", action: onRetry)

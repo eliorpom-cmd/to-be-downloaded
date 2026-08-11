@@ -187,9 +187,9 @@ struct OnboardingView: View {
             return message
         default:
             return "\(AppConfig.shortName) needs FFmpeg to join video and audio. "
-                + "It is not bundled — the licence of the build we used does not "
-                + "allow passing it on — so it is a 56 MB download, once, from "
-                + "its publisher. Nothing is fetched until you say so."
+                + "It is not bundled, because the licence of the build we used does "
+                + "not allow passing it on, so it is a 56 MB download, once, "
+                + "from its publisher. Nothing is fetched until you say so."
         }
     }
 

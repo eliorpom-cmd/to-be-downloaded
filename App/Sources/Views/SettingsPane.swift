@@ -26,8 +26,8 @@ struct SettingsPane: View {
                         Button("Choose…", action: chooseFolder).buttonStyle(.push)
                     }
                     divider
-                    row("At the same time",
-                        detail: "More at once is not faster — the bandwidth is the same") {
+                    row("Concurrent downloads",
+                        detail: "More at once is not faster. The bandwidth is the same.") {
                         Picker("", selection: $settings.maxConcurrent) {
                             ForEach(1...5, id: \.self) { Text("\($0)").tag($0) }
                         }
@@ -51,11 +51,14 @@ struct SettingsPane: View {
                 }
 
                 section("Format") {
-                    row("Default format") {
+                    // Not "Default format": Video and Audio are not formats,
+                    // they are what you came for. MP4 and M4A are the formats,
+                    // and they are set further down.
+                    row("Download as", detail: "What the round button does by default") {
                         picker($settings.defaultKind, values: MediaKind.allCases) { $0.label }
                     }
                     divider
-                    row("Video quality") {
+                    row("Video quality", detail: videoQualityDetail, wraps: true) {
                         picker($settings.defaultVideoQuality, values: VideoQuality.allCases) { $0.label }
                     }
                     divider
@@ -64,6 +67,23 @@ struct SettingsPane: View {
                         Toggle("", isOn: $settings.embedSubtitles)
                             .toggleStyle(.switch)
                             .labelsHidden()
+                    }
+                    if settings.embedSubtitles {
+                        divider
+                        row("Subtitle language",
+                            detail: "English is always kept as a fallback") {
+                            picker($settings.subtitleLanguage,
+                                   values: SubtitleLanguage.allCases) { $0.label }
+                        }
+                        divider
+                        row("Use automatic captions",
+                            detail: "When the channel wrote none. Machine transcription, "
+                                  + "no punctuation, often wrong.",
+                            wraps: true) {
+                            Toggle("", isOn: $settings.autoSubtitles)
+                                .toggleStyle(.switch)
+                                .labelsHidden()
+                        }
                     }
                     divider
                     row("Audio format", detail: settings.audioFormat.detail) {
@@ -175,8 +195,8 @@ struct SettingsPane: View {
                 section("Remote Control") {
                     row("Let devices on your Wi-Fi use this Mac",
                         detail: server.isRunning
-                            ? "Running — the port is open"
-                            : "Off — no port is open") {
+                            ? "Running. The port is open."
+                            : "Off. No port is open.") {
                         Toggle("", isOn: remoteControlBinding)
                             .toggleStyle(.switch)
                             .labelsHidden()
@@ -227,9 +247,9 @@ struct SettingsPane: View {
                             // Real brands for GitHub and Instagram; the personal
                             // site keeps the system globe, it has no logo.
                             logoLink("github", fallback: "chevron.left.forwardslash.chevron.right",
-                                     AppConfig.Author.github, help: "GitHub — eliorpom-cmd")
+                                     AppConfig.Author.github, help: "GitHub · eliorpom-cmd")
                             logoLink("instagram", fallback: "camera",
-                                     AppConfig.Author.instagram, help: "Instagram — elior.create")
+                                     AppConfig.Author.instagram, help: "Instagram · elior.create")
                         }
                     }
                     divider
@@ -279,9 +299,19 @@ struct SettingsPane: View {
     /// but nothing happens on screen unless we say so.
     private var shortcutDetail: String {
         if settings.shortcutRejected {
-            return "Already taken by another app — pick another one"
+            return "Already taken by another app. Pick another one."
         }
         return settings.globalShortcut ? "Click to change it" : "Turn the shortcut on first"
+    }
+
+    /// Max is the one quality with a consequence attached, so the row says so
+    /// permanently. The Download screen warns once; someone who chose Max as
+    /// their default made the choice here and can be reminded here.
+    private var videoQualityDetail: String? {
+        settings.defaultVideoQuality == .max
+            ? "Max reaches 4K, which YouTube only serves as VP9. "
+                + "QuickTime and the TV app cannot play it; VLC and IINA can."
+            : nil
     }
 
     /// Concrete example below the setting: a naming template only makes
@@ -305,7 +335,7 @@ struct SettingsPane: View {
         case .verifying:
             return "Checking the developer signature…"
         case .ready(let version):
-            return "Version \(version) is installed — relaunch to use it"
+            return "Version \(version) is installed. Relaunch to use it."
         case .upToDate:
             return "Up to date"
         case .failed(let message):
@@ -354,7 +384,7 @@ struct SettingsPane: View {
             // channel: otherwise you'd think you're on stable with a nightly.
             parts.append(channel == settings.updateChannel
                 ? "updated copy"
-                : "\(channel.label.lowercased()) build — will switch on next check")
+                : "\(channel.label.lowercased()) build, switching on next check")
         } else {
             parts.append("shipped with the app")
         }
@@ -446,7 +476,7 @@ struct SettingsPane: View {
                       url: AppConfig.Credits.flyingFox)
             divider
             creditRow("License",
-                      detail: "AGPL-3.0 — free to fork, and forks stay free too",
+                      detail: "AGPL-3.0. Free to fork, and forks stay free too.",
                       url: AppConfig.Credits.license)
             divider
             creditRow("Third-party licenses",
@@ -481,6 +511,10 @@ struct SettingsPane: View {
     private func row<Trailing: View>(
         _ title: String,
         detail: String? = nil,
+        /// Let the detail run onto a second line. Off by default: most details
+        /// are paths, where one line with the middle elided is what you want.
+        /// A sentence elided in the middle is just broken.
+        wraps: Bool = false,
         @ViewBuilder trailing: () -> Trailing
     ) -> some View {
         HStack(spacing: Theme.Space.s12) {
@@ -492,8 +526,9 @@ struct SettingsPane: View {
                     Text(detail)
                         .font(Theme.Text.caption)
                         .foregroundStyle(Theme.labelSecondary)
-                        .lineLimit(1)
+                        .lineLimit(wraps ? 3 : 1)
                         .truncationMode(.middle)
+                        .fixedSize(horizontal: false, vertical: wraps)
                 }
             }
             Spacer(minLength: Theme.Space.s12)

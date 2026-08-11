@@ -112,7 +112,8 @@ final class DownloadManager: ObservableObject {
                 outputDirectory: settings.outputDirectory,
                 trustBundle: trustBundle,
                 outputPattern: settings.outputPattern,
-                subtitleLanguages: settings.subtitleLanguages
+                subtitleLanguages: settings.subtitleLanguages,
+                autoSubtitles: settings.autoSubtitles
             ))
             setupError = nil
             needsFFmpeg = false
