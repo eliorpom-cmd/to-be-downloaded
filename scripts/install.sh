@@ -39,7 +39,7 @@ cd "$ROOT"
 # Replacing the bundle of a running app doesn't update it: the process keeps
 # its old code mapped in memory (POSIX). Might as well quit it.
 if /usr/bin/pgrep -x "$APP_NAME" >/dev/null 2>&1; then
-  echo "▶ $APP_NAME tourne — fermeture…"
+  echo "▶ $APP_NAME is running, quitting it…"
   /usr/bin/osascript -e "quit app id \"$BUNDLE_ID\"" 2>/dev/null || true
   for _ in 1 2 3 4 5 6 7 8 9 10; do
     /usr/bin/pgrep -x "$APP_NAME" >/dev/null 2>&1 || break
