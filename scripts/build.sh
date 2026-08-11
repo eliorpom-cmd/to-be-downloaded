@@ -11,7 +11,7 @@ set -euo pipefail
 APP_NAME="TBD"
 # Name of the volume mounted in Finder, the only place in the build where the
 # acronym is spelled out — this is what someone opening the DMG sees.
-VOLUME_NAME="TBD - To be downloaded"
+VOLUME_NAME="TBD - To Be Downloaded"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DERIVED="$ROOT/build/ReleaseDerivedData"
 DIST="$ROOT/dist"

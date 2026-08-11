@@ -1,4 +1,4 @@
-// TBD — To be downloaded. Copyright (C) 2026 Elior Pommier.
+// TBD — To Be Downloaded. Copyright (C) 2026 Elior Pommier.
 // Licensed under the GNU AGPL v3 or later. See LICENSE and NOTICE.
 import Foundation
 

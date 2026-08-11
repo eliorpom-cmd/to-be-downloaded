@@ -2,7 +2,7 @@
 
 <img src="docs/assets/icon.png" width="120" alt="TBD app icon">
 
-# TBD — To be downloaded
+# TBD — To Be Downloaded
 
 **Paste a link. Get the file.**
 

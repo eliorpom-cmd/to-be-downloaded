@@ -19,7 +19,7 @@ otherwise the build fails with "cannot find X in scope".
 Produces:
 
 - `dist/TBD.app` — the application,
-- `dist/TBD.dmg` — the disk image (volume named "TBD - To be downloaded").
+- `dist/TBD.dmg` — the disk image (volume named "TBD - To Be Downloaded").
 
 Signing is **ad-hoc** (`codesign -s -`): free, no Apple Developer account, not
 notarized. The script signs **inside out** — the bundled binaries first, then the
@@ -39,7 +39,7 @@ connection.
 ./scripts/install.sh
 ```
 
-Build, then replace `/Applications/TBD - To be downloaded.app`. This is **the**
+Build, then replace `/Applications/TBD - To Be Downloaded.app`. This is **the**
 command to run after changing code if you want to actually use the app.
 
 It also quits a running instance first, and unregisters every copy of the app

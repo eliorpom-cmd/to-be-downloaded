@@ -1,4 +1,4 @@
-// TBD — To be downloaded. Copyright (C) 2026 Elior Pommier.
+// TBD — To Be Downloaded. Copyright (C) 2026 Elior Pommier.
 // Licensed under the GNU AGPL v3 or later. See LICENSE and NOTICE.
 import Foundation
 
@@ -12,10 +12,10 @@ enum AppConfig {
 
     /// Expanded acronym. Finder, Spotlight, About dialog — everywhere
     /// someone might encounter the app without knowing what "TBD" means.
-    static let fullName = "TBD - To be downloaded"
+    static let fullName = "TBD - To Be Downloaded"
 
     /// Common name, read in the UI and app menu.
-    static let displayName = "To be downloaded"
+    static let displayName = "To Be Downloaded"
 
     /// Acronym alone, for tight spaces: menu bar, User-Agent,
     /// folder name.

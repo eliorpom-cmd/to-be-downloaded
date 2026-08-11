@@ -10,7 +10,7 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
-	<!-- The app menu, next to the Apple logo: "To be downloaded", "Quit To
+	<!-- The app menu, next to the Apple logo: "To Be Downloaded", "Quit To
 	     be downloaded". Distinct from the file name ($(PRODUCT_NAME) = TBD). -->
 	<key>CFBundleName</key>
 	<string>$(INFOPLIST_KEY_CFBundleName)</string>
@@ -58,7 +58,7 @@
 	<array>
 		<dict>
 			<!-- The acronym, not the full name: the entry is inserted into an
-			     already-loaded menu, "Download with To be downloaded" would read
+			     already-loaded menu, "Download with To Be Downloaded" would read
 			     poorly there. -->
 			<key>NSMenuItem</key>
 			<dict>
