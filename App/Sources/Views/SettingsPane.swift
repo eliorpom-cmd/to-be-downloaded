@@ -130,7 +130,21 @@ struct SettingsPane: View {
                     }
                 }
 
-                section("Engine") {
+                section("Components") {
+                    // First row, and phrased as the rule the two below follow.
+                    // People were updating yt-dlp and FFmpeg by hand because
+                    // the section led with two "Check Now" buttons and never
+                    // said the app already does it.
+                    row("Keep components up to date",
+                        detail: "yt-dlp and FFmpeg update themselves in the background, "
+                              + "once a day. YouTube changes often, and this is what "
+                              + "keeps downloads working.",
+                        wraps: true) {
+                        Toggle("", isOn: $settings.autoUpdateEngine)
+                            .toggleStyle(.switch)
+                            .labelsHidden()
+                    }
+                    divider
                     row("yt-dlp", detail: engineDetail) {
                         HStack(spacing: Theme.Space.s8) {
                             if updater.status.isBusy {
@@ -152,31 +166,22 @@ struct SettingsPane: View {
                         .fixedSize()
                     }
                     divider
-                    row("Check automatically",
-                        detail: "Once a day while the app runs. YouTube changes often.") {
-                        Toggle("", isOn: $settings.autoUpdateEngine)
-                            .toggleStyle(.switch)
-                            .labelsHidden()
-                    }
-                    divider
                     // FFmpeg is downloaded, never shipped: the build we used
                     // wasn't redistribution-legal. This row shows where it
                     // comes from — it's the only component the app fetches
                     // from anywhere but itself or yt-dlp.
-                    row("FFmpeg", detail: ffmpegDetail) {
+                    row("FFmpeg", detail: ffmpegDetail, wraps: true) {
                         HStack(spacing: Theme.Space.s8) {
                             if ffmpeg.status.isBusy {
                                 ProgressView().controlSize(.small)
                             }
-                            Button(ffmpeg.isInstalled ? "Check Now" : "Install") {
-                                Task {
-                                    ffmpeg.isInstalled
-                                        ? await ffmpeg.checkForUpdate(userInitiated: true)
-                                        : await ffmpeg.installIfMissing()
-                                }
-                            }
-                            .buttonStyle(.push)
-                            .disabled(ffmpeg.status.isBusy)
+                            // Three different situations, three different
+                            // buttons. Offering "Check Now" for an FFmpeg the
+                            // app does not own would promise something it
+                            // cannot do.
+                            Button(ffmpegButtonTitle, action: ffmpegAction)
+                                .buttonStyle(.push)
+                                .disabled(ffmpeg.status.isBusy)
                         }
                     }
                 }
@@ -402,14 +407,40 @@ struct SettingsPane: View {
         return parts.joined(separator: " · ")
     }
 
-    /// Same spirit as `engineDetail`, plus the source: it's the only binary
-    /// the app fetches from outside GitHub, so make that clear.
+    private var ffmpegButtonTitle: String {
+        if !ffmpeg.isInstalled { return "Install" }
+        return ffmpeg.usesExternalFFmpeg ? "Download a Copy" : "Check Now"
+    }
+
+    private func ffmpegAction() {
+        Task {
+            if !ffmpeg.isInstalled {
+                await ffmpeg.installIfMissing()
+            } else if ffmpeg.usesExternalFFmpeg {
+                await ffmpeg.installOwnCopy()
+            } else {
+                await ffmpeg.checkForUpdate(userInitiated: true)
+            }
+        }
+    }
+
+    /// Same spirit as `engineDetail`, plus where it came from: it's the only
+    /// binary the app fetches from outside GitHub, so make that clear — and
+    /// when it is the machine's own, say that instead, since none of the
+    /// update machinery applies to it.
     private var ffmpegDetail: String {
         var parts: [String] = []
         if let version = ffmpeg.installedVersion {
             parts.append("Version \(version)")
         } else {
             parts.append(ffmpeg.isInstalled ? "Version unknown" : "Not installed yet")
+        }
+        if ffmpeg.usesExternalFFmpeg {
+            let target = (try? FileManager.default.destinationOfSymbolicLink(
+                atPath: BinaryLocator.managedFFmpeg.path)) ?? "elsewhere on this Mac"
+            parts.append("yours, at \(target)")
+            parts.append("updated by whoever installed it, not by \(AppConfig.shortName)")
+            return parts.joined(separator: " · ")
         }
         parts.append("downloaded from \(AppConfig.FFmpegSource.homepage.host ?? "its publisher")")
 

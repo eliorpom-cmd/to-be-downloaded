@@ -174,6 +174,9 @@ final class FFmpegInstaller: ObservableObject {
         guard !usesExternalFFmpeg else { return }
         if !userInitiated {
             guard isInstalled else { return }
+            // Same switch as yt-dlp. One setting governs both components,
+            // because "keep the app working" is one decision, not two.
+            guard AppSettings.shared.autoUpdateEngine else { return }
             if let lastCheck, Date().timeIntervalSince(lastCheck) < Self.checkInterval { return }
         }
         await run(force: false)

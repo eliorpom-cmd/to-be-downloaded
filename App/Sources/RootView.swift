@@ -97,6 +97,11 @@ struct RootView: View {
             // when it appears.
             await updater.checkForUpdate(userInitiated: false)
             await appUpdater.checkForUpdate(userInitiated: false)
+            // FFmpeg too, and at LAUNCH, not only in the hourly loop below.
+            // It used to be checked only there, so a Mac opened and closed
+            // inside an hour never updated it once — which is most of them,
+            // and why people believed FFmpeg had to be updated by hand.
+            await ffmpeg.checkForUpdate(userInitiated: false)
 
             // Then every hour: an app left open for days should keep tracking
             // yt-dlp, not just on startup. Both updaters have their own 24 h
