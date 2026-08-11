@@ -100,12 +100,6 @@ struct DownloadPane: View {
         }
         .onReceive(NotificationCenter.default.publisher(
             for: NSApplication.didBecomeActiveNotification)) { _ in refreshClipboard() }
-        .onReceive(NotificationCenter.default.publisher(for: .focusURLField)) { _ in
-            urlFocused = true
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .pasteAndDownload)) { _ in
-            pasteAndDownload()
-        }
         .task(id: trimmedURL) { await loadPreview() }
         .sheet(item: $playlist) { list in
             PlaylistSheet(
@@ -288,6 +282,13 @@ struct DownloadPane: View {
                     if loadingPlaylist {
                         ProgressView().controlSize(.small).scaleEffect(0.8)
                     } else {
+                        // Deliberately not nudged. Measured on a real capture:
+                        // the arrow's ink is centred on the circle, and the
+                        // circle on the capsule, to within half a device pixel.
+                        // What looked misaligned was the 3 pt focus ring that
+                        // used to be drawn around the field — it thickened one
+                        // side of the capsule and threw the eye off. Removing
+                        // the ring was the fix.
                         Image(systemName: "arrow.down")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(isValidURL ? Theme.inkOn : Theme.labelSecondary)
@@ -305,11 +306,11 @@ struct DownloadPane: View {
         .animation(.easeOut(duration: 0.18), value: clipboardSuggestion)
         .background(Theme.fillTertiary, in: Capsule())
         .overlay {
-            // Neutral focus halo (not system blue) + error border.
+            // Border on invalid input only. No focus halo: the caret blinking
+            // in the field already says where the keyboard goes, and the ring
+            // was the heaviest shape on an otherwise quiet screen.
             if hasInvalidInput {
                 Capsule().strokeBorder(Theme.strokeEmphasis, lineWidth: 1)
-            } else if urlFocused {
-                Capsule().strokeBorder(Theme.focusRing, lineWidth: 3)
             }
         }
     }
@@ -332,16 +333,27 @@ struct DownloadPane: View {
             .padding(2)
             .background(Theme.fillTertiary, in: RoundedRectangle(cornerRadius: Theme.Radius.control + 2, style: .continuous))
 
+            // Reserved width. The control inside changes size with the format
+            // — a "1080p" popup against the words "Original quality" — and the
+            // row is centred, so every switch used to slide the Video/Audio
+            // toggle sideways. Widest case sets the slot.
             qualityMenu
-
-            // Expected size, once formats are known. "≈" is intentional:
-            // yt-dlp itself only knows the size of fragmented streams
-            // approximately.
+                .frame(width: 108, alignment: .leading)
+        }
+        // The size estimate hangs OUTSIDE the row rather than sitting in it:
+        // it arrives a moment after the link, and as a sibling it would have
+        // shifted everything a second time. The guide pushes the overlay past
+        // the row's trailing edge instead of over it.
+        .overlay(alignment: .trailing) {
+            // "≈" is intentional: yt-dlp itself only knows the size of
+            // fragmented streams approximately.
             if let bytes = preview?.estimatedBytes(for: currentFormat), bytes > 0 {
                 Text("≈ \(Format.bytes(bytes))")
                     .font(Theme.Text.caption)
                     .monospacedDigit()
                     .foregroundStyle(Theme.labelSecondary)
+                    .fixedSize()
+                    .alignmentGuide(.trailing) { $0[.leading] - Theme.Space.s8 }
                     .transition(.opacity)
             }
         }
@@ -625,15 +637,6 @@ struct DownloadPane: View {
         let found = await manager.fetchMetadata(urlString: trimmedURL)
         guard !Task.isCancelled else { return }
         preview = found
-    }
-
-    private func pasteAndDownload() {
-        guard let copied = NSPasteboard.general.string(forType: .string),
-              YouTubeLink.isValid(copied), manager.isReady else { return }
-        let link = copied.trimmingCharacters(in: .whitespacesAndNewlines)
-        handledLinks.insert(link)
-        manager.startDownload(urlString: link, format: currentFormat)
-        refreshClipboard()
     }
 
     private func refreshClipboard() {

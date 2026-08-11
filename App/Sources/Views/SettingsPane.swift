@@ -18,11 +18,9 @@ struct SettingsPane: View {
 
     var body: some View {
         ScrollView {
+            // No page title: the sidebar names the destination, like on
+            // Download and Network Access.
             VStack(alignment: .leading, spacing: Theme.Space.s20) {
-                Text("Settings")
-                    .font(Theme.Text.largeTitle)
-                    .foregroundStyle(Theme.label)
-
                 section("Downloads") {
                     row("Destination folder", detail: settings.outputDirectory.path) {
                         Button("Choose…", action: chooseFolder).buttonStyle(.push)
@@ -240,10 +238,15 @@ struct SettingsPane: View {
             .padding(.horizontal, Theme.Space.s24)
             .padding(.top, WindowChrome.trafficLightInset + Theme.Space.s16)
             .padding(.bottom, Theme.Space.s32)
-            .frame(maxWidth: 720, alignment: .leading)
+            // The column stays readable at 720 pt, but the frame around it
+            // spans the pane. Two things follow, and both were reported: the
+            // column CENTRES instead of clinging to the left edge on a wide
+            // window, and the scroll bar — which belongs to the ScrollView, not
+            // to its content — lands on the window edge where it belongs.
+            .frame(maxWidth: 720)
+            .frame(maxWidth: .infinity)
         }
         .scrollContentBackground(.hidden)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
         .onAppear { portText = String(settings.port) }
         // The naming pattern lives in the engine config: must be rebuilt
         // or the change only takes effect on the next app launch.

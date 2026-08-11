@@ -3,8 +3,6 @@
 import SwiftUI
 
 extension Notification.Name {
-    static let focusURLField = Notification.Name("focusURLField")
-    static let pasteAndDownload = Notification.Name("pasteAndDownload")
     /// ⌘, : settings live in the sidebar, not a separate window.
     static let openSettingsPane = Notification.Name("openSettingsPane")
 }
@@ -52,17 +50,17 @@ struct TBDApp: App {
                 .keyboardShortcut(",", modifiers: .command)
             }
 
-            CommandGroup(after: .newItem) {
-                Button("Focus URL Field") {
-                    NotificationCenter.default.post(name: .focusURLField, object: nil)
-                }
-                .keyboardShortcut("l", modifiers: .command)
-
-                Button("Paste and Download") {
-                    NotificationCenter.default.post(name: .pasteAndDownload, object: nil)
-                }
-                .keyboardShortcut("v", modifiers: [.command, .shift])
-            }
+            // No "New Window": a second window would show the same single
+            // download queue, and macOS then folds the two into tabs — a title
+            // bar full of tabs for one app that has one state. Replacing the
+            // group with nothing removes ⌘N along with the menu item.
+            //
+            // Nothing takes its place. "Focus URL Field" (⌘L) and "Paste and
+            // Download" (⌘⇧V) used to live here: the field is already focused
+            // when the window opens, and pasting is what the ⌥⌘V system-wide
+            // shortcut in Settings is for — from inside the app, ⌘V then Return
+            // does the same in the same number of keys.
+            CommandGroup(replacing: .newItem) {}
         }
 
         MenuBarExtra {

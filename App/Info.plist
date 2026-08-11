@@ -29,8 +29,11 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+	<!-- Shown under the version in the About panel. Copyright line plus the
+	     licence, which is what an open source app puts there: it is the only
+	     place someone who never opens the repository will read either. -->
 	<key>NSHumanReadableCopyright</key>
-	<string>Outil personnel</string>
+	<string>Copyright © 2026 Elior Pommier. Licensed under the GNU AGPL v3 or later.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>LSApplicationCategoryType</key>

@@ -107,13 +107,6 @@ struct RootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .openSettingsPane)) { _ in
             route = .settings
         }
-        // ⌘L and ⌘⇧V always go back to the Download screen.
-        .onReceive(NotificationCenter.default.publisher(for: .focusURLField)) { _ in
-            route = .download
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .pasteAndDownload)) { _ in
-            route = .download
-        }
     }
 
     // MARK: - Sidebar
