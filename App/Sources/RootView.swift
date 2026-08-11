@@ -80,7 +80,10 @@ struct RootView: View {
             // Downloads left off at last shutdown: we propose to resume them,
             // but don't restart automatically — closing the app can mean "stop".
             manager.loadResumable()
-            settings.applyGlobalShortcut()
+            // Not before setup is done: ⌥⌘V from any app would start a
+            // download the app cannot finish yet, with nothing on screen to
+            // explain why. It is applied on the way out of the last screen.
+            if settings.onboarded { settings.applyGlobalShortcut() }
             // FFmpeg is NOT fetched here any more. It is a 56 MB download onto
             // someone's machine, over whatever connection they are on, and the
             // app used to start it before anyone had been asked — which is

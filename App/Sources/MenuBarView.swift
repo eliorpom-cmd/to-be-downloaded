@@ -22,6 +22,36 @@ struct MenuBarView: View {
     }
 
     var body: some View {
+        if settings.onboarded { menu } else { setupPrompt }
+    }
+
+    /// Before setup is done, this menu offers nothing. It is the one way into
+    /// the app that needs no window, and an app still asking where to put
+    /// files cannot honour a download — so the only things here are the way
+    /// back to the question and the way out.
+    private var setupPrompt: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.s10) {
+            Text("\(AppConfig.shortName) isn't set up yet")
+                .font(Theme.Text.bodyEmphasized)
+            Text("Finish the two setup questions and this menu comes back.")
+                .font(Theme.Text.caption)
+                .foregroundStyle(Theme.labelSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Divider()
+
+            HStack(spacing: Theme.Space.s12) {
+                Button("Finish Setup", action: openMainWindow)
+                Spacer(minLength: 0)
+                Button("Quit") { NSApp.terminate(nil) }
+            }
+            .font(Theme.Text.body)
+        }
+        .padding(Theme.Space.s12)
+        .frame(width: 260)
+    }
+
+    private var menu: some View {
         VStack(alignment: .leading, spacing: Theme.Space.s10) {
             header
 
