@@ -111,7 +111,7 @@ struct MenuBarView: View {
                   ? "antenna.radiowaves.left.and.right" : "wifi.slash")
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.labelSecondary)
-            Text(server.url ?? "Network access off")
+            Text(server.url ?? "Remote control off")
                 .font(Theme.Text.caption)
                 .foregroundStyle(Theme.labelSecondary)
                 .lineLimit(1)

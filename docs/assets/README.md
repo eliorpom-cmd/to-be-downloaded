@@ -15,7 +15,7 @@ Retina is fine — GitHub scales it down, and the README pins the display width.
 | `hero.png` | 1640 × 1173 | The whole window, **Download** screen | Dark theme, one finished capsule. Worth re-taking one day with a download at ~60 % so the filling capsule shows. This is the first thing anyone sees. |
 | `clipboard.png` | — **to take** | Close-up of the URL field | Light theme, with the clipboard glyph showing inside the field. Crop to the field and the segmented control, not the whole window. |
 | `progress.png` | — **to take** | Two or three stacked capsules | **Dark** theme — the fill reads better. Ideally one downloading, one `Merging`, one `Complete`. |
-| `network.png` | 1400 × 1001 | The **Network Access** screen | With the QR code. The IP shown is a phone hotspot, nothing to blur. |
+| `network.png` | 1400 × 1001 | The **Remote Control** screen, running | With the QR code. The IP shown is a phone hotspot, nothing to blur. Re-take needed: the screen was renamed and the off state now explains the feature. |
 | `library.png` | 1400 × 1001 | The **Library** screen | One entry. More entries with thumbnails would sell it better. |
 | `menubar.png` | 920 × 600 | The menu bar item, open | Sits under the Library shot, in *It behaves like a Mac app*. |
 | `webui.png` | — *(optional)* | The web UI on an iPhone | Referenced only by a comment — uncomment it next to `network.png` once taken. |

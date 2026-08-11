@@ -59,6 +59,7 @@ final class AppSettings: ObservableObject {
         static let maxConcurrent = "maxConcurrentDownloads"
         static let filenameTemplate = "filenameTemplate"
         static let filenameCustom = "filenameCustomPattern"
+        static let remoteControl = "remoteControlEnabled"
         static let globalShortcut = "globalShortcutEnabled"
         static let shortcutKeyCode = "globalShortcutKeyCode"
         static let shortcutModifiers = "globalShortcutModifiers"
@@ -136,6 +137,21 @@ final class AppSettings: ObservableObject {
     }
     @Published var filenameCustom: String {
         didSet { store.set(filenameCustom, forKey: Key.filenameCustom) }
+    }
+    /// Whether the LAN server may run at all.
+    ///
+    /// **Off by default, and deliberately.** The app used to open a port on
+    /// the user's machine the moment it launched, without asking — which
+    /// several people objected to, reasonably. Remote control is now
+    /// something you turn on, and the choice is remembered.
+    ///
+    /// Written by the buttons on the Remote Control screen, never by
+    /// `ServerController.stop()`: Settings stops the server before an update
+    /// relaunch, and a port change stops then starts it. Persisting from
+    /// `stop()` would have the app conclude "the user turned it off" after
+    /// every update.
+    @Published var remoteControl: Bool {
+        didSet { store.set(remoteControl, forKey: Key.remoteControl) }
     }
     /// Global shortcut ⌥⌘V: paste and download without opening the window.
     @Published var globalShortcut: Bool {
@@ -252,6 +268,7 @@ final class AppSettings: ObservableObject {
         filenameTemplate = FilenameTemplate(
             rawValue: store.string(forKey: Key.filenameTemplate) ?? "") ?? .title
         filenameCustom = store.string(forKey: Key.filenameCustom) ?? "%(title)s"
+        remoteControl = store.object(forKey: Key.remoteControl) as? Bool ?? false
         globalShortcut = store.object(forKey: Key.globalShortcut) as? Bool ?? false
         shortcutKeyCode = store.object(forKey: Key.shortcutKeyCode) as? Int
             ?? GlobalShortcut.defaultKeyCode

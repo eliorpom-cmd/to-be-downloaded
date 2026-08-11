@@ -19,7 +19,7 @@ struct SettingsPane: View {
     var body: some View {
         ScrollView {
             // No page title: the sidebar names the destination, like on
-            // Download and Network Access.
+            // Download and Remote Control.
             VStack(alignment: .leading, spacing: Theme.Space.s20) {
                 section("Downloads") {
                     row("Destination folder", detail: settings.outputDirectory.path) {
@@ -172,7 +172,16 @@ struct SettingsPane: View {
                     }
                 }
 
-                section("Network") {
+                section("Remote Control") {
+                    row("Let devices on your Wi-Fi use this Mac",
+                        detail: server.isRunning
+                            ? "Running — the port is open"
+                            : "Off — no port is open") {
+                        Toggle("", isOn: remoteControlBinding)
+                            .toggleStyle(.switch)
+                            .labelsHidden()
+                    }
+                    divider
                     row("Port", detail: "Requires a server restart") {
                         HStack(spacing: Theme.Space.s8) {
                             TextField("", text: $portText)
@@ -185,7 +194,7 @@ struct SettingsPane: View {
                         }
                     }
                     divider
-                    row("Local address", detail: server.url ?? "Server stopped") {
+                    row("Local address", detail: server.url ?? "Remote control is off") {
                         Button("Copy") {
                             guard let url = server.url else { return }
                             NSPasteboard.general.clearContents()
@@ -386,6 +395,20 @@ struct SettingsPane: View {
         return parts.joined(separator: " · ")
     }
 
+    // MARK: - Remote Control
+
+    /// Reads the server, writes the preference. Reading `server.isRunning`
+    /// rather than the stored flag keeps the switch honest when the server
+    /// failed to bind — the port is the truth, the preference is only a wish.
+    private var remoteControlBinding: Binding<Bool> {
+        Binding(
+            get: { server.isRunning },
+            set: { wanted in
+                settings.remoteControl = wanted
+                wanted ? server.start() : server.stop()
+            })
+    }
+
     /// Changing channels immediately triggers a check: otherwise the
     /// setting would have no visible effect until tomorrow.
     private var channelBinding: Binding<UpdateChannel> {
@@ -419,7 +442,7 @@ struct SettingsPane: View {
                       url: AppConfig.Credits.ffmpeg)
             divider
             creditRow("FlyingFox",
-                      detail: "The HTTP server behind Network Access. MIT.",
+                      detail: "The HTTP server behind Remote Control. MIT.",
                       url: AppConfig.Credits.flyingFox)
             divider
             creditRow("License",

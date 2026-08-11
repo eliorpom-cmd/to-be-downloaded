@@ -1,6 +1,7 @@
 // TBD — To be downloaded. Copyright (C) 2026 Elior Pommier.
 // Licensed under the GNU AGPL v3 or later. See LICENSE and NOTICE.
 import Foundation
+import AppKit
 import FlyingFox
 
 /// Starts/stops the LAN HTTP server and exposes its state to the UI.
@@ -23,6 +24,14 @@ final class ServerController: ObservableObject {
     init(downloads: DownloadManager) {
         self.downloads = downloads
         self.port = AppSettings.shared.port
+        // Quitting closes the port. The kernel would do it anyway when the
+        // process dies, but the promise made on the Remote Control screen is
+        // explicit, so the code that keeps it should be too.
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.stop() }
+        }
     }
 
     func start() {

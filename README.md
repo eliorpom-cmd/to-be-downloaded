@@ -67,12 +67,15 @@ doesn't jitter — and the bar *is* the row, filling the capsule as it goes.
 
 ### Your phone drives, your Mac works
 
-Open **Network Access**, scan the QR code, and the same engine is reachable from
-any device on the same Wi-Fi — phone, tablet, someone else's laptop. The web UI
-is the same design as the app, installable as a PWA, and it can hand you the
-finished file over HTTP.
+Turn on **Remote Control**, scan the QR code, and the same engine is reachable
+from any device on the same Wi-Fi — phone, tablet, someone else's laptop. The
+web UI is the same design as the app, installable as a PWA, and it can hand you
+the finished file over HTTP.
 
-<img src="docs/assets/network.png" width="700" alt="The Network Access screen with its QR code">
+It is off until you ask for it. Launching the app opens no port; turning Remote
+Control off, or quitting, closes the one it opened. The choice is remembered.
+
+<img src="docs/assets/network.png" width="700" alt="The Remote Control screen with its QR code">
 
 <!-- STILL TO TAKE — webui.png: the web page on an iPhone. Goes next to the shot
      above once you have it. -->
