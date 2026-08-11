@@ -13,7 +13,9 @@ enum AppRoute: String, Hashable, CaseIterable, Identifiable {
         switch self {
         case .download: return "Download"
         case .library:  return "Library"
-        case .network:  return "Network Access"
+        // "Network Access" described the mechanism; nobody could tell from it
+        // what the screen was for. "Remote Control" describes the point.
+        case .network:  return "Remote Control"
         case .settings: return "Settings"
         }
     }
@@ -66,7 +68,9 @@ struct RootView: View {
             .ignoresSafeArea()
         }
         .task {
-            server.start()
+            // Only if the user asked for it. Launching the app opens no port:
+            // that was the single most objected-to behaviour of 1.0.
+            if settings.remoteControl { server.start() }
             Notifier.shared.requestAuthorization()
             library.pruneMissingFiles()
             // Downloads left off at last shutdown: we propose to resume them,

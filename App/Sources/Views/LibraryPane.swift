@@ -142,7 +142,7 @@ struct LibraryPane: View {
     }
 
     /// No page title. The sidebar already names the destination, and Download
-    /// and Network Access never had one — a heading on two screens out of four
+    /// and Remote Control never had one — a heading on two screens out of four
     /// read as an oversight rather than a hierarchy.
     private var header: some View {
         HStack(spacing: Theme.Space.s12) {
