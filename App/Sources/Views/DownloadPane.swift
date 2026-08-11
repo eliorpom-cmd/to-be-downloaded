@@ -37,9 +37,13 @@ struct DownloadPane: View {
     @State private var clipboardSuggestion: String?
     @State private var pasteHovering = false
     @State private var isDropTargeted = false
-    /// Metadata of the entered link, for weight estimation. Nothing else is
-    /// displayed: the title/thumbnail preview was not re-requested.
+    /// Full metadata of the entered link: duration and per-format sizes.
+    /// Costs a `yt-dlp` extraction, so it lands seconds after the link.
     @State private var preview: MediaMetadata?
+    /// Title and channel of the entered link, from oEmbed — a few hundred
+    /// milliseconds. What the confirmation card shows while `preview` is
+    /// still being extracted.
+    @State private var quickPreview: MediaMetadata?
     @State private var playlist: Playlist?
     @State private var loadingPlaylist = false
     /// Links already pasted or launched in this session: we no longer suggest
@@ -141,6 +145,11 @@ struct DownloadPane: View {
                 engineNotice(kind).frame(maxWidth: 440)
             }
 
+            if showsLinkPreview {
+                Spacer().frame(height: Theme.Space.s12)
+                linkPreviewCard.frame(maxWidth: 440)
+            }
+
             Spacer().frame(height: Theme.Space.s16)
 
             formatControls
@@ -158,6 +167,83 @@ struct DownloadPane: View {
         // controls). Animating just the list would let that movement happen
         // all at once while the capsule itself animated — creating a stutter.
         .animation(.easeOut(duration: 0.22), value: sessionJobs.count)
+        .animation(.easeOut(duration: 0.22), value: showsLinkPreview)
+    }
+
+    // MARK: - Link Preview
+
+    /// What the pasted link actually points at, shown BEFORE the download
+    /// rather than after it.
+    ///
+    /// It costs almost nothing: the thumbnail address is derived from the
+    /// video id in the URL, with no request at all, and the title comes from
+    /// one oEmbed call of a few hundred milliseconds. Cheap enough to spend
+    /// while a wrong link — a stale clipboard, the video above the one you
+    /// meant — can still be fixed instead of downloaded.
+    ///
+    /// A playlist link is excluded: the playlist sheet is already a
+    /// confirmation step, and a better one.
+    private var showsLinkPreview: Bool {
+        isValidURL && YouTubeLink.playlistURL(from: trimmedURL) == nil
+    }
+
+    private var linkPreviewCard: some View {
+        HStack(spacing: Theme.Space.s12) {
+            Thumbnail(urlString: YouTubeLink.thumbnailURL(for: trimmedURL)
+                        ?? quickPreview?.thumbnailURL,
+                      width: 72, height: 40)
+
+            VStack(alignment: .leading, spacing: 3) {
+                if let previewTitle {
+                    Text(previewTitle)
+                        .font(Theme.Text.body)
+                        .foregroundStyle(Theme.label)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .transition(.opacity)
+                } else {
+                    // A neutral bar, not the raw URL: the URL is already in the
+                    // field right above, and it would be overwritten by the
+                    // title a moment later — a line that rewrites itself reads
+                    // as a glitch.
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(Theme.fillSecondary)
+                        .frame(width: 190, height: 9)
+                        .padding(.vertical, 3)
+                }
+
+                Text(previewSubtitle)
+                    .font(Theme.Text.caption)
+                    .foregroundStyle(Theme.labelSecondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(Theme.Space.s8)
+        .padding(.trailing, Theme.Space.s4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.fillTertiary,
+                    in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .animation(.easeOut(duration: 0.2), value: previewTitle)
+        .transition(.appearingCapsule)
+    }
+
+    /// oEmbed first: it answers long before the extraction, and both give the
+    /// same title.
+    private var previewTitle: String? {
+        let title = quickPreview?.title ?? preview?.title
+        return title?.isEmpty == false ? title : nil
+    }
+
+    private var previewSubtitle: String {
+        var parts: [String] = []
+        if let channel = quickPreview?.channel ?? preview?.channel, !channel.isEmpty {
+            parts.append(channel)
+        }
+        let length = Format.duration(preview?.duration)
+        if !length.isEmpty { parts.append(length) }
+        return parts.isEmpty ? "Checking the link…" : parts.joined(separator: " · ")
     }
 
     // MARK: - Engine banner (yt-dlp outdated by YouTube)
@@ -339,25 +425,37 @@ struct DownloadPane: View {
             // toggle sideways. Widest case sets the slot.
             qualityMenu
                 .frame(width: 108, alignment: .leading)
+
+            // The estimate arrives a moment after the link, so its slot is
+            // reserved too, empty or not.
+            estimate
+                .frame(width: Self.estimateSlot, alignment: .leading)
         }
-        // The size estimate hangs OUTSIDE the row rather than sitting in it:
-        // it arrives a moment after the link, and as a sibling it would have
-        // shifted everything a second time. The guide pushes the overlay past
-        // the row's trailing edge instead of over it.
-        .overlay(alignment: .trailing) {
-            // "≈" is intentional: yt-dlp itself only knows the size of
-            // fragmented streams approximately.
-            if let bytes = preview?.estimatedBytes(for: currentFormat), bytes > 0 {
-                Text("≈ \(Format.bytes(bytes))")
-                    .font(Theme.Text.caption)
-                    .monospacedDigit()
-                    .foregroundStyle(Theme.labelSecondary)
-                    .fixedSize()
-                    .alignmentGuide(.trailing) { $0[.leading] - Theme.Space.s8 }
-                    .transition(.opacity)
-            }
-        }
+        // Mirror of the estimate's slot. The row is centred as a whole, so
+        // hanging a reserved slot off one end alone would push the toggle and
+        // the quality control permanently off-centre. An equal, invisible slot
+        // on the other end keeps the pair where the mockup put it, and nothing
+        // in the row ever moves again.
+        .padding(.leading, Self.estimateSlot + Theme.Space.s8)
         .animation(.easeOut(duration: 0.2), value: preview)
+    }
+
+    /// Widest realistic reading is "≈ 158,4 MB"; a four-digit megabyte count
+    /// is already a gigabyte, and prints shorter.
+    private static let estimateSlot: CGFloat = 84
+
+    @ViewBuilder
+    private var estimate: some View {
+        // "≈" is intentional: yt-dlp itself only knows the size of fragmented
+        // streams approximately.
+        if let bytes = preview?.estimatedBytes(for: currentFormat), bytes > 0 {
+            Text("≈ \(Format.bytes(bytes))")
+                .font(Theme.Text.caption)
+                .monospacedDigit()
+                .foregroundStyle(Theme.labelSecondary)
+                .lineLimit(1)
+                .transition(.opacity)
+        }
     }
 
     // MARK: - Resume After Close
@@ -602,6 +700,7 @@ struct DownloadPane: View {
         manager.startDownload(urlString: link, format: currentFormat)
         urlText = ""
         preview = nil
+        quickPreview = nil
         refreshClipboard()
     }
 
@@ -624,19 +723,31 @@ struct DownloadPane: View {
         manager.startPlaylist(entries, format: currentFormat)
         urlText = ""
         preview = nil
+        quickPreview = nil
         refreshClipboard()
     }
 
-    /// Load metadata of the entered link, for weight estimation only.
-    /// Debounced: we don't launch yt-dlp on every keystroke.
+    /// Identify the entered link, fastest source first.
+    ///
+    /// Debounced: typing a link by hand would otherwise fire a request per
+    /// keystroke. A paste — the common case — waits this once and no more.
     private func loadPreview() async {
+        quickPreview = nil
         preview = nil
-        guard isValidURL, YouTubeLink.playlistURL(from: trimmedURL) == nil else { return }
-        try? await Task.sleep(nanoseconds: 400_000_000)
+        guard showsLinkPreview else { return }
+        try? await Task.sleep(nanoseconds: 250_000_000)
         guard !Task.isCancelled else { return }
-        let found = await manager.fetchMetadata(urlString: trimmedURL)
+
+        let link = trimmedURL
+        if let fast = await MediaMetadata.oEmbed(for: link) {
+            guard !Task.isCancelled else { return }
+            quickPreview = fast
+        }
+        // yt-dlp then fills in what oEmbed cannot know: the duration and the
+        // per-format sizes the estimate is built from. Several seconds.
+        let full = await manager.fetchMetadata(urlString: link)
         guard !Task.isCancelled else { return }
-        preview = found
+        preview = full
     }
 
     private func refreshClipboard() {
