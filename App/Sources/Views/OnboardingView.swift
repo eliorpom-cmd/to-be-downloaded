@@ -27,27 +27,26 @@ struct OnboardingView: View {
     @State private var linkFailed: String?
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: WindowChrome.trafficLightInset)
-            Spacer()
-
-            Group {
-                switch step {
-                case .welcome: welcome
-                case .folder:  folder
-                case .engine:  engine
-                }
+        Group {
+            switch step {
+            case .welcome: welcome
+            case .folder:  folder
+            case .engine:  engine
             }
-            .frame(maxWidth: 460)
-
-            Spacer()
-
-            dots
-
-            Spacer().frame(height: Theme.Space.s32)
         }
+        .frame(maxWidth: 460)
+        // Centred in the whole pane, both ways. It used to sit in a VStack
+        // between three flexible spacers — `Spacer(minLength:)` is flexible
+        // too, so two of them were above and one below, and the step landed a
+        // third of the free height too low.
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, Theme.Space.s40)
+        // The dots hang off the bottom edge instead of sharing the stack:
+        // anything in the column shifts what "centred" means, and the step
+        // is what has to be centred.
+        .overlay(alignment: .bottom) {
+            dots.padding(.bottom, Theme.Space.s32)
+        }
         .animation(.easeOut(duration: 0.2), value: step)
         .animation(.easeOut(duration: 0.2), value: ffmpeg.status)
     }
