@@ -154,6 +154,11 @@ struct DownloadPane: View {
 
             formatControls
 
+            if showsMaxWarning {
+                Spacer().frame(height: Theme.Space.s12)
+                maxQualityWarning.frame(maxWidth: 440)
+            }
+
             Spacer().frame(height: Theme.Space.s24)
 
             // Wider than the original 320 pt: bitrate and remaining time
@@ -168,6 +173,33 @@ struct DownloadPane: View {
         // all at once while the capsule itself animated — creating a stutter.
         .animation(.easeOut(duration: 0.22), value: sessionJobs.count)
         .animation(.easeOut(duration: 0.22), value: showsLinkPreview)
+    }
+
+    // MARK: - Max Quality
+
+    /// Choosing Max has a consequence nobody expects, and someone hit it: at
+    /// 4K the file plays in nothing Apple ships.
+    ///
+    /// YouTube serves H.264 up to 1080p and nothing above it — 1440p and 2160p
+    /// exist only as VP9 and AV1, and AVFoundation decodes neither, so the TV
+    /// app, QuickTime and Preview all open a file with no picture. The file is
+    /// not broken; VLC and IINA play it fine.
+    ///
+    /// Warned at the moment of choosing rather than fixed behind the user's
+    /// back: someone who asks for 4K should get 4K. Shown once and dismissed
+    /// for good, since the default is 1080p and only a deliberate choice
+    /// reaches here.
+    private var showsMaxWarning: Bool {
+        kind == .video && videoQuality == .max && !settings.maxQualityWarningDismissed
+    }
+
+    private var maxQualityWarning: some View {
+        InlineNotice(
+            symbol: "exclamationmark.triangle.fill",
+            message: "Max reaches 4K, which YouTube only serves as VP9. "
+                + "QuickTime and the TV app cannot play it. VLC and IINA can.",
+            actionTitle: "Got It",
+            action: { settings.maxQualityWarningDismissed = true })
     }
 
     // MARK: - Link Preview
@@ -666,8 +698,8 @@ struct DownloadPane: View {
             return message
         default:
             return "\(AppConfig.displayName) uses FFmpeg to join video and audio. "
-                + "It isn't bundled — its license doesn't allow passing that build on — "
-                + "so it's downloaded once from its publisher."
+                + "It isn't bundled, because the licence of that build does not "
+                + "allow passing it on, so it is downloaded once from its publisher."
         }
     }
 

@@ -29,6 +29,9 @@ final class DownloadEngine: @unchecked Sendable {
         var outputPattern: String = "%(title)s.%(ext)s"
         /// Subtitle languages to embed, by preference order.
         var subtitleLanguages: [String] = ["en"]
+        /// Accept YouTube's machine transcription when the channel wrote no
+        /// subtitles of its own.
+        var autoSubtitles: Bool = true
     }
 
     /// A download in progress; allows pause, resume, and cancellation.
@@ -293,10 +296,13 @@ final class DownloadEngine: @unchecked Sendable {
                 // Embedded in the MP4 (track `mov_text`), not deposited in
                 // `.srt` files alongside: a track you activate in the player
                 // is more useful than an extra file in the folder.
+                args += ["--embed-subs", "--write-subs"]
+                // Machine transcription, only if asked for. yt-dlp prefers a
+                // channel's own subtitles when both exist, so this is strictly
+                // a fallback — and one worth being able to refuse, since
+                // YouTube's auto captions are punctuation-free and often wrong.
+                if config.autoSubtitles { args += ["--write-auto-subs"] }
                 args += [
-                    "--embed-subs",
-                    "--write-subs",
-                    "--write-auto-subs",   // if no written subtitles, auto-generated ones
                     "--sub-langs", config.subtitleLanguages.joined(separator: ","),
                     // Otherwise yt-dlp leaves `.vtt` files on disk too.
                     "--compat-options", "no-keep-subs",

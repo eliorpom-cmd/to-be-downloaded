@@ -30,6 +30,51 @@ enum VideoQuality: Int, CaseIterable, Sendable, Identifiable {
     var label: String { self == .max ? "Max" : "\(rawValue)p" }
 }
 
+/// Which subtitle track to embed, when the video has one.
+///
+/// Deliberately short. yt-dlp accepts every language YouTube has, but a list
+/// of two hundred entries is a worse answer than a list of nine: the ones
+/// worth naming are the ones people actually read, and "System language"
+/// covers everyone else without asking them anything.
+enum SubtitleLanguage: String, CaseIterable, Sendable, Identifiable, Codable {
+    case system
+    case en, fr, es, de, it, pt, ja, ko, zh
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .system: return "System language"
+        case .en: return "English"
+        case .fr: return "French"
+        case .es: return "Spanish"
+        case .de: return "German"
+        case .it: return "Italian"
+        case .pt: return "Portuguese"
+        case .ja: return "Japanese"
+        case .ko: return "Korean"
+        case .zh: return "Chinese"
+        }
+    }
+
+    /// Codes handed to `--sub-langs`, in preference order.
+    ///
+    /// English trails every other choice: it is the one language nearly every
+    /// channel captions, so it is the fallback that stops "subtitles on"
+    /// meaning "no subtitles" on a video that simply has none in yours.
+    var codes: [String] {
+        switch self {
+        case .system:
+            let current = Locale.current.language.languageCode?.identifier ?? "en"
+            return current == "en" ? ["en"] : [current, "en"]
+        case .en:
+            return ["en"]
+        default:
+            return [rawValue, "en"]
+        }
+    }
+}
+
 /// MP3 audio bitrate.
 enum AudioBitrate: Int, CaseIterable, Sendable, Identifiable {
     case k128 = 128
@@ -61,7 +106,7 @@ enum AudioFormat: String, CaseIterable, Sendable, Identifiable, Codable {
 
     var detail: String {
         switch self {
-        case .m4a: return "Keeps the original audio — no re-encoding, better quality"
+        case .m4a: return "Keeps the original audio. No re-encoding, better quality."
         case .mp3: return "Re-encoded, for older devices that need it"
         }
     }

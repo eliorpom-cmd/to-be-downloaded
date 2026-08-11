@@ -56,6 +56,9 @@ final class AppSettings: ObservableObject {
         static let autoUpdateApp = "appAutoUpdate"
         static let audioFormat = "defaultAudioFormat"
         static let subtitles = "embedSubtitles"
+        static let subtitleLanguage = "subtitleLanguage"
+        static let autoSubtitles = "embedAutoSubtitles"
+        static let maxWarningSeen = "maxQualityWarningDismissed"
         static let maxConcurrent = "maxConcurrentDownloads"
         static let filenameTemplate = "filenameTemplate"
         static let filenameCustom = "filenameCustomPattern"
@@ -124,6 +127,22 @@ final class AppSettings: ObservableObject {
     /// Embed subtitles in videos.
     @Published var embedSubtitles: Bool {
         didSet { store.set(embedSubtitles, forKey: Key.subtitles) }
+    }
+    /// Which language to ask for. Used to be the system's plus English, in
+    /// code, with no way to say otherwise.
+    @Published var subtitleLanguage: SubtitleLanguage {
+        didSet { store.set(subtitleLanguage.rawValue, forKey: Key.subtitleLanguage) }
+    }
+    /// Fall back to YouTube's machine transcription when the channel wrote
+    /// none. On by default because it is usually better than nothing, and
+    /// separable because it is often only just.
+    @Published var autoSubtitles: Bool {
+        didSet { store.set(autoSubtitles, forKey: Key.autoSubtitles) }
+    }
+    /// Has the "Max is 4K, and 4K is VP9" warning been acknowledged? Shown
+    /// once, then never again.
+    @Published var maxQualityWarningDismissed: Bool {
+        didSet { store.set(maxQualityWarningDismissed, forKey: Key.maxWarningSeen) }
     }
     /// Concurrent downloads. Beyond that, they wait their turn.
     ///
@@ -218,12 +237,8 @@ final class AppSettings: ObservableObject {
         FilenameTemplate.outputPattern(filenameTemplate, custom: filenameCustom)
     }
 
-    /// Requested subtitle languages: system language first, then English —
-    /// the only one found almost everywhere.
-    var subtitleLanguages: [String] {
-        let system = Locale.current.language.languageCode?.identifier ?? "en"
-        return system == "en" ? ["en"] : [system, "en"]
-    }
+    /// Requested subtitle languages, in preference order.
+    var subtitleLanguages: [String] { subtitleLanguage.codes }
 
     /// Format matching default settings, for triggers without choice UI
     /// (menu bar menu, ⌘⇧V).
@@ -270,6 +285,10 @@ final class AppSettings: ObservableObject {
 
         audioFormat = AudioFormat(rawValue: store.string(forKey: Key.audioFormat) ?? "") ?? .m4a
         embedSubtitles = store.object(forKey: Key.subtitles) as? Bool ?? false
+        subtitleLanguage = SubtitleLanguage(
+            rawValue: store.string(forKey: Key.subtitleLanguage) ?? "") ?? .system
+        autoSubtitles = store.object(forKey: Key.autoSubtitles) as? Bool ?? true
+        maxQualityWarningDismissed = store.object(forKey: Key.maxWarningSeen) as? Bool ?? false
         maxConcurrent = min(max(store.object(forKey: Key.maxConcurrent) as? Int ?? 2, 1), 5)
         filenameTemplate = FilenameTemplate(
             rawValue: store.string(forKey: Key.filenameTemplate) ?? "") ?? .title

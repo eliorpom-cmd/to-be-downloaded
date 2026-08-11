@@ -67,7 +67,7 @@ struct NetworkPane: View {
 
             Text("Turn this on and this Mac serves a small page to the "
                  + "devices on your Wi-Fi. Scan the code with a phone, paste a "
-                 + "link there, and the download runs here — on the Mac's "
+                 + "link there, and the download runs here, on the Mac's "
                  + "connection, into the Mac's folder. The finished file can be "
                  + "pulled back to the phone from the same page.")
                 .font(Theme.Text.body)

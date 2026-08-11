@@ -157,7 +157,7 @@ struct SectionHeader: View {
     var count: Int?
 
     var body: some View {
-        Text(count.map { "\(title.uppercased()) — \($0)" } ?? title.uppercased())
+        Text(count.map { "\(title.uppercased()) · \($0)" } ?? title.uppercased())
             .font(Theme.Text.sectionHeader)
             .tracking(0.5)
             .foregroundStyle(Theme.labelSecondary)
