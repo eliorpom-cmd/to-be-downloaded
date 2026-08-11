@@ -1,12 +1,12 @@
 # =============================================================================
-#  APP NAME — "TBD - To be downloaded"
+#  APP NAME — "TBD - To Be Downloaded"
 #
 #  Three forms, each for a display width:
 #    - PRODUCT_NAME (TBD)                       → TBD.app, the executable,
 #                                                 the Swift module. Short and no
 #                                                 spaces: paths, scripts,
 #                                                 Homebrew, Terminal.
-#    - CFBundleName (To be downloaded)          → the app menu, next to the
+#    - CFBundleName (To Be Downloaded)          → the app menu, next to the
 #                                                 Apple logo (16 char max).
 #    - CFBundleDisplayName (TBD - To be…)       → Finder and Spotlight, where
 #                                                 the acronym alone says nothing.
@@ -68,8 +68,8 @@ targets:
         INFOPLIST_FILE: App/Info.plist
         CODE_SIGN_ENTITLEMENTS: App/TBD.entitlements
         GENERATE_INFOPLIST_FILE: NO
-        INFOPLIST_KEY_CFBundleName: To be downloaded
-        INFOPLIST_KEY_CFBundleDisplayName: TBD - To be downloaded
+        INFOPLIST_KEY_CFBundleName: To Be Downloaded
+        INFOPLIST_KEY_CFBundleDisplayName: TBD - To Be Downloaded
         # Hardened runtime OFF: required only for Apple notarization (paid
         # developer account). Without it, the frozen yt-dlp runs fine.
         # → Switch to YES when Developer ID notarization is set up.

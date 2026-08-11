@@ -113,7 +113,7 @@ cask "$CASK_TOKEN" do
 
   url "https://github.com/$REPO/releases/download/v#{version}/$APP_NAME-#{version}-macos.zip",
       verified: "github.com/$REPO/"
-  name "TBD - To be downloaded"
+  name "TBD - To Be Downloaded"
   name "TBD"
   desc "Downloads YouTube video and audio, with a LAN web remote"
   homepage "https://github.com/$REPO"
@@ -128,6 +128,8 @@ cask "$CASK_TOKEN" do
   # Installed with the full name: Spotlight indexes an app by its FILE NAME
   # and ignores CFBundleDisplayName. Under "TBD.app" the app would be unfound
   # searching for "to be downloaded".
+  # Lowercase "downloaded" on purpose: this is an existing path on other
+  # people's disks, not a label. Renaming it is how you give someone two apps.
   app "$APP_NAME.app", target: "TBD - To be downloaded.app"
 
   caveats <<~EOS

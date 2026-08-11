@@ -122,12 +122,12 @@ The app has three names, one per display width. All three are in
 | Form | Where it shows | Carried by |
 | --- | --- | --- |
 | `TBD` | menu bar, Share menu, Terminal, build product `TBD.app` | `PRODUCT_NAME`, `AppConfig.shortName` |
-| `To be downloaded` | the app menu next to the Apple logo, in-app UI | `CFBundleName`, `AppConfig.displayName` |
-| `TBD - To be downloaded` | Finder, Spotlight, Settings → Applications | **installed bundle name**, `CFBundleDisplayName`, `AppConfig.fullName` |
+| `To Be Downloaded` | the app menu next to the Apple logo, in-app UI | `CFBundleName`, `AppConfig.displayName` |
+| `TBD - To Be Downloaded` | Finder, Spotlight, Settings → Applications | **installed bundle name**, `CFBundleDisplayName`, `AppConfig.fullName` |
 
 **The bundle is not named the same when built and when installed, on purpose.**
 The build produces `TBD.app` (short paths in the repo, scripts and Terminal), but
-it installs as `/Applications/TBD - To be downloaded.app`, because **Spotlight
+it installs as `/Applications/TBD - To Be Downloaded.app`, because **Spotlight
 indexes an app by its file name and ignores `CFBundleDisplayName`** — installed
 as `TBD.app`, searching "to be downloaded" finds nothing (`mdls` then reports
 `kMDItemDisplayName = "TBD"`).
@@ -136,7 +136,7 @@ Renaming a bundle's folder is harmless: the signature covers the contents, not
 the name; the executable stays `Contents/MacOS/TBD`; and the updater's
 `FileManager.replaceItemAt` keeps the **destination's** name, so the installed
 name survives updates. Both `install.sh` and the Homebrew cask
-(`app "TBD.app", target: "TBD - To be downloaded.app"`) install under it.
+(`app "TBD.app", target: "TBD - To Be Downloaded.app"`) install under it.
 
 The URL scheme `tbd://` lives in `AppConfig.urlScheme`, which is **shared with
 the extension target** — it used to be hardcoded on both sides, and a divergence

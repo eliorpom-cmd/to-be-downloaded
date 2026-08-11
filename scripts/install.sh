@@ -22,6 +22,12 @@ APP_NAME="TBD"
 # be unfindable searching for "to be downloaded". Renaming a bundle's folder
 # has no effect on its signature (which covers the contents) or the executable
 # (CFBundleExecutable stays "TBD").
+# LOWERCASE "downloaded", ON PURPOSE, and not a leftover. The displayed name
+# is "TBD - To Be Downloaded" everywhere else since 1.1, but this is the name
+# of a FOLDER already sitting in /Applications on other people's machines.
+# Renaming it would leave anyone who installed from the DMG with two copies of
+# the app. Spotlight searches case-insensitively, so nothing is lost by
+# leaving it. See also the cask target in release.sh.
 INSTALLED_NAME="TBD - To be downloaded"
 BUNDLE_ID="com.byelior.tbd"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
