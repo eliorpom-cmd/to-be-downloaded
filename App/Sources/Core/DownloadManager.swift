@@ -65,11 +65,17 @@ final class DownloadManager: ObservableObject {
 
         // Same reasoning for links from outside (macOS service,
         // sharing extension, URL scheme): no window needed.
+        //
+        // Nothing here fires before setup is done. These are the paths that
+        // bypass the window entirely, and until FFmpeg is in place they would
+        // queue a download that cannot finish — from an app the person is
+        // still being asked to set up.
         NotificationCenter.default.addObserver(
             forName: .externalDownloadRequest, object: nil, queue: .main
         ) { [weak self] note in
             guard let link = note.userInfo?["url"] as? String else { return }
             MainActor.assumeIsolated {
+                guard AppSettings.shared.onboarded else { return }
                 _ = self?.startDownload(
                     urlString: link, format: AppSettings.shared.currentDefaultFormat)
             }
@@ -79,7 +85,8 @@ final class DownloadManager: ObservableObject {
     /// Launch the clipboard link with default settings.
     @discardableResult
     func downloadFromClipboard() -> UUID? {
-        guard let copied = NSPasteboard.general.string(forType: .string),
+        guard AppSettings.shared.onboarded,
+              let copied = NSPasteboard.general.string(forType: .string),
               YouTubeLink.isValid(copied)
         else { return nil }
         return startDownload(

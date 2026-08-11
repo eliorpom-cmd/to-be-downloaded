@@ -208,35 +208,43 @@ struct OnboardingView: View {
             case .checking, .installing:
                 ProgressView().controlSize(.small)
             default:
-                VStack(spacing: Theme.Space.s10) {
+                // Two ways forward and no way past. There is no "Not Now":
+                // without FFmpeg the app cannot complete a single download,
+                // so letting someone through would only move the dead end
+                // somewhere less explicable.
+                VStack(spacing: Theme.Space.s12) {
                     Button(ffmpeg.status.isFailure ? "Try Again" : "Download FFmpeg") {
                         Task { await ffmpeg.installIfMissing() }
                     }
                     .buttonStyle(.push)
 
-                    // Someone who already runs `brew install ffmpeg` should
-                    // not be made to keep a second copy.
-                    if let detected {
-                        Button("Use the one at \(detected.path)") {
-                            link(detected)
-                        }
-                        .buttonStyle(.plain)
-                        .font(Theme.Text.body)
-                        .foregroundStyle(Theme.label)
-                    }
-
-                    Button(detected == nil ? "Choose an FFmpeg I have…" : "Choose another…",
-                           action: chooseFFmpeg)
-                        .buttonStyle(.plain)
-                        .font(Theme.Text.body)
-                        .foregroundStyle(Theme.labelSecondary)
-
-                    // Leaving without it is allowed. The Download screen will
-                    // ask again, and until then nothing pretends to work.
-                    Button("Not Now", action: finish)
-                        .buttonStyle(.plain)
+                    Text("or")
                         .font(Theme.Text.caption)
                         .foregroundStyle(Theme.labelTertiary)
+
+                    // Someone who already runs `brew install ffmpeg` should
+                    // not be made to keep a second copy. Given as a real
+                    // button rather than a footnote: for those people it is
+                    // the better answer, not the fallback.
+                    if let detected {
+                        Button("Use the One I Have") { link(detected) }
+                            .buttonStyle(.push)
+
+                        Text(detected.path)
+                            .font(Theme.Text.caption)
+                            .monospaced()
+                            .foregroundStyle(Theme.labelTertiary)
+                            .lineLimit(1)
+                            .truncationMode(.head)
+
+                        Button("Choose a Different One…", action: chooseFFmpeg)
+                            .buttonStyle(.plain)
+                            .font(Theme.Text.body)
+                            .foregroundStyle(Theme.labelSecondary)
+                    } else {
+                        Button("Locate an FFmpeg I Have…", action: chooseFFmpeg)
+                            .buttonStyle(.push)
+                    }
                 }
             }
         }
@@ -292,8 +300,16 @@ struct OnboardingView: View {
         }
     }
 
+    /// The one door out, and it only opens on a working app.
+    ///
+    /// The guard is not paranoia about the button being hidden: `onboarded`
+    /// is what unlocks the menu bar item, the system-wide shortcut and every
+    /// link arriving from outside, so it must never mean anything less than
+    /// "this app can complete a download".
     private func finish() {
+        guard ffmpeg.isInstalled else { return }
         settings.onboarded = true
+        settings.applyGlobalShortcut()
     }
 }
 

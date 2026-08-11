@@ -63,6 +63,14 @@ struct TBDApp: App {
             CommandGroup(replacing: .newItem) {}
         }
 
+        // ALWAYS inserted. `MenuBarExtra(isInserted:)` looked like the right
+        // way to hide it during setup and instead hangs the app: with the
+        // binding false at launch, SwiftUI spins the main thread at 100 % in
+        // AppDelegate.scenesDidChange → makeMainMenu, forever. Cold start,
+        // no window response, accessibility answering kAXErrorNotImplemented
+        // because the process never gets back to its run loop. The menu bar
+        // item therefore stays, and `MenuBarView` shows nothing but a way to
+        // finish setup until there is an app behind it.
         MenuBarExtra {
             MenuBarView(manager: manager, server: server, settings: settings)
         } label: {
