@@ -257,6 +257,35 @@ final class AppSettings: ObservableObject {
         appearance = all[next]
     }
 
+    /// Has this Mac run a previous version of the app?
+    ///
+    /// Only consulted when `onboardingCompleted` is absent, which is true for
+    /// exactly two people: someone launching 1.1 for the first time ever, and
+    /// someone whose 1.0 just updated itself. The second must never see the
+    /// walkthrough, so the question is answered from several independent
+    /// traces rather than one.
+    ///
+    /// Not from a settings key that only exists once someone changes a
+    /// setting: property observers do not fire during `init`, so a 1.0 user
+    /// who never opened Settings wrote none of those. These are things 1.0
+    /// wrote on its own, plus the files it produced.
+    private static var looksLikeExistingInstall: Bool {
+        let store = UserDefaults.standard
+        let writtenByItself = [
+            Key.output,             // set on a folder change
+            Key.appearance,         // set on a theme change
+            "ytDlpLastCheck",       // EngineUpdater, at every launch
+            "ffmpegLastCheck",      // FFmpegInstaller
+            "ffmpegInstalledVersion",
+            "appUpdateLastCheck",
+        ].contains { store.object(forKey: $0) != nil }
+
+        let library = AppConfig.supportDirectory.appendingPathComponent("library.json")
+        return writtenByItself
+            || BinaryLocator.hasManagedFFmpeg
+            || FileManager.default.fileExists(atPath: library.path)
+    }
+
     private init() {
         // Output folder
         if let path = store.string(forKey: Key.output), !path.isEmpty {
@@ -293,12 +322,24 @@ final class AppSettings: ObservableObject {
         filenameTemplate = FilenameTemplate(
             rawValue: store.string(forKey: Key.filenameTemplate) ?? "") ?? .title
         filenameCustom = store.string(forKey: Key.filenameCustom) ?? "%(title)s"
-        // Anyone upgrading from 1.0 already has a working app and a folder
-        // they chose (or accepted): walking them through setup would be
-        // asking questions that were answered months ago. An existing
-        // FFmpeg is the tell.
-        onboarded = store.object(forKey: Key.onboarded) as? Bool
-            ?? BinaryLocator.hasManagedFFmpeg
+        // Anyone upgrading already has a working app and a folder they chose
+        // or accepted. Putting a walkthrough in front of them would ask
+        // questions answered months ago, and would be the first thing an
+        // automatic update did to them.
+        if let stored = store.object(forKey: Key.onboarded) as? Bool {
+            onboarded = stored
+        } else {
+            // Decided ONCE, on the first launch that has this key, and written
+            // down immediately. The evidence of a previous install is made of
+            // things the app writes on its own — update timestamps above all —
+            // and 1.1's own first launch writes them within seconds. Left to
+            // be re-derived, the second launch would mistake this version's
+            // own traces for a previous version's and skip setup for someone
+            // who had quit halfway through it.
+            let upgrading = Self.looksLikeExistingInstall
+            onboarded = upgrading
+            store.set(upgrading, forKey: Key.onboarded)
+        }
         remoteControl = store.object(forKey: Key.remoteControl) as? Bool ?? false
         globalShortcut = store.object(forKey: Key.globalShortcut) as? Bool ?? false
         shortcutKeyCode = store.object(forKey: Key.shortcutKeyCode) as? Int

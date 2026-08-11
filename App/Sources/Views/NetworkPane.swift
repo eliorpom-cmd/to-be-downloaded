@@ -214,11 +214,9 @@ struct NetworkPane: View {
             }
             .buttonStyle(.push)
 
-            Button("Open in Browser") {
-                guard let url = server.url, let link = URL(string: url) else { return }
-                NSWorkspace.shared.open(link)
-            }
-            .buttonStyle(.push)
+            // No "Open in Browser". The page exists so another device can
+            // drive this Mac; opening it in the Mac's own browser lands you
+            // on a worse copy of the window you are already looking at.
 
             Button("Turn Off", action: stopServer)
                 .buttonStyle(.push)
