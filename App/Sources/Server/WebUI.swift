@@ -135,7 +135,19 @@ enum WebUI {
           .note { font-size:13px; color:var(--label-2); margin-top:12px; display:none; }
           .note.show { display:block; }
 
-          .controls { display:flex; gap:8px; margin-top:18px; align-items:center; }
+          /* Three columns, the toggle in the middle one: it stays put whatever
+             the quality control's width does. As a flex row it slid sideways
+             every time you switched between "1080p" and "Original quality",
+             and again when the quality control disappeared entirely. */
+          .controls {
+            display:grid; grid-template-columns:1fr auto 1fr; align-items:center;
+            gap:8px; margin-top:18px; width:100%;
+          }
+          .controls .seg { justify-self:center; }
+          .controls .quality { justify-self:start; }
+          /* Reads like the app, which shows the same words in the same place
+             when the container keeps the source track. */
+          .qlabel { font-size:14px; color:var(--label-2); white-space:nowrap; }
           .seg { display:flex; gap:2px; background:var(--fill-3); border-radius:8px; padding:2px; }
           .seg button {
             border:0; background:transparent; color:var(--label-2);
@@ -238,11 +250,15 @@ enum WebUI {
             <div class="note" id="note">Only YouTube links are supported.</div>
 
             <div class="controls">
+              <span></span>
               <div class="seg" id="kind">
                 <button data-kind="video">Video</button>
                 <button data-kind="audio">Audio</button>
               </div>
-              <select id="quality" aria-label="Quality"></select>
+              <span class="quality">
+                <select id="quality" aria-label="Quality"></select>
+                <span class="qlabel" id="qlabel" hidden></span>
+              </span>
             </div>
           </div>
 
@@ -277,6 +293,7 @@ enum WebUI {
           let kind = localStorage.getItem("kind") || "video";
           const savedQ = { video: localStorage.getItem("vq"), audio: localStorage.getItem("aq") };
           const q = document.getElementById("quality");
+          const qlabel = document.getElementById("qlabel");
           const go = document.getElementById("go");
           const urlEl = document.getElementById("url");
           const field = document.getElementById("field");
@@ -284,6 +301,13 @@ enum WebUI {
 
           function fillQuality() {
             const opts = kind === "video" ? VQ : AQ;
+            // A menu with one item is not a choice, it is furniture. When the
+            // app keeps the source audio track there is nothing to pick, so
+            // the page says what you get instead of pretending to ask.
+            const single = opts.length < 2;
+            q.hidden = single;
+            qlabel.hidden = !single;
+            if (single) { qlabel.textContent = opts[0][1]; return; }
             q.innerHTML = opts.map(o => `<option value="${o[0]}">${o[1]}</option>`).join("");
             const want = kind === "video" ? savedQ.video : savedQ.audio;
             if (want && opts.some(o => o[0] === want)) q.value = want;
