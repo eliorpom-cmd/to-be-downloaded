@@ -107,7 +107,7 @@ enum AudioFormat: String, CaseIterable, Sendable, Identifiable, Codable {
     var detail: String {
         switch self {
         case .m4a: return "Keeps the original audio. No re-encoding, better quality."
-        case .mp3: return "Re-encoded, for older devices that need it"
+        case .mp3: return "Re-encoded, lower quality"
         }
     }
 

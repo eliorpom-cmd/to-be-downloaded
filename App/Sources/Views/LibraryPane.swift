@@ -31,7 +31,7 @@ struct LibraryPane: View {
                     symbol: "folder",
                     title: query.isEmpty ? "Your library is empty" : "No match",
                     subtitle: query.isEmpty
-                        ? "Finished downloads are collected here, with the file kept in your destination folder."
+                        ? "Finished downloads are displayed here, with the file kept in your destination folder."
                         : "No download matches “\(query)”."
                 )
                 .frame(maxWidth: .infinity)
@@ -104,9 +104,6 @@ struct LibraryPane: View {
         ) { item in
             Button("Move to Trash", role: .destructive) { moveToTrash(item) }
             Button("Cancel", role: .cancel) { trashCandidate = nil }
-        } message: { item in
-            Text("“\(item.title)” goes to the Trash and leaves the library. "
-                 + "The Trash is where you get it back from.")
         }
     }
 

@@ -196,8 +196,9 @@ struct DownloadPane: View {
     private var maxQualityWarning: some View {
         InlineNotice(
             symbol: "exclamationmark.triangle.fill",
-            message: "Max reaches 4K, which YouTube only serves as VP9. "
-                + "QuickTime and the TV app cannot play it. VLC and IINA can.",
+            message: "Max downloads up to 4K, which YouTube only serves as VP9. "
+                + "QuickTime cannot play it. You'll need another player such as "
+                + "VLC or IINA.",
             actionTitle: "Got It",
             action: { settings.maxQualityWarningDismissed = true })
     }
@@ -292,7 +293,11 @@ struct DownloadPane: View {
     /// link problem? This is the only situation where suggesting an engine
     /// update makes sense.
     private var lastBreakage: DownloadJob? {
-        guard let job = manager.jobs.first(where: { $0.state == .failed }),
+        // Not on the first failure. One is usually a blink of the connection
+        // or a video that no longer exists, and the app already retries once
+        // by itself before anyone is told anything.
+        guard manager.breakageFailures >= DownloadManager.breakageThreshold,
+              let job = manager.jobs.first(where: { $0.state == .failed }),
               let message = job.errorMessage,
               EngineUpdater.suggestsUpdate(message)
         else { return nil }
@@ -681,7 +686,7 @@ struct DownloadPane: View {
 
     private var ffmpegSetupTitle: String {
         switch ffmpeg.status {
-        case .downloading, .checking: return "Getting FFmpeg"
+        case .downloading, .checking: return "Downloading FFmpeg"
         case .installing:             return "Checking the signature"
         case .failed:                 return "FFmpeg didn't install"
         default:                      return "One thing to set up"
@@ -691,15 +696,13 @@ struct DownloadPane: View {
     private var ffmpegSetupMessage: String {
         switch ffmpeg.status {
         case .downloading(let fraction):
-            return "About 56 MB, once. \(Int(fraction * 100))% done."
+            return "\(Int(fraction * 100))% done."
         case .installing:
             return "Making sure it really comes from its publisher."
         case .failed(let message):
             return message
         default:
-            return "\(AppConfig.displayName) uses FFmpeg to join video and audio. "
-                + "It isn't bundled, because the licence of that build does not "
-                + "allow passing it on, so it is downloaded once from its publisher."
+            return "In order to work, \(AppConfig.shortName) needs FFmpeg."
         }
     }
 
