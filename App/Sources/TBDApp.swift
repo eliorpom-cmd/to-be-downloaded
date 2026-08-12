@@ -26,6 +26,29 @@ struct TBDApp: App {
         _server = StateObject(wrappedValue: ServerController(downloads: downloads))
     }
 
+    /// Route ⌘Z to whichever undo the person means.
+    ///
+    /// A text field being edited owns it — that is what the search field needs
+    /// and it is the other thing people press ⌘Z for. Everywhere else it is
+    /// the library's.
+    ///
+    /// The test is the first responder, not whether the responder chain
+    /// accepts `undo:`: `NSWindow` answers to `undo:` whether or not it has an
+    /// undo manager, so asking it first swallowed every library undo and the
+    /// entry never came back. Found by removing an entry and pressing Undo.
+    ///
+    /// Neither item is ever disabled. Greying them out would need the state of
+    /// both undo stacks at menu-build time, and focus changes do not rebuild
+    /// the menu — an item that is grey when it should work is worse than one
+    /// that is live when it has nothing to do.
+    private func undoRedo(text selector: String, library: () -> Void) {
+        if NSApp.keyWindow?.firstResponder is NSTextView {
+            _ = NSApp.sendAction(Selector((selector)), to: nil, from: nil)
+        } else {
+            library()
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView(manager: manager, server: server, settings: settings,
@@ -61,6 +84,21 @@ struct TBDApp: App {
             // shortcut in Settings is for — from inside the app, ⌘V then Return
             // does the same in the same number of keys.
             CommandGroup(replacing: .newItem) {}
+
+            // ⌘Z, for taking back a library removal.
+            //
+            // The system items are replaced rather than added to, because
+            // SwiftUI's own Undo does nothing here: a plain `WindowGroup` has
+            // no undo manager, so Edit ▸ Undo was permanently grey. Typing is
+            // handled first — `undo:` is offered to the responder chain, and
+            // a text field being edited takes it — so the search field keeps
+            // the undo people expect from a text field.
+            CommandGroup(replacing: .undoRedo) {
+                Button("Undo") { undoRedo(text: "undo:", library: library.undo) }
+                    .keyboardShortcut("z", modifiers: .command)
+                Button("Redo") { undoRedo(text: "redo:", library: library.redo) }
+                    .keyboardShortcut("z", modifiers: [.command, .shift])
+            }
         }
 
         // ALWAYS inserted. `MenuBarExtra(isInserted:)` looked like the right

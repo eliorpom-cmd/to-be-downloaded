@@ -70,7 +70,7 @@ struct LibraryPane: View {
                                             isSelected: selectedID == item.id,
                                             onSelect: { selectedID = item.id },
                                             onDownloadAgain: { downloadAgain(item) },
-                                            onRemove: { manager.forget(item.id) },
+                                            onRemove: { remove(item) },
                                             onTrash: { trashCandidate = item }
                                         )
                                         if index < items.count - 1 {
@@ -108,6 +108,15 @@ struct LibraryPane: View {
             Text("“\(item.title)” goes to the Trash and leaves the library. "
                  + "The Trash is where you get it back from.")
         }
+    }
+
+    /// Take the entry out of the library, and register the way back.
+    ///
+    /// Only the entry: the file is untouched, which is exactly why undoing
+    /// has to work. Removing a row is a small mistake to make and, until now,
+    /// one nothing could take back.
+    private func remove(_ item: LibraryItem) {
+        library.removeUndoably(item) { [manager] id in manager.forget(id) }
     }
 
     /// The file itself, not just the entry. Goes through the Trash rather

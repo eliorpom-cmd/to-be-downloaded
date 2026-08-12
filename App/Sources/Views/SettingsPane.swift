@@ -51,10 +51,10 @@ struct SettingsPane: View {
                 }
 
                 section("Format") {
-                    // Not "Default format": Video and Audio are not formats,
-                    // they are what you came for. MP4 and M4A are the formats,
-                    // and they are set further down.
-                    row("Download as", detail: "What the round button does by default") {
+                    // Just "Default". The options already say Video and Audio
+                    // and the section says Format; naming it again in the title
+                    // made a sentence that read as neither.
+                    row("Default") {
                         picker($settings.defaultKind, values: MediaKind.allCases) { $0.label }
                     }
                     divider
@@ -198,15 +198,6 @@ struct SettingsPane: View {
                 }
 
                 section("Remote Control") {
-                    row("Let devices on your Wi-Fi use this Mac",
-                        detail: server.isRunning
-                            ? "Running. The port is open."
-                            : "Off. No port is open.") {
-                        Toggle("", isOn: remoteControlBinding)
-                            .toggleStyle(.switch)
-                            .labelsHidden()
-                    }
-                    divider
                     row("Port", detail: "Requires a server restart") {
                         HStack(spacing: Theme.Space.s8) {
                             TextField("", text: $portText)
@@ -440,9 +431,14 @@ struct SettingsPane: View {
                 atPath: BinaryLocator.managedFFmpeg.path)) ?? "elsewhere on this Mac"
             parts.append("yours, at \(target)")
             parts.append("updated by whoever installed it, not by \(AppConfig.shortName)")
-            return parts.joined(separator: " · ")
+            // Falls through to the status below rather than returning here.
+            // It used to return, so "Download a Copy" showed a spinner and not
+            // one word about what it was doing — or, when it stalled, about
+            // the fact that it had stopped doing it.
+        } else {
+            parts.append(
+                "downloaded from \(AppConfig.FFmpegSource.homepage.host ?? "its publisher")")
         }
-        parts.append("downloaded from \(AppConfig.FFmpegSource.homepage.host ?? "its publisher")")
 
         switch ffmpeg.status {
         case .installed(let version):  parts.append("just installed \(version)")
@@ -454,20 +450,6 @@ struct SettingsPane: View {
             if let last = ffmpeg.lastCheck { parts.append("checked \(Format.relative(last))") }
         }
         return parts.joined(separator: " · ")
-    }
-
-    // MARK: - Remote Control
-
-    /// Reads the server, writes the preference. Reading `server.isRunning`
-    /// rather than the stored flag keeps the switch honest when the server
-    /// failed to bind — the port is the truth, the preference is only a wish.
-    private var remoteControlBinding: Binding<Bool> {
-        Binding(
-            get: { server.isRunning },
-            set: { wanted in
-                settings.remoteControl = wanted
-                wanted ? server.start() : server.stop()
-            })
     }
 
     /// Changing channels immediately triggers a check: otherwise the

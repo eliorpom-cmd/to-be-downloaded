@@ -434,11 +434,30 @@ final class DownloadManager: ObservableObject {
         removeCompleted()
     }
 
-    /// Restarts a failed/canceled download with the same URL and format.
+    /// Restarts a failed or cancelled download IN PLACE.
+    ///
+    /// The row it already has is the row it keeps: a retry is the same
+    /// download having another go, and stacking a second capsule under the
+    /// first said otherwise — two entries for one video, the dead one still
+    /// sitting there. Title, channel and thumbnail are kept too; they were
+    /// resolved once and have not changed.
     @discardableResult
     func retry(_ jobID: UUID) -> UUID? {
-        guard let job = jobs.first(where: { $0.id == jobID }) else { return nil }
-        return startDownload(urlString: job.url, format: job.format)
+        guard let index = jobs.firstIndex(where: { $0.id == jobID }) else { return nil }
+        running[jobID]?.cancel()
+        running[jobID] = nil
+
+        jobs[index].state = .queued
+        jobs[index].errorMessage = nil
+        jobs[index].progress = nil
+        jobs[index].overallProgress = 0
+        jobs[index].fileURL = nil
+        jobs[index].fileSize = nil
+        jobs[index].mergeStartedAt = nil
+
+        savePending()
+        pump()
+        return jobID
     }
 
     // MARK: - Private
