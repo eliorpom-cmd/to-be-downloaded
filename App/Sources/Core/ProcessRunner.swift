@@ -12,6 +12,17 @@ enum ProcessRunner {
         let stderr: String
     }
 
+    enum RunError: LocalizedError {
+        case timedOut(name: String, seconds: TimeInterval)
+
+        var errorDescription: String? {
+            switch self {
+            case .timedOut(let name, let seconds):
+                return "\(name) did not answer within \(Int(seconds)) seconds."
+            }
+        }
+    }
+
     /// Run `executable` with `arguments` and return its output once finished.
     ///
     /// Both pipes are drained CONTINUOUSLY while the process runs. Waiting for
@@ -19,10 +30,20 @@ enum ProcessRunner {
     /// buffer (64 KB): the process gets stuck on its write, so never finishes,
     /// so we never read. This is exactly what happened with a well-populated
     /// playlist whose JSON weighs hundreds of kilobytes.
+    ///
+    /// - Parameter timeout: after this, the process is killed and the call
+    ///   throws. Not a guess at how long the work takes — a ceiling on how
+    ///   long this function may fail to return. Seen in the wild: the FFmpeg
+    ///   installer's `-version` probe never came back, which left the
+    ///   installer "busy" forever, the Settings button disabled and a spinner
+    ///   turning with nothing behind it. The binary was fine and ran in 0.03 s
+    ///   the next time; the stall never reproduced. Whatever it was, no
+    ///   subprocess gets to hang the app while we find out.
     static func run(
         executable: URL,
         arguments: [String],
-        environment: [String: String]? = nil
+        environment: [String: String]? = nil,
+        timeout: TimeInterval = 120
     ) async throws -> Result {
         let collector = OutputCollector()
 
@@ -43,6 +64,7 @@ enum ProcessRunner {
                     stdout: String(decoding: out, as: UTF8.self),
                     stderr: String(decoding: err, as: UTF8.self)))
             }
+            collector.onFailed = { continuation.resume(throwing: $0) }
 
             outPipe.fileHandleForReading.readabilityHandler = { handle in
                 let data = handle.availableData
@@ -69,6 +91,17 @@ enum ProcessRunner {
 
             do {
                 try process.run()
+                // The watchdog outlives the pipes on purpose: it is the only
+                // thing that can end a run where neither EOF nor termination
+                // ever arrives.
+                let name = executable.lastPathComponent
+                DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
+                    guard collector.timeOut(
+                        RunError.timedOut(name: name, seconds: timeout)) else { return }
+                    // Only after the collector confirms it won this race, so a
+                    // process that finished normally is never signalled.
+                    if process.isRunning { process.terminate() }
+                }
             } catch {
                 collector.cancel()
                 continuation.resume(throwing: error)
@@ -88,8 +121,9 @@ private final class OutputCollector: @unchecked Sendable {
     private var exitCode: Int32?
     private var finished = false
 
-    /// Assigned before launch, called once only.
+    /// Assigned before launch. Exactly one of these two is ever called.
     var onFinished: ((Data, Data, Int32) -> Void)?
+    var onFailed: ((Error) -> Void)?
 
     func append(_ data: Data, toStandardOutput: Bool) {
         lock.lock(); defer { lock.unlock() }
@@ -114,6 +148,19 @@ private final class OutputCollector: @unchecked Sendable {
     /// Launch failed: no one will return control, neutralize it.
     func cancel() {
         lock.lock(); finished = true; lock.unlock()
+    }
+
+    /// The watchdog fired. Returns `true` if it got there first, which is what
+    /// tells the caller it is now responsible for killing the process; a run
+    /// that already finished must not be signalled.
+    func timeOut(_ error: Error) -> Bool {
+        lock.lock()
+        guard !finished else { lock.unlock(); return false }
+        finished = true
+        let handler = onFailed
+        lock.unlock()
+        handler?(error)
+        return true
     }
 
     private func finishIfReady() {

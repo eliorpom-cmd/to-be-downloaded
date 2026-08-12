@@ -791,6 +791,22 @@ struct DownloadPane: View {
         if let fast = await MediaMetadata.oEmbed(for: link) {
             guard !Task.isCancelled else { return }
             quickPreview = fast
+
+            // Fetch the channel's photo NOW, while the card is on screen and
+            // nobody is waiting. It used to be looked up when the download
+            // started, which is the one moment the person is watching, and it
+            // costs a page scrape. `ChannelAvatars` caches and folds duplicate
+            // requests into one, so the download either finds it ready or
+            // joins the lookup already under way.
+            //
+            // Detached, and its result thrown away: this task must outlive the
+            // debounce cancelling us, and the cache is the whole point.
+            if let key = fast.channelKey, let channel = fast.channelURL {
+                Task.detached(priority: .utility) {
+                    _ = await ChannelAvatars.shared.avatarURL(
+                        channelKey: key, channelURL: channel)
+                }
+            }
         }
         // yt-dlp then fills in what oEmbed cannot know: the duration and the
         // per-format sizes the estimate is built from. Several seconds.

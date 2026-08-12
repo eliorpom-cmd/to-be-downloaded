@@ -49,6 +49,20 @@ final class LibraryStore: ObservableObject {
 
     @Published private(set) var items: [LibraryItem] = []
 
+    /// Undo for library removals.
+    ///
+    /// Ours, not the window's. SwiftUI leaves `\.undoManager` nil in a plain
+    /// `WindowGroup`, and `NSWindow.undoManager` asks a delegate that returns
+    /// the same nil — so a registration made against either went nowhere and
+    /// Edit ▸ Undo stayed grey. Checked on a real removal before believing it.
+    let undoManager = UndoManager()
+
+    /// Mirrors `undoManager.canUndo` so the menu item can be honest about it.
+    /// `UndoManager` is not observable, but every mutation here goes through
+    /// this class, so this is the one place that can keep it current.
+    @Published private(set) var canUndo = false
+    @Published private(set) var canRedo = false
+
     private let fileURL: URL
 
     init() {
@@ -106,6 +120,50 @@ final class LibraryStore: ObservableObject {
         items.removeAll { $0.id == id }
         PosterFrame.removeCache(for: id)
         save()
+    }
+
+    /// Put an entry back. Order comes from `addedAt`, so the row returns
+    /// where it was rather than to the top.
+    func restore(_ item: LibraryItem) {
+        guard !items.contains(where: { $0.id == item.id }) else { return }
+        items.append(item)
+        save()
+    }
+
+    /// Remove an entry and record the way back.
+    ///
+    /// Registered both ways, so undo can be undone: the redo is just the same
+    /// removal again.
+    func removeUndoably(_ item: LibraryItem, alsoForget: @escaping (UUID) -> Void) {
+        alsoForget(item.id)
+        undoManager.setActionName("Remove “\(item.title)”")
+        undoManager.registerUndo(withTarget: self) { store in
+            MainActor.assumeIsolated {
+                store.restore(item)
+                store.undoManager.registerUndo(withTarget: store) { redoStore in
+                    MainActor.assumeIsolated {
+                        redoStore.removeUndoably(item, alsoForget: alsoForget)
+                    }
+                }
+                store.refreshUndoState()
+            }
+        }
+        refreshUndoState()
+    }
+
+    func undo() {
+        undoManager.undo()
+        refreshUndoState()
+    }
+
+    func redo() {
+        undoManager.redo()
+        refreshUndoState()
+    }
+
+    private func refreshUndoState() {
+        canUndo = undoManager.canUndo
+        canRedo = undoManager.canRedo
     }
 
     /// Remove entries whose file disappeared from disk.
