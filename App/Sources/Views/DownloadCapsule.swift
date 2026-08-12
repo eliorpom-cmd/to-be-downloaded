@@ -98,6 +98,17 @@ struct DownloadCapsule: View {
                     .monospacedDigit()
                     .foregroundStyle(isFailed ? Theme.label : Theme.labelSecondary)
                     .lineLimit(1)
+                    // Never the thing that gets cut. A long title used to
+                    // squeeze this until "Failed · Retry" read "Failed · R…",
+                    // which is the one moment the row has something to say.
+                    // The title elides instead, which is what titles do.
+                    //
+                    // Still combined with the reserved width: during a
+                    // download the text changes every refresh and is narrower
+                    // than the reservation, so it stays put; only a longer
+                    // status is allowed to push past it, and a finished job
+                    // does not refresh.
+                    .fixedSize(horizontal: true, vertical: false)
                     .frame(minWidth: metaWidth, alignment: .trailing)
 
                 trailing
