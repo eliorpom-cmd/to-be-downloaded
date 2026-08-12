@@ -10,6 +10,21 @@ How to capture a window cleanly: `⌘⇧4`, then **Space**, then click the windo
 macOS keeps the rounded corners and the shadow, on a transparent background.
 Retina is fine — GitHub scales it down, and the README pins the display width.
 
+## Retaking them
+
+`./scripts/screenshots.sh` redoes `hero.png`, `library.png` and `network.png`
+here, and `app-hero.png` and `private-settings.png` in the website repository.
+It hides every other app and the desktop icons, puts the window at a fixed
+size in the middle of the screen, and walks the sidebar by name rather than by
+coordinates, so it survives the layout changing.
+
+It sets up no content: whatever is in the Library is what the Library shot
+shows. Put a few downloads in it first.
+
+`menubar.png` and `webui.png` are still taken by hand — a status item menu
+closes as soon as anything else takes the focus, and the web page needs a
+phone.
+
 | File | In place | Shot | Notes |
 | --- | --- | --- | --- |
 | `hero.png` | 1640 × 1173 | The whole window, **Download** screen | Dark theme, one finished capsule. Worth re-taking one day with a download at ~60 % so the filling capsule shows. This is the first thing anyone sees. |
