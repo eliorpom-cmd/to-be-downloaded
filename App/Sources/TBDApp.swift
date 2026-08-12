@@ -50,7 +50,15 @@ struct TBDApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        // `Window`, not `WindowGroup`: this app has one queue and one window,
+        // and a group is a scene that can be instantiated more than once.
+        //
+        // Removing "New Window" and window tabbing was not enough. A link
+        // arriving from outside — the `tbd://` scheme, the Services menu, the
+        // share extension — made SwiftUI open a SECOND window on top of the
+        // first, each showing the same downloads. Seen in the wild, two
+        // windows at different sizes.
+        Window(AppConfig.displayName, id: "main") {
             RootView(manager: manager, server: server, settings: settings,
                      library: library, updater: updater, appUpdater: appUpdater,
                      ffmpeg: ffmpeg)
