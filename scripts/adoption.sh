@@ -83,6 +83,26 @@ if others:
         print(f"    {tag:<8} zip {z:>5}   dmg {d:>5}   self-updates {s:>4}"
               f"   ({published[tag]})")
 
+# The number that survives having more than one version in the wild.
+#
+# Three assets, three audiences. Only the updater fetches a .sig; only a human
+# on the release page fetches a .dmg; the .zip is fetched by the updater, by
+# Homebrew, and by anyone clicking it. So the zip downloads that no updater
+# asked for, plus the dmg, are people arriving — not people upgrading.
+installs = updates = 0
+for tag, assets in counts.items():
+    v = tag.lstrip("v")
+    z = assets.get(f"TBD-{v}-macos.zip", 0)
+    g = assets.get(f"TBD-{v}-macos.zip.sig", 0)
+    d = assets.get("TBD.dmg", 0)
+    installs += max(0, z - g) + d
+    updates += g
+
+print()
+print("  since the first release:")
+print(f"    arrivals           {installs:>6}   (dmg, plus the zips no updater asked for)")
+print(f"    upgrades           {updates:>6}")
+
 if "at" in previous:
     hours = (now - previous["at"]) / 3600
     print()
