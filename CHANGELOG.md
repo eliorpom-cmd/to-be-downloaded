@@ -9,7 +9,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 Nothing yet.
 
-## [1.1.0] - 2026-08-11
+## [1.1.0] - 2026-08-12
 
 A release made of other people's reports. Two of them are about the app
 taking decisions that were never its to take: opening a network port on
@@ -23,41 +23,58 @@ noticed before they noticed the app.
   Remote Control on opens the port and remembers the choice; turning it off,
   or quitting, closes it. Requested repeatedly, and the most common single
   complaint about 1.0.
-- **Network Access is called Remote Control**, and its screen explains the
-  feature instead of showing a dimmed QR code: what the page does, that
-  nothing is exposed to the internet, that the port's life is tied to the
-  switch, and that anyone on the Wi-Fi with the address can queue a download,
-  because there is no password.
+- **Network Access is called Remote Control**, and its screen explains what
+  the feature is for instead of showing a dimmed QR code. The switch is only
+  there — Settings no longer carries a second copy of it — and "Open in
+  Browser" is gone, since the page exists so that *another* device can drive
+  this Mac.
 - **The app is written "To Be Downloaded"**, with capitals, everywhere it is
   read. The folder in `/Applications` keeps its old lowercase name on
   purpose: it exists on other people's disks, and renaming it would hand
   them two copies of the app.
+- **A failed download retries itself once**, quietly, in the row it already
+  has — and retrying by hand reuses that row too, instead of stacking a
+  second one under the dead one.
+- **The engine update is only suggested from the third failure** that carries
+  YouTube's fingerprints. One failure is usually a dropped connection or a
+  video that no longer exists, and answering it with "update the download
+  engine" sent people to fix something that was never broken.
+- **The channel's photo is fetched when the link is pasted**, not when the
+  download starts. It costs a page scrape, and that was being paid at the one
+  moment somebody is watching.
 - **Settings say what they do.** "At the same time" is now "Concurrent
-  downloads"; "Default format" is "Download as", since Video and Audio are
-  not formats. The Engine section is Components, and it leads with the fact
-  that yt-dlp and FFmpeg update themselves rather than with two Check Now
-  buttons. Em dashes are out of the copy.
+  downloads"; the format row is just "Default", since the options say Video
+  and Audio and the section says Format. The Engine section is Components,
+  and it leads with the fact that yt-dlp and FFmpeg update themselves rather
+  than with two Check Now buttons.
 - **"Remove from Library" is "Remove from Library (Keep File)"**, with "Move
   File to Trash…" beside it. Nobody could tell which one their file was
   about to survive.
 - Library and Settings no longer print their own name at the top; the sidebar
   already says where you are.
+- The copy was rewritten throughout, by hand, and is shorter nearly
+  everywhere.
 
 ### Added
 
-- **First-launch screens.** Where downloads go, and whether to fetch FFmpeg.
-  Nothing is downloaded before you answer. An FFmpeg already on the machine
-  (Homebrew, MacPorts, or one you point at) is linked instead of duplicated,
-  and the app then leaves its updates to whoever installed it. Upgrades from
-  1.0 skip all of this.
+- **First-launch setup, and it cannot be skipped.** Where downloads go, and
+  whether to fetch FFmpeg. Nothing is downloaded before you answer, and an
+  FFmpeg already on the machine (Homebrew, MacPorts, or one you point at) is
+  linked instead of duplicated — the app then leaves its updates to whoever
+  installed it. Until setup is finished there is no menu bar menu, no
+  system-wide shortcut and no link accepted from outside, because none of
+  them could produce a file. Quitting halfway starts again from the first
+  screen. **Anyone upgrading skips all of it.**
 - **A preview of the pasted link**, before the download rather than after:
   thumbnail, title, channel, length. Nearly free — the thumbnail address
   comes from the video id in the URL and the title from one oEmbed call — so
   a stale clipboard is caught while it can still be fixed.
+- **⌘Z takes back a library removal**, ⌘⇧Z puts it back, and a text field
+  being edited keeps its own ⌘Z.
 - **A warning on Max quality**, once, dismissible. YouTube serves H.264 only
-  up to 1080p, so 4K arrives as VP9, and the TV app, QuickTime and Preview
-  open it with no picture. Reported as a broken download; the file is fine
-  and VLC plays it. Nothing is silently downgraded.
+  up to 1080p, so 4K arrives as VP9 and QuickTime opens it with no picture.
+  Reported as a broken download; the file is fine and VLC plays it. Nothing
+  is silently downgraded.
 - **Subtitle language and automatic captions** are now settings. The language
   was the system's plus English, in code, with no way to say otherwise.
 
@@ -67,6 +84,11 @@ noticed before they noticed the app.
   the same thing seen twice, so the row used to stay on the Download screen
   and, since that list is what the LAN server serves, on every phone pointed
   at the Mac.
+- **No subprocess can hang the app.** The FFmpeg installer's `-version` probe
+  came back never: the download and the unpacking had both finished, and the
+  installer stayed "busy" for good, with a spinner and no words behind it.
+  Every process the app runs now has a deadline, and the FFmpeg row prints
+  its status even when it points at an FFmpeg you linked yourself.
 - **FFmpeg is checked for updates at launch**, not only in the hourly loop. A
   Mac opened and closed inside an hour updated it exactly never, which is why
   people believed it had to be done by hand.
@@ -76,7 +98,8 @@ noticed before they noticed the app.
   track, so it prints "Original quality" instead of drawing a dropdown.
 - **The favicon has a transparent background** instead of an opaque square.
 - **Settings centre on a wide window**, and their scroll bar sits on the
-  window edge rather than against the content.
+  window edge rather than against the content. The setup steps are centred
+  too.
 - **The focus ring is gone from the URL field.** The caret already says where
   the keyboard goes, and the ring was what made the round button look
   crooked — the arrow was measurably centred all along.
