@@ -65,8 +65,7 @@ struct OnboardingView: View {
 
             Spacer().frame(height: Theme.Space.s8)
 
-            Text("Paste a YouTube link, get the file. Two questions first, "
-                 + "and they are the only two.")
+            Text("The Mac YouTube downloader that just works.")
                 .font(Theme.Text.body)
                 .foregroundStyle(Theme.labelSecondary)
                 .multilineTextAlignment(.center)
@@ -85,14 +84,13 @@ struct OnboardingView: View {
         VStack(spacing: 0) {
             stepIcon("folder")
 
-            Text("Where should the files go?")
+            Text("Choose the destination folder")
                 .font(Theme.Text.title3)
                 .foregroundStyle(Theme.label)
 
             Spacer().frame(height: Theme.Space.s8)
 
-            Text("Downloads land here, under their own title. You can change "
-                 + "this later in Settings.")
+            Text("You can change this later in Settings.")
                 .font(Theme.Text.body)
                 .foregroundStyle(Theme.labelSecondary)
                 .multilineTextAlignment(.center)
@@ -165,30 +163,27 @@ struct OnboardingView: View {
     private var engineTitle: String {
         if ffmpeg.isInstalled { return "Ready" }
         switch ffmpeg.status {
-        case .downloading, .checking: return "Getting FFmpeg"
+        case .downloading, .checking: return "Downloading FFmpeg"
         case .installing:             return "Checking it over"
-        default:                      return "One component to fetch"
+        default:                      return "One last step"
         }
     }
 
     private var engineMessage: String {
         if ffmpeg.isInstalled {
             return ffmpeg.usesExternalFFmpeg
-                ? "Using the FFmpeg already on this Mac. Nothing was downloaded."
-                : "FFmpeg is installed. That is everything."
+                ? "Using the FFmpeg already on this Mac"
+                : "FFmpeg is installed"
         }
         switch ffmpeg.status {
         case .downloading(let fraction):
-            return "About 56 MB, once. \(Int(fraction * 100))% done."
+            return "\(Int(fraction * 100))% done."
         case .installing:
             return "Verifying the publisher's signature."
         case .failed(let message):
             return message
         default:
-            return "\(AppConfig.shortName) needs FFmpeg to join video and audio. "
-                + "It is not bundled, because the licence of the build we used does "
-                + "not allow passing it on, so it is a 56 MB download, once, "
-                + "from its publisher. Nothing is fetched until you say so."
+            return "In order to work, \(AppConfig.shortName) needs FFmpeg."
         }
     }
 

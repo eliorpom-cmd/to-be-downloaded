@@ -348,7 +348,7 @@ enum FFmpegPicker {
         // Homebrew lives under /opt and /usr, which the panel hides by default.
         panel.showsHiddenFiles = true
         panel.prompt = "Use This FFmpeg"
-        panel.message = "Pick the ffmpeg executable. Its ffprobe must sit in the same folder."
+        panel.message = "Pick the ffmpeg executable."
         panel.directoryURL = directory ?? URL(fileURLWithPath: "/opt/homebrew/bin")
         return panel.runModal() == .OK ? panel.url : nil
     }

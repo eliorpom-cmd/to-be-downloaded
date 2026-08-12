@@ -411,9 +411,51 @@ final class DownloadManager: ObservableObject {
         running[jobID]?.cancel()
         running[jobID] = nil
         jobs.removeAll { $0.id == jobID }
+        autoRetries[jobID] = nil
         savePending()
         pump()
     }
+
+    /// How many failures that look like YouTube having moved it takes before
+    /// the app suggests updating the engine.
+    ///
+    /// Three, not one. A single failure is usually a dropped connection or a
+    /// video that is simply gone, and answering it with "update the download
+    /// engine" sends people to fix something that was never broken.
+    static let breakageThreshold = 3
+
+    /// Automatic retries already spent, per job. Session-only, and cleared by
+    /// a manual retry: someone pressing the button has said "try again", and
+    /// that attempt deserves the same one free retry as the first.
+    private var autoRetries: [UUID: Int] = [:]
+
+    /// Reacting to a failure: count it, and give the download one silent
+    /// second chance.
+    private func handleFailure(_ jobID: UUID, message: String) {
+        if EngineUpdater.suggestsUpdate(message) { breakageFailures += 1 }
+
+        // Downloads fail for reasons that pass on their own — a fragment that
+        // times out, a connection that blinks. Making someone press Retry to
+        // discover that is asking them to do the app's job.
+        guard (autoRetries[jobID] ?? 0) < 1 else { return }
+        autoRetries[jobID] = 1
+
+        Task { [weak self] in
+            // A beat, so the row is visibly seen to fail rather than flickering
+            // back to "Preparing…" as though nothing happened.
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard let self,
+                  let job = self.jobs.first(where: { $0.id == jobID }),
+                  job.state == .failed
+            else { return }
+            self.retry(jobID, automatic: true)
+        }
+    }
+
+    /// Failures so far that carry YouTube's fingerprints. Published so the
+    /// Download screen can wait for a pattern instead of reacting to one.
+    /// Reset by any success: an engine that just worked is not the problem.
+    @Published private(set) var breakageFailures = 0
 
     /// Forget a finished download completely.
     ///
@@ -442,8 +484,9 @@ final class DownloadManager: ObservableObject {
     /// sitting there. Title, channel and thumbnail are kept too; they were
     /// resolved once and have not changed.
     @discardableResult
-    func retry(_ jobID: UUID) -> UUID? {
+    func retry(_ jobID: UUID, automatic: Bool = false) -> UUID? {
         guard let index = jobs.firstIndex(where: { $0.id == jobID }) else { return nil }
+        if !automatic { autoRetries[jobID] = nil }
         running[jobID]?.cancel()
         running[jobID] = nil
 
@@ -498,6 +541,7 @@ final class DownloadManager: ObservableObject {
                         }
                     }
                     if let job = self.jobs.first(where: { $0.id == jobID }), job.state == .completed {
+                        self.breakageFailures = 0
                         if let url { self.library.add(job: job, fileURL: url) }
                         Notifier.shared.downloadFinished(title: job.displayTitle, fileURL: url)
                     }
@@ -510,6 +554,9 @@ final class DownloadManager: ObservableObject {
                         }
                     }
                     self.savePending()
+                    if self.jobs.first(where: { $0.id == jobID })?.state == .failed {
+                        self.handleFailure(jobID, message: message)
+                    }
                 }
             }
             self.running[jobID] = nil
@@ -567,3 +614,4 @@ final class DownloadManager: ObservableObject {
         mutate(&jobs[index])
     }
 }
+

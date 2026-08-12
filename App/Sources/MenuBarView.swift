@@ -33,7 +33,7 @@ struct MenuBarView: View {
         VStack(alignment: .leading, spacing: Theme.Space.s10) {
             Text("\(AppConfig.shortName) isn't set up yet")
                 .font(Theme.Text.bodyEmphasized)
-            Text("Finish the two setup questions and this menu comes back.")
+            Text("Finish the setup")
                 .font(Theme.Text.caption)
                 .foregroundStyle(Theme.labelSecondary)
                 .fixedSize(horizontal: false, vertical: true)

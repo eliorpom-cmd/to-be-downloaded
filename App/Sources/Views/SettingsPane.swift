@@ -77,9 +77,7 @@ struct SettingsPane: View {
                         }
                         divider
                         row("Use automatic captions",
-                            detail: "When the channel wrote none. Machine transcription, "
-                                  + "no punctuation, often wrong.",
-                            wraps: true) {
+                            detail: "When the channel wrote none.") {
                             Toggle("", isOn: $settings.autoSubtitles)
                                 .toggleStyle(.switch)
                                 .labelsHidden()
@@ -305,8 +303,9 @@ struct SettingsPane: View {
     /// their default made the choice here and can be reminded here.
     private var videoQualityDetail: String? {
         settings.defaultVideoQuality == .max
-            ? "Max reaches 4K, which YouTube only serves as VP9. "
-                + "QuickTime and the TV app cannot play it; VLC and IINA can."
+            ? "Max downloads up to 4K, which YouTube only serves as VP9. "
+                + "QuickTime cannot play it. You'll need another player such as "
+                + "VLC or IINA."
             : nil
     }
 
