@@ -256,18 +256,13 @@ Bundled and downloaded third-party components keep their own licenses — see
 
 ## Supporters
 
-Signing TBD costs 99$ a year, so the year is sold by the month: 9$ takes one
-month, and the name goes here and on [tbd.yt](https://www.tbd.yt/#supporters).
-Twelve names and the year is paid.
+The people paying for the paid Apple Developer account. With it the app is
+signed and notarized, and nobody has to strip the quarantine attribute by hand
+to open it — that is the whole goal.
 
-| Month | Taken by |
-| --- | --- |
-| September 2026 | **[@minimejer05](https://www.threads.com/@minimejer05)** |
-| October 2026 | **[@minimejer05](https://www.threads.com/@minimejer05)** |
-| November 2026 — August 2027 | Open |
+- **[@minimejer05](https://www.threads.com/@minimejer05)**
 
-Ten months are still open — [lock one](https://ko-fi.com/eliorpom). Less than 9$
-works too, it just doesn't take a month; that name goes in the credits below.
+Want your name here? [Support me](https://ko-fi.com/eliorpom).
 
 ## Credits
 
