@@ -261,6 +261,7 @@ signed and notarized, and nobody has to strip the quarantine attribute by hand
 to open it — that is the whole goal.
 
 - **[@minimejer05](https://www.threads.com/@minimejer05)**
+- **[@ljyjeffrey](https://www.threads.com/@ljyjeffrey)**
 
 Want your name here? [Support me](https://ko-fi.com/eliorpom).
 
