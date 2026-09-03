@@ -256,14 +256,19 @@ Bundled and downloaded third-party components keep their own licenses — see
 
 ## Supporters
 
-The people paying for the paid Apple Developer account. With it the app is
+The Apple Developer account is paid for, by these four. With it the app gets
 signed and notarized, and nobody has to strip the quarantine attribute by hand
-to open it — that is the whole goal.
+to open it — that is the whole goal, and it lands in a coming release.
 
-- **[@minimejer05](https://www.threads.com/@minimejer05)**
-- **[@ljyjeffrey](https://www.threads.com/@ljyjeffrey)**
+The 99$ a year was split into twelve months of 9$ each, one name per month.
+All twelve are taken:
 
-Want your name here? [Support me](https://ko-fi.com/eliorpom).
+- **[@_sleepypanther](https://www.threads.com/@_sleepypanther)** — 7 months
+- **[@minimejer05](https://www.threads.com/@minimejer05)** — 2 months
+- **[@ljyjeffrey](https://www.threads.com/@ljyjeffrey)** — 2 months
+- **[@madscientist_ch](https://www.threads.com/@madscientist_ch)** — 1 month
+
+The board, month by month, is at [tbd.yt/support](https://tbd.yt/support).
 
 ## Credits
 
