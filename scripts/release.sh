@@ -140,13 +140,20 @@ CAV
 fi
 
 echo "▶ Cask Homebrew…"
+# Everything below until CASK is the cask, verbatim, with the shell expanding
+# $VERSION and friends — which is why the heredoc is unquoted.
+#
+# Consequence, and it has bitten once: a backtick pair in here is command
+# substitution, comments included. Writing `verified:` in a comment ran it as a
+# command, printed "command not found", and shipped the comment gutted. Quotes
+# in this block, never backticks.
 cat > "$DIST/$CASK_TOKEN.rb" <<CASK
 cask "$CASK_TOKEN" do
   version "$VERSION"
   sha256 "$SHA"
 
-  # No `verified:` — Homebrew 7 deprecates it and warns on every command that
-  # touches the cask. The stanza existed to vouch for a URL whose host does not
+  # No "verified" stanza: Homebrew 7 deprecates it and warns on every command
+  # that touches the cask. It existed to vouch for a URL whose host does not
   # match the homepage; here they are the same GitHub repository, which is
   # exactly the case the default verification already covers.
   url "https://github.com/$REPO/releases/download/v#{version}/$APP_NAME-#{version}-macos.zip"
