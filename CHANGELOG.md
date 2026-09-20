@@ -9,6 +9,53 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 Nothing yet.
 
+## [1.2.0] - 2026-09-20
+
+One line instead of two. The app is signed with an Apple Developer ID
+certificate and notarized by Apple, so macOS opens it without argument and
+nobody has to paste a `xattr` command to get past Gatekeeper. Four people paid
+for the developer account between them; the whole release is what that bought.
+
+Nothing needs redoing if you already have the app: it updates itself, and the
+update carries Apple's ticket with it.
+
+### Changed
+
+- **Installing is `brew install --cask eliorpom-cmd/tap/to-be-downloaded`**, and
+  that is all of it. The second command lifting `com.apple.quarantine` is gone
+  from the README, the site, and the cask's caveats.
+- **The app runs under the hardened runtime**, which notarization requires. The
+  bundled yt-dlp carries its own entitlements for it — a PyInstaller binary
+  needs executable memory and unvalidated libraries, and entitlements apply per
+  executable rather than per bundle.
+- **The disk image is notarized and stapled too.** Two separate tickets: without
+  the second one, Gatekeeper refuses the image before anyone reaches the app
+  inside it.
+
+### Fixed
+
+- **The entitlements were never actually applied.** The build signs by hand
+  with `CODE_SIGNING_ALLOWED=NO`, which means `CODE_SIGN_ENTITLEMENTS` from the
+  project file was read by nothing: 1.1.0 shipped with an empty entitlement set.
+  It changed nothing at the time, and it would have broken every launch the
+  moment the hardened runtime went on. Every `codesign` call now passes
+  `--entitlements` explicitly.
+- **The build no longer fails on a fresh checkout.** FlyingFox 0.27.1 deprecated
+  the `HTTPResponse` initialiser taking `[HTTPHeader: String]`, and with
+  warnings treated as errors the whole target stopped compiling. The server's
+  header literals are now built as `HTTPHeaders`.
+- **Releases cannot ship a cask that contradicts the build.** `release.sh` asks
+  the built app whether it is notarized instead of assuming, and emits the
+  `xattr` caveat only for a build that really needs one.
+
+### Known issues
+
+- **The Share extension still does not appear.** The explanation given in 1.1.0
+  was wrong: PlugInKit does not refuse it for being ad-hoc signed, because a
+  Developer ID signature does not fix it either. Measured with the app signed,
+  notarized, stapled and running. The **Services** menu and the `tbd://` scheme
+  do the same job and are unaffected.
+
 ## [1.1.0] - 2026-08-12
 
 A release made of other people's reports. Two of them are about the app

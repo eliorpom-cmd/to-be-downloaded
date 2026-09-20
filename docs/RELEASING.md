@@ -6,6 +6,53 @@
 
 ## One-time setup
 
+### Apple signing
+
+Two separate things, and they are easy to confuse: a **certificate** proves who
+built the app, and **notarization** is Apple scanning it and handing back a
+ticket. Only the ticket makes Gatekeeper open the app on someone else's Mac — a
+Developer ID signature without notarization is refused exactly like an ad-hoc
+one.
+
+The certificate is `Developer ID Application`, not `Apple Development`. The
+second is in the keychain of anyone who has opened Xcode, expires after a year,
+and passes Gatekeeper no better than a signature by nobody. Check what is there:
+
+```bash
+security find-identity -v -p codesigning     # want: Developer ID Application: … (TEAM)
+```
+
+Creating it cannot be done with an App Store Connect API key — Apple answers
+`This operation can only be performed by the Account Holder`. It is a CSR
+uploaded by hand on
+[the certificates page](https://developer.apple.com/account/resources/certificates/add),
+choosing **Developer ID Application** and the **G2 Sub-CA** profile. The key
+pair and CSR come from:
+
+```bash
+asc certificates create --certificate-type DEVELOPER_ID_APPLICATION --generate-csr \
+  --key-out ~/.config/apple-signing/developer-id-application.key \
+  --csr-out ~/.config/apple-signing/developer-id-application.csr
+```
+
+which fails on the API call but leaves both files behind, which is what is
+wanted. Losing that private key is not fatal — a new certificate can be issued,
+up to five — but it is worth keeping off this machine along with the `.cer`.
+
+Notarization then needs its own credentials, stored once in the keychain:
+
+```bash
+xcrun notarytool store-credentials tbd-notary \
+  --key <AuthKey_XXXX.p8> --key-id <KEY_ID> --issuer <ISSUER_ID>
+```
+
+`build.sh` picks up both on its own. With no Developer ID identity it falls back
+to an ad-hoc signature so that a contributor without an Apple account can still
+build; with no `tbd-notary` profile it signs but warns loudly that the build is
+not notarized.
+
+### Update keys
+
 ```bash
 ./scripts/signing.swift keygen           # current key  — once, ever
 ./scripts/signing.swift keygen backup    # backup key   — store it ELSEWHERE
@@ -34,7 +81,8 @@ The script:
 
 1. bumps `MARKETING_VERSION` in `project.yml`,
 2. refreshes the bundled yt-dlp to latest stable,
-3. runs `build.sh` (Release build, ad-hoc signature, DMG),
+3. runs `build.sh` (Release build, Developer ID signature, notarization,
+   stapling, DMG),
 4. archives with `ditto -c -k --sequesterRsrc --keepParent`,
 5. signs the ZIP with Ed25519,
 6. generates the Homebrew cask with its `sha256`,
@@ -51,6 +99,13 @@ Guard rails it enforces, each of which would otherwise ship a broken release:
   updater refuses an archive that announces anything else;
 - the private key used must correspond to a public key in `AppConfig`, or nobody
   could install what you just published.
+
+It also asks the built app whether it is notarized (`stapler validate`) rather
+than assuming it, and generates the cask accordingly: the `caveats` block
+telling users to run `xattr` is emitted only for a build that really needs it.
+Publishing a notarized app with that caveat would tell people to disarm a check
+that passes; publishing an unnotarized one without it would ship an install
+nobody can complete.
 
 ## Publishing
 
@@ -91,4 +146,5 @@ command does not contain the repo name.
 - [ ] `./scripts/release.sh <version>` green
 - [ ] `.zip` **and** `.zip.sig` attached to the release
 - [ ] cask copied to the tap and pushed
-- [ ] fresh-machine install tested (quarantine path included)
+- [ ] `spctl -a -vvv dist/TBD.app` says `source=Notarized Developer ID`
+- [ ] fresh-machine install tested

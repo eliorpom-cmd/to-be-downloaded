@@ -70,13 +70,17 @@ forever. Most of this list is done; what is left is marked as such.
       you nothing — and Gatekeeper is precisely what it cannot tell you about.
 - [ ] **Verify `brew upgrade --cask to-be-downloaded`** picks up the next
       version. That is the fallback if both signing keys are ever lost.
-- [ ] ~~Later, submit the cask to `homebrew/cask`~~ — closed as long as the app
-      is not notarized. `homebrew/cask` deprecates casks that fail Gatekeeper
-      and removes them on **2026-09-01**. That deadline applies to the official
-      repository only, so this tap is unaffected, but the door to the official
-      one is shut until notarization happens.
+- [ ] **Submit the cask to `homebrew/cask`** — possible again since 1.2.0.
+      The official repository deprecates casks that fail Gatekeeper and removed
+      them on **2026-09-01**; that deadline never applied to a personal tap, but
+      it did shut the door to the official one. Notarization reopened it. Not
+      urgent, and it means handing version bumps to strangers.
 
 ### `--no-quarantine` is gone, and it was the install command
+
+Kept as a record: this is what shipping unnotarized cost, and 1.2.0 is what
+ended it. Anyone reading an install command from 1.0.0 or 1.1.0 is reading this
+era.
 
 Homebrew removed the flag in **5.1**. It is not deprecated with a warning; the
 option does not parse, so the published command installed nothing at all:
@@ -119,33 +123,44 @@ testers, by construction.
 - [ ] **Confirm the backup key is not on the build machine.** A backup stored
       next to the original protects against nothing.
 
-## Notarization, or the choice not to
+## Notarization — done, and what it took
 
-Today the app is ad-hoc signed: no hardened runtime, not notarized, and the
-install takes a second command that lifts the quarantine attribute. That is a
-real cost, and Homebrew's removal of `--no-quarantine` made it a visibly larger
-one: a tidy flag on a `brew` line became a raw `xattr` command, which is a much
-easier thing to point at and call a red flag. It is the one thing on the site
-that has to be explained rather than stated, and some people will stop there.
+Until 1.2.0 the app was ad-hoc signed: no hardened runtime, not notarized, and
+an install that took a second command lifting the quarantine attribute. The cost
+was never technical, it was that the one thing on the site which had to be
+*explained* rather than stated was also the thing that looks most like a red
+flag. Some people stopped there.
 
-Fixing it costs 99 € a year for an Apple Developer account, plus:
+Four people paid for the Apple Developer account between them (see
+[Supporters](../README.md#supporters)). What the switch actually took:
 
-- [ ] switch `ENABLE_HARDENED_RUNTIME` to `YES` in `project.yml` (the comment
-      there already says so),
-- [ ] sign with a Developer ID certificate instead of `-`,
-- [ ] add a notarization step to `build.sh` (`xcrun notarytool submit --wait`,
-      then `xcrun stapler staple`),
-- [ ] drop the `xattr` line from the cask caveats and from every page that
-      prints it, and delete the Gatekeeper walkthrough the disk image needs,
-- [ ] check that the bundled yt-dlp still starts: signing a PyInstaller binary
-      under the hardened runtime is exactly what the
-      `com.apple.security.cs.allow-*` entitlements are there for.
+- [x] `ENABLE_HARDENED_RUNTIME` to `YES` in `project.yml`.
+- [x] Sign with a Developer ID Application certificate instead of `-`. It
+      **cannot be created with an App Store Connect API key** — Apple answers
+      `This operation can only be performed by the Account Holder`. The CSR goes
+      up by hand on the certificates page. [RELEASING.md](RELEASING.md#apple-signing)
+      has the commands.
+- [x] `--options runtime --timestamp` on every `codesign`. A missing secure
+      timestamp is the most common notarization rejection there is.
+- [x] **`--entitlements` on every `codesign`**, which was the real trap. The
+      build runs `CODE_SIGNING_ALLOWED=NO` and signs by hand, so
+      `CODE_SIGN_ENTITLEMENTS` from `project.yml` was never applied by anything —
+      1.1.0 shipped publicly with an empty entitlement set and nobody could tell,
+      because nothing needed them until the hardened runtime went on.
+- [x] A separate `App/ytdlp.entitlements` for the bundled yt-dlp. Entitlements
+      apply per executable, and only the PyInstaller binary needs executable
+      memory and unvalidated libraries.
+- [x] Notarization and stapling in `build.sh`, for the app **and** the DMG. Two
+      separate tickets: without the second, Gatekeeper refuses the disk image
+      before anyone reaches the app inside it.
+- [x] The bundled yt-dlp still starts under the hardened runtime. Verified by
+      running it, not by reasoning about it.
+- [ ] Drop the `xattr` line from every page that prints it, and delete the
+      Gatekeeper walkthrough on the disk-image path.
 
-It also reopens `homebrew/cask`, which the 2026-09-01 Gatekeeper deadline
-closes otherwise.
-
-Decide it on purpose, not by drift. Shipping unsigned is a defensible choice
-for a free tool; pretending the second command is a detail is not.
+`release.sh` now asks the built app whether it is notarized instead of assuming,
+and emits the cask's `caveats` accordingly — so a build that silently loses its
+ticket cannot ship with an install command that claims otherwise.
 
 ## The day itself
 

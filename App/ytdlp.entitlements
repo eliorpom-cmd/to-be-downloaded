@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Entitlements for the BUNDLED yt-dlp, not for the app.
+
+	     yt-dlp_macos is a PyInstaller one-file binary: it unpacks a Python
+	     runtime and a pile of .so files into a temporary directory at every
+	     launch, then loads them. Notarization requires every executable in the
+	     bundle to carry the hardened runtime, and the hardened runtime breaks
+	     exactly that pattern unless these two are granted.
+
+	     They are on yt-dlp alone on purpose. Entitlements apply per binary, and
+	     yt-dlp runs as its own process — widening the app's own entitlements
+	     would buy nothing and weaken the app. -->
+
+	<!-- PyInstaller's bootloader maps its payload as executable memory. -->
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<true/>
+	<!-- The extracted .so files are not signed by this team. -->
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+</dict>
+</plist>

@@ -21,10 +21,23 @@ Produces:
 - `dist/TBD.app` — the application,
 - `dist/TBD.dmg` — the disk image (volume named "TBD - To Be Downloaded").
 
-Signing is **ad-hoc** (`codesign -s -`): free, no Apple Developer account, not
-notarized. The script signs **inside out** — the bundled binaries first, then the
+Signing picks itself. With a **Developer ID Application** identity in the
+keychain the script signs with it, under the hardened runtime, with a secure
+timestamp and the entitlements each binary needs, then notarizes and staples —
+that is what ships. With no such identity it falls back to an **ad-hoc**
+signature (`codesign -s -`), which is free, needs no Apple account, and builds
+an app that runs here and is refused by Gatekeeper anywhere else. Contributors
+get the second without doing anything.
+
+Either way the script signs **inside out** — the bundled binaries first, then the
 `.appex`, then the app. Signing the app seals the contents of `PlugIns/`, so
 signing the extension afterwards would invalidate the app's signature.
+
+`--entitlements` is passed explicitly at every step, and that is not belt and
+braces: the build runs with `CODE_SIGNING_ALLOWED=NO`, so `CODE_SIGN_ENTITLEMENTS`
+from `project.yml` is never applied by Xcode. Without those flags the app ships
+with no entitlements at all, which is invisible until the hardened runtime is
+switched on and the frozen yt-dlp stops starting.
 
 `App/Resources/bin/` holds only `yt-dlp` and `cacert.pem`. **FFmpeg is not in
 the repository and must not be added back**: the build that used to live there

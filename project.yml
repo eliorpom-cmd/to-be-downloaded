@@ -23,8 +23,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    MARKETING_VERSION: "1.1.0"
-    CURRENT_PROJECT_VERSION: "202608121221"
+    MARKETING_VERSION: "1.2.0"
+    CURRENT_PROJECT_VERSION: "202609201654"
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
 
@@ -70,10 +70,13 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_KEY_CFBundleName: To Be Downloaded
         INFOPLIST_KEY_CFBundleDisplayName: TBD - To Be Downloaded
-        # Hardened runtime OFF: required only for Apple notarization (paid
-        # developer account). Without it, the frozen yt-dlp runs fine.
-        # → Switch to YES when Developer ID notarization is set up.
-        ENABLE_HARDENED_RUNTIME: NO
+        # Required by notarization, and by nothing else. Note that this
+        # setting only governs the signature XCODE applies: scripts/build.sh
+        # builds with CODE_SIGNING_ALLOWED=NO and signs by hand, so what
+        # actually ships is `codesign --options runtime` over there. Kept in
+        # agreement with it so that a build straight from Xcode behaves the
+        # same way.
+        ENABLE_HARDENED_RUNTIME: YES
         MACOSX_DEPLOYMENT_TARGET: "13.0"
         # CONTRIBUTING promises "no warnings", so the build enforces it rather
         # than trusting anyone to read the log. Set on the TARGET and not on the
@@ -107,7 +110,7 @@ targets:
         # next to the app icon. The full name would be unwieldy there.
         INFOPLIST_KEY_CFBundleDisplayName: TBD
         GENERATE_INFOPLIST_FILE: NO
-        ENABLE_HARDENED_RUNTIME: NO
+        ENABLE_HARDENED_RUNTIME: YES
         CODE_SIGN_ENTITLEMENTS: Extension/Share/Share.entitlements
         SKIP_INSTALL: YES
         MACOSX_DEPLOYMENT_TARGET: "13.0"

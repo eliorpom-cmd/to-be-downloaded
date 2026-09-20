@@ -63,11 +63,23 @@ BUILD_NUMBER="$(/bin/date +%Y%m%d%H%M)"
 echo "▶ Bundled yt-dlp: latest stable version…"
 "$ROOT/scripts/update-ytdlp.sh" stable >/dev/null
 
-echo "▶ Build Release + signature ad-hoc + DMG…"
-"$ROOT/scripts/build.sh" >/dev/null
+echo "▶ Build Release + signature + DMG…"
+"$ROOT/scripts/build.sh"
 
 APP="$DIST/$APP_NAME.app"
 [ -d "$APP" ] || { echo "❌ App not found after build: $APP"; exit 1; }
+
+# Is what we just built actually notarized? Asked of the artifact, never
+# assumed: the cask's caveats tell users whether they must run a raw `xattr`
+# command, and getting that wrong is either an install nobody can complete or
+# a pointless security warning on a perfectly fine app.
+if xcrun stapler validate "$APP" >/dev/null 2>&1; then
+  NOTARIZED="yes"
+else
+  NOTARIZED="no"
+  echo "⚠️  This build is NOT notarized: the cask will keep the xattr caveat"
+  echo "    and everyone installing it will have to run that command."
+fi
 
 # The version IN the bundle must match the release: the updater rejects
 # an archive whose Info.plist announces anything different than the tag.
@@ -105,6 +117,27 @@ fi
 
 SHA="$(/usr/bin/shasum -a 256 "$DIST/$ZIP_NAME" | /usr/bin/awk '{print $1}')"
 
+if [ "$NOTARIZED" = "yes" ]; then
+  # Signed and notarized: nothing for the user to do, and nothing to say. An
+  # empty caveats block would still print a header, so there is none at all.
+  CAVEATS=""
+else
+  # `read -d ''` and not $(cat <<…): bash 3.2, which is what /bin/bash still is
+  # on macOS, cannot parse a heredoc inside a command substitution.
+  IFS='' read -r -d '' CAVEATS <<'CAV' || true
+  caveats <<~EOS
+    This app is signed ad-hoc and is not notarised by Apple, so macOS
+    quarantines it and refuses to open it. Homebrew dropped --no-quarantine in
+    5.1, so the attribute has to come off by hand, once:
+
+      xattr -dr com.apple.quarantine "/Applications/TBD - To be downloaded.app"
+
+    Updates afterwards are automatic and are verified against the developer's
+    Ed25519 key before anything is installed.
+  EOS
+CAV
+fi
+
 echo "▶ Cask Homebrew…"
 cat > "$DIST/$CASK_TOKEN.rb" <<CASK
 cask "$CASK_TOKEN" do
@@ -132,17 +165,7 @@ cask "$CASK_TOKEN" do
   # people's disks, not a label. Renaming it is how you give someone two apps.
   app "$APP_NAME.app", target: "TBD - To be downloaded.app"
 
-  caveats <<~EOS
-    This app is signed ad-hoc and is not notarised by Apple, so macOS
-    quarantines it and refuses to open it. Homebrew dropped --no-quarantine in
-    5.1, so the attribute has to come off by hand, once:
-
-      xattr -dr com.apple.quarantine "/Applications/TBD - To be downloaded.app"
-
-    Updates afterwards are automatic and are verified against the developer's
-    Ed25519 key before anything is installed.
-  EOS
-
+$CAVEATS
   zap trash: [
     "~/Library/Application Support/$APP_NAME",
     "~/Library/Preferences/com.byelior.tbd.plist",

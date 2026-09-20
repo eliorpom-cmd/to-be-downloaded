@@ -38,9 +38,13 @@ please allow reasonable time for a fix before publishing anything.
   known and deliberate trade-off for a tool meant for a home network. Don't run
   it on a network you don't trust; a report that "anyone on the Wi-Fi can use it"
   will be closed as intended behavior.
-- **The app is not sandboxed and not notarized**, and the hardened runtime is
-  off. These are consequences of shipping without a paid Apple Developer account
-  and are documented; they are not individually reportable findings.
+- **The app is not sandboxed.** It launches subprocesses and binds a local HTTP
+  port, neither of which survives the App Store sandbox. It is signed with a
+  Developer ID certificate, notarized, and runs under the hardened runtime; the
+  entitlements it does carry are listed in `App/TBD.entitlements` and
+  `App/ytdlp.entitlements`, each with the reason it is there. The absence of the
+  sandbox is documented rather than a reportable finding — a way to escalate
+  through one of those entitlements is very much reportable.
 - **Vulnerabilities in yt-dlp or FFmpeg** — report those upstream. If TBD's use
   of them makes an upstream issue exploitable in a way it otherwise wouldn't be,
   that *is* in scope here.

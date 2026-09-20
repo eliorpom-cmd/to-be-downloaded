@@ -2,24 +2,35 @@
 
 ## "The app is damaged" / macOS refuses to open it
 
-The app is ad-hoc signed and **not notarized** (notarization requires a paid
-Apple Developer account). macOS quarantines anything downloaded and unnotarized.
+Since 1.2.0 this should not happen: the app is signed with a Developer ID
+certificate and notarized by Apple. If it does, the useful question is what
+macOS actually thinks of the bundle:
 
-Whichever way it was installed, this lifts the tag:
+```bash
+spctl -a -vvv "/Applications/TBD - To be downloaded.app"
+# expected: accepted / source=Notarized Developer ID
+xcrun stapler validate "/Applications/TBD - To be downloaded.app"
+```
+
+Two answers worth telling apart:
+
+- **`rejected`** — the bundle was modified after signing. Copying a `.app` with
+  a tool that drops extended attributes does this (`unzip` does, `ditto` does
+  not). Reinstall rather than repair.
+- **`accepted` but the app still will not open** — not Gatekeeper. Look at
+  Console.app instead.
+
+**On a version before 1.2.0**, this was expected rather than a fault: the app
+was ad-hoc signed and unnotarized, so macOS quarantined it. The way out was, and
+still is:
 
 ```bash
 xattr -dr com.apple.quarantine "/Applications/TBD - To be downloaded.app"
 ```
 
-Homebrew used to do it for you with `--no-quarantine` and dropped the flag in
-5.1, so the line is now run by hand — see the [README](../README.md#install).
-
-Without it, the way through is **System Settings → Privacy & Security →
-Security → Open Anyway**, after a first refused launch. Control-clicking the app
-and choosing **Open** no longer works: Apple removed that shortcut in macOS
-Sequoia, and most guides on the web still recommend it.
-
-On the Mac that built it, it opens directly.
+Upgrading is the real fix, and an installed app upgrades itself. Note that the
+quarantine attribute is set once, when the file is downloaded — an app already
+open on your machine does not acquire it later.
 
 ## Spotlight keeps offering an old version
 
@@ -122,14 +133,31 @@ the frame either, so TBD falls back to the bundled ffmpeg to extract it.
 
 ## The Share extension doesn't appear
 
-**An ad-hoc signed app extension is not registered by PlugInKit.** `pluginkit -m -A -D`
-doesn't list it, even though Launch Services knows the bundle (`lsregister -dump`
-shows it) and a Developer ID–signed extension on the same machine does appear.
+Still open, and the earlier explanation here was wrong.
 
-It is built and embedded in `Contents/PlugIns/Share.appex`, and it will activate
-on its own the day the app is signed with an Apple Developer account. Until then
-the **Services** menu ("Download with TBD") does the same job from any app, and
-so does the `tbd://download?url=…` scheme.
+The belief was that PlugInKit refuses **ad-hoc signed** extensions and that a
+Developer ID signature would fix it. It does not. Measured on 2026-09-20, with
+the app Developer ID signed, notarized, stapled, installed in `/Applications`
+and running:
+
+```bash
+pluginkit -m -p com.apple.share-services   # 19 extensions, none of them TBD's
+pluginkit -m -i com.byelior.tbd.share      # nothing
+pluginkit -a "…/Contents/PlugIns/Share.appex"   # silent, changes nothing
+```
+
+`pkd` logs no rejection at all, which says discovery is never attempted rather
+than attempted and refused. The bundle itself looks right: `Share.appex` is
+present, signed by the same team under the hardened runtime, and its
+`NSExtensionPointIdentifier` is `com.apple.share-services` with a principal
+class and an activation rule.
+
+**Not yet ruled out:** PlugInKit may only pick up a newly signed extension after
+a logout or a restart. Worth re-checking after one before digging further.
+
+Meanwhile the **Services** menu ("Download with TBD") does the same job from any
+app, and so does the `tbd://download?url=…` scheme. Neither depends on
+PlugInKit.
 
 ## The menu bar icon is missing
 

@@ -70,8 +70,10 @@ does nothing at all.
 
 ## Security model of the app updater
 
-The app is **not notarized**, so macOS guarantees nothing about what the updater
-downloads. The guarantee comes from an **Ed25519** signature whose public keys
+macOS checks a notarized app when it is **installed**, not when this updater
+replaces a bundle on disk — so Apple's signature guarantees nothing here, and
+the guarantee has to come from the project itself. It is an **Ed25519**
+signature whose public keys
 are compiled into the binary (`AppConfig.updatePublicKeys`) and whose private
 keys never leave the developer's machine (`~/.config/tbd-release/`, mode `0600`,
 outside the repo).

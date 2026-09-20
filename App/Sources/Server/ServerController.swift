@@ -107,15 +107,20 @@ final class ServerController: ObservableObject {
             let html = WebUI.indexHTML(
                 appName: appName, shortName: shortName,
                 audioBitrateSelectable: audioBitrateSelectable)
+            // HTTPHeaders(...) spelled out rather than a bare dictionary literal
+            // everywhere below: FlyingFox 0.27 kept a [HTTPHeader: String]
+            // overload and deprecated it, and a literal still resolves to that
+            // one. With SWIFT_TREAT_WARNINGS_AS_ERRORS the whole target stops
+            // building the day the dependency is refreshed.
             return HTTPResponse(statusCode: .ok,
-                                headers: [.contentType: "text/html; charset=utf-8"],
+                                headers: HTTPHeaders([.contentType: "text/html; charset=utf-8"]),
                                 body: Data(html.utf8))
         }
 
         // PWA manifest ("Add to Home Screen").
         await server.appendRoute("GET /manifest.webmanifest") { _ in
             HTTPResponse(statusCode: .ok,
-                         headers: [.contentType: "application/manifest+json"],
+                         headers: HTTPHeaders([.contentType: "application/manifest+json"]),
                          body: Data(WebUI.manifestJSON(appName: appName,
                                                        shortName: shortName).utf8))
         }
@@ -126,7 +131,7 @@ final class ServerController: ObservableObject {
                 return HTTPResponse(statusCode: .notFound, body: Data())
             }
             return HTTPResponse(statusCode: .ok,
-                                headers: [.contentType: "image/png"],
+                                headers: HTTPHeaders([.contentType: "image/png"]),
                                 body: iconData)
         }
 
@@ -136,7 +141,7 @@ final class ServerController: ObservableObject {
                 return HTTPResponse(statusCode: .notFound, body: Data())
             }
             return HTTPResponse(statusCode: .ok,
-                                headers: [.contentType: "image/png"],
+                                headers: HTTPHeaders([.contentType: "image/png"]),
                                 body: faviconData)
         }
 
@@ -146,7 +151,7 @@ final class ServerController: ObservableObject {
             let jobs = await downloads.snapshot()
             let data = (try? JSONEncoder().encode(jobs)) ?? Data("[]".utf8)
             return HTTPResponse(statusCode: .ok,
-                                headers: [.contentType: "application/json"],
+                                headers: HTTPHeaders([.contentType: "application/json"]),
                                 body: data)
         }
 
@@ -155,12 +160,12 @@ final class ServerController: ObservableObject {
             let url = request.query["url"]?.trimmingCharacters(in: .whitespaces) ?? ""
             guard !url.isEmpty, let meta = await downloads.fetchMetadata(urlString: url) else {
                 return HTTPResponse(statusCode: .notFound,
-                                    headers: [.contentType: "application/json"],
+                                    headers: HTTPHeaders([.contentType: "application/json"]),
                                     body: Data(#"{"error":"unavailable"}"#.utf8))
             }
             let data = (try? JSONEncoder().encode(MetadataDTO(meta))) ?? Data("{}".utf8)
             return HTTPResponse(statusCode: .ok,
-                                headers: [.contentType: "application/json"],
+                                headers: HTTPHeaders([.contentType: "application/json"]),
                                 body: data)
         }
 
@@ -170,7 +175,7 @@ final class ServerController: ObservableObject {
                   let dto = try? JSONDecoder().decode(DownloadRequestDTO.self, from: body),
                   !dto.url.trimmingCharacters(in: .whitespaces).isEmpty else {
                 return HTTPResponse(statusCode: .badRequest,
-                                    headers: [.contentType: "application/json"],
+                                    headers: HTTPHeaders([.contentType: "application/json"]),
                                     body: Data(#"{"error":"invalid request"}"#.utf8))
             }
             // Audio container and subtitles follow the app's settings:
@@ -181,7 +186,7 @@ final class ServerController: ObservableObject {
             let payload = ["id": id?.uuidString ?? ""]
             let data = (try? JSONEncoder().encode(payload)) ?? Data("{}".utf8)
             return HTTPResponse(statusCode: .ok,
-                                headers: [.contentType: "application/json"],
+                                headers: HTTPHeaders([.contentType: "application/json"]),
                                 body: data)
         }
 
@@ -189,7 +194,7 @@ final class ServerController: ObservableObject {
         await server.appendRoute("POST /api/cancel/:id") { (_: HTTPRequest, id: String) in
             if let uuid = UUID(uuidString: id) { await downloads.cancel(uuid) }
             return HTTPResponse(statusCode: .ok,
-                                headers: [.contentType: "application/json"],
+                                headers: HTTPHeaders([.contentType: "application/json"]),
                                 body: Data("{}".utf8))
         }
 
@@ -197,7 +202,7 @@ final class ServerController: ObservableObject {
         await server.appendRoute("POST /api/clear") { _ in
             await downloads.removeCompleted()
             return HTTPResponse(statusCode: .ok,
-                                headers: [.contentType: "application/json"],
+                                headers: HTTPHeaders([.contentType: "application/json"]),
                                 body: Data("{}".utf8))
         }
 
@@ -212,10 +217,10 @@ final class ServerController: ObservableObject {
             let encoded = name.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? name
             return HTTPResponse(
                 statusCode: .ok,
-                headers: [
+                headers: HTTPHeaders([
                     .contentType: "application/octet-stream",
                     .contentDisposition: "attachment; filename=\"\(name)\"; filename*=UTF-8''\(encoded)",
-                ],
+                ]),
                 body: body
             )
         }

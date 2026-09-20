@@ -165,7 +165,11 @@ Why the Share extension is inactive is covered in
 - **Swift 6** strict concurrency. `RelativeDateTimeFormatter` is not `Sendable`
   (instantiate at call site); `AnyTransition` is not either (declare as
   `static var`).
-- **Not sandboxed**, ad-hoc signed, hardened runtime **off** — required only for
-  Apple notarization, which needs a paid account. Flip
-  `ENABLE_HARDENED_RUNTIME` to `YES` the day that changes.
+- **Not sandboxed**, Developer ID signed, notarized, hardened runtime **on**.
+  The runtime is what notarization requires, and it is why the bundled yt-dlp
+  carries its own entitlements (`App/ytdlp.entitlements`): a PyInstaller binary
+  needs executable memory and unvalidated libraries, and entitlements apply per
+  executable. `scripts/build.sh` falls back to an ad-hoc signature when no
+  Developer ID identity is present, so a contributor without an Apple account
+  can still build.
 - **arm64 only.**

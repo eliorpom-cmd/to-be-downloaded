@@ -122,29 +122,26 @@ Right-click a link in Safari → **Services** → *Download with TBD*.
 ### Homebrew (recommended)
 
 ```bash
-brew install --cask eliorpom-cmd/tap/to-be-downloaded && xattr -dr com.apple.quarantine "/Applications/TBD - To be downloaded.app"
+brew install --cask eliorpom-cmd/tap/to-be-downloaded
 ```
 
-The second half is **required**, and it is worth knowing why. The app is ad-hoc
-signed and not notarized by Apple (notarization needs a paid Apple Developer
-account), so macOS tags the download with `com.apple.quarantine` and Gatekeeper
-refuses to open anything carrying that tag. Homebrew used to lift the tag itself
-with `--no-quarantine`; it dropped the flag in 5.1, on the grounds that
-disabling a security check on someone's behalf is not a package manager's call.
-The attribute is still yours to remove, and this is what removing it looks like.
-It affects this app only and disables nothing else.
+That is the whole command. The app is signed with a Developer ID certificate and
+notarized by Apple, so macOS opens it without asking anything.
+
+It took two commands until 1.2.0. The app was signed by nobody in particular,
+macOS tagged the download with `com.apple.quarantine`, and a second line had to
+strip that tag by hand — Homebrew used to do it for you with `--no-quarantine`
+and dropped the flag in 5.1. The Apple Developer account that made the first
+line sufficient was paid for by the people under [Supporters](#supporters).
+
+If you installed an earlier version, nothing needs redoing: the app updates
+itself, and the quarantine attribute was only ever set once, at install.
 
 ### Disk image
 
 Download `TBD.dmg` from the
 [latest release](https://github.com/eliorpom-cmd/to-be-downloaded/releases/latest),
-drag the app into `/Applications`, and open it. macOS will say it cannot verify
-the app: open **System Settings → Privacy & Security**, scroll to **Security**,
-click **Open Anyway**, and confirm. Asked once, then never again.
-
-Control-clicking the app and choosing **Open** used to skip that; Apple removed
-the shortcut in macOS Sequoia. The `xattr` line above works here too and avoids
-the question entirely.
+drag the app into `/Applications`, and open it. Nothing else to do.
 
 ### From source
 
@@ -218,7 +215,7 @@ LAN HTTP server, so there is no duplicated logic and no second source of truth.
 | [docs/BUILDING.md](docs/BUILDING.md) | Building, installing from source, refreshing the bundled yt-dlp |
 | [docs/UPDATES.md](docs/UPDATES.md) | How the app and yt-dlp update themselves, and the security model behind it |
 | [docs/RELEASING.md](docs/RELEASING.md) | Cutting a release, signing keys, the Homebrew tap, key loss |
-| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Stale Spotlight results, quarantine, TLS interception, inactive Share extension |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Stale Spotlight results, TLS interception, playback, the LAN page |
 | [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md) | Bundled and downloaded components, their licenses, and why FFmpeg is not shipped |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to propose a change |
 | [SECURITY.md](SECURITY.md) | Reporting a vulnerability |
@@ -256,9 +253,9 @@ Bundled and downloaded third-party components keep their own licenses — see
 
 ## Supporters
 
-The Apple Developer account is paid for, by these four. With it the app gets
+The Apple Developer account is paid for, by these four. Since 1.2.0 the app is
 signed and notarized, and nobody has to strip the quarantine attribute by hand
-to open it — that is the whole goal, and it lands in a coming release.
+to open it. That was the whole goal, and it is done.
 
 The 99$ a year was split into twelve months of 9$ each, one name per month.
 All twelve are taken:
