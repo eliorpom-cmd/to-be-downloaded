@@ -125,6 +125,7 @@ else
   # `read -d ''` and not $(cat <<…): bash 3.2, which is what /bin/bash still is
   # on macOS, cannot parse a heredoc inside a command substitution.
   IFS='' read -r -d '' CAVEATS <<'CAV' || true
+
   caveats <<~EOS
     This app is signed ad-hoc and is not notarised by Apple, so macOS
     quarantines it and refuses to open it. Homebrew dropped --no-quarantine in
@@ -144,8 +145,11 @@ cask "$CASK_TOKEN" do
   version "$VERSION"
   sha256 "$SHA"
 
-  url "https://github.com/$REPO/releases/download/v#{version}/$APP_NAME-#{version}-macos.zip",
-      verified: "github.com/$REPO/"
+  # No `verified:` — Homebrew 7 deprecates it and warns on every command that
+  # touches the cask. The stanza existed to vouch for a URL whose host does not
+  # match the homepage; here they are the same GitHub repository, which is
+  # exactly the case the default verification already covers.
+  url "https://github.com/$REPO/releases/download/v#{version}/$APP_NAME-#{version}-macos.zip"
   name "TBD - To Be Downloaded"
   name "TBD"
   desc "Downloads YouTube video and audio, with a LAN web remote"
@@ -164,7 +168,6 @@ cask "$CASK_TOKEN" do
   # Lowercase "downloaded" on purpose: this is an existing path on other
   # people's disks, not a label. Renaming it is how you give someone two apps.
   app "$APP_NAME.app", target: "TBD - To be downloaded.app"
-
 $CAVEATS
   zap trash: [
     "~/Library/Application Support/$APP_NAME",
