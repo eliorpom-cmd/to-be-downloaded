@@ -600,7 +600,7 @@ final class DownloadManager: ObservableObject {
                     guard let started = job.mergeStartedAt else { continue }
                     let elapsed = Date().timeIntervalSince(started)
                     let floor = job.postProcessingFloor
-                    // τ = 5 s : ~63 % du chemin restant parcouru en 5 s.
+                    // τ = 5 s: ~63 % of the remaining way covered in 5 s.
                     let eased = 1 - exp(-elapsed / 5)
                     let target = floor + (0.995 - floor) * eased
                     self.update(job.id) { $0.overallProgress = max($0.overallProgress, target) }
