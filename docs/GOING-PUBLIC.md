@@ -155,7 +155,7 @@ Four people paid for the Apple Developer account between them (see
       before anyone reaches the app inside it.
 - [x] The bundled yt-dlp still starts under the hardened runtime. Verified by
       running it, not by reasoning about it.
-- [ ] Drop the `xattr` line from every page that prints it, and delete the
+- [x] Drop the `xattr` line from every page that prints it, and delete the
       Gatekeeper walkthrough on the disk-image path.
 
 `release.sh` now asks the built app whether it is notarized instead of assuming,
@@ -165,11 +165,11 @@ ticket cannot ship with an install command that claims otherwise.
 ## The day itself
 
 - [x] Repository public.
-- [ ] `SOURCE_PUBLIC = true` in the site's `config.ts`, which brings back the
+- [x] `SOURCE_PUBLIC = true` in the site's `config.ts`, which brings back the
       GitHub links and switches the "the code goes public when it leaves beta"
       sentence to the present tense.
-- [ ] `LAUNCHED = true` in the same file, which replaces the waitlist form with
+- [x] `LAUNCHED = true` in the same file, which replaces the waitlist form with
       the Homebrew command everywhere.
-- [ ] Delete `src/pages/beta.astro` and `public/beta/`, which exist only
+- [x] Delete `src/pages/beta.astro` and `public/beta/`, which exist only
       because the repository was private.
 - [ ] Email the waitlist. It is the only list that exists.

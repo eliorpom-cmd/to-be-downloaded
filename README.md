@@ -14,12 +14,9 @@ A native macOS downloader built on yt-dlp — that your phone can drive too.
 [![yt-dlp](https://img.shields.io/badge/engine-yt--dlp-0A0A0A?style=flat-square)](https://github.com/yt-dlp/yt-dlp)
 [![FFmpeg](https://img.shields.io/badge/FFmpeg-fetched%20or%20linked%20on%20first%20launch-0A0A0A?style=flat-square)](#first-launch)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-0A0A0A?style=flat-square)](LICENSE)
-
-<!-- Enable once the repository is public and the first release is published:
 [![Latest release](https://img.shields.io/github/v/release/eliorpom-cmd/to-be-downloaded?style=flat-square&color=0A0A0A)](https://github.com/eliorpom-cmd/to-be-downloaded/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/eliorpom-cmd/to-be-downloaded/total?style=flat-square&color=0A0A0A)](https://github.com/eliorpom-cmd/to-be-downloaded/releases)
 [![Stars](https://img.shields.io/github/stars/eliorpom-cmd/to-be-downloaded?style=flat-square&color=0A0A0A)](https://github.com/eliorpom-cmd/to-be-downloaded/stargazers)
--->
 
 <img src="docs/assets/hero.png" width="820" alt="The TBD window: one URL field, and downloads filling up as capsules">
 
