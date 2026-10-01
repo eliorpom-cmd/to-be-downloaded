@@ -146,3 +146,13 @@ Sources: yt-dlp wiki [EJS](https://github.com/yt-dlp/yt-dlp/wiki/EJS) and
 yt-dlp 2026.08.19 source (`extractor/youtube/_video.py`, `_base.py`,
 `jsc/_builtin/*.py`); [yt-dlp/ejs](https://github.com/yt-dlp/ejs) README;
 release assets of Deno, Node, Bun and QuickJS-NG, downloaded 30/09/2026.
+
+## Measured on a Mac (2026-10-01)
+
+Apple Silicon Mac, QuickJS-NG 0.17.0 (`qjs-darwin-arm64`, 1.3 MB, runs after `xattr -c`), Homebrew yt-dlp 2026.07.04, real YouTube player `57bae81f` (2.98 MB).
+
+- Bench script, solver alone, 3 runs each: Deno 0.42–0.45 s, Node 0.37–0.39 s, **QuickJS-NG 2.85 s** (about 7× slower, not 14×; memory 230 MB vs 310 MB).
+- End to end, `yt-dlp -s --js-runtimes quickjs:…` after `--rm-cache-dir`: the run that solves the challenge takes 6.2 s, the others 1.5–1.6 s. Deno: 1.6–2.2 s. So QuickJS costs about **4.5 s once per player version**, then nothing.
+- `yt-dlp -v` lists `JS runtimes: quickjs-ng-0.17.0` and the `quickjs` challenge provider; no warning.
+
+Verdict unchanged: QuickJS-NG is fast enough to ship. Not checked here: a "made for kids" video, and the `yt-dlp_macos` binary the app ships.
