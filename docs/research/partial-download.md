@@ -4,6 +4,11 @@
 
 > **Elior's decisions (17/10):** exact cuts, **and fast** · **several ranges from one video in v1** ·
 > free, like everything in TBD (open source, no paid tier). The sections below are updated accordingly.
+>
+> **Rule (Elior, 17/10): only the chosen part is ever downloaded, never the whole video then trimmed.**
+> `--download-sections` asks YouTube's servers for the bytes of the range only (plus at most a couple of
+> seconds back to the previous keyframe). Every cutting step below works on that small download, never on
+> the full file. A 40-second clip from a two-hour stream downloads about 40 seconds of video.
 
 ## Why this feature, and why now
 
