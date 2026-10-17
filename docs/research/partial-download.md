@@ -2,6 +2,9 @@
 
 17 October 2026. Thinking ahead for the next notable release (1.5 or 2.0). Nothing is built yet.
 
+> **Elior's decisions (17/10):** exact cuts, **and fast** · **several ranges from one video in v1** ·
+> free, like everything in TBD (open source, no paid tier). The sections below are updated accordingly.
+
 ## Why this feature, and why now
 
 - **It is what people come for.** On tbd.yt, `/blog/download-part-of-youtube-video/` is the most read page after
@@ -43,9 +46,17 @@ added to `DownloadEngine.buildArgs` when the job has a range, with three constra
    code 8**. Today's selector ends with fallbacks `b[height<=h]` and `/b`, which can pick a muxed stream. In
    trim mode, drop those fallbacks and keep only `bv*+ba` selectors. If no DASH pair exists, say so before
    starting rather than failing after.
-2. **Exact cuts**: `--force-keyframes-at-cuts`. Without it the cut lands on the nearest keyframe, up to a second
-   or two off, which looks like a bug to someone who placed a handle precisely. On by default, with a setting
-   "Faster, less precise cuts" for people who trim long ranges. It re-encodes only around the cut points.
+2. **Exact cuts, and fast** (decided). Without re-encoding, a cut lands on the nearest keyframe, up to a second
+   or two off, which looks like a bug to someone who placed a handle precisely. `--force-keyframes-at-cuts`
+   is exact but re-encodes the whole range in software, slow on a long range. The plan, in order:
+   - **v1: hardware encoding.** Re-encode the range with Apple's encoder (`h264_videotoolbox` through the
+     FFmpeg downloader arguments), many times faster than real time on Apple silicon, at a high bitrate so
+     the quality loss is not visible. Exact on every range, fast enough for clips of a few minutes.
+   - **Then: smart cut** for long ranges. Copy the range without re-encoding from the keyframe before the
+     start, re-encode only the first and last GOP (a second or two each) to land exactly, and join the three
+     parts. Exact and almost as fast as a plain copy whatever the length. More FFmpeg plumbing, so after v1.
+   - To verify first on a real run: that VideoToolbox is reachable through `--downloader-args ffmpeg_o:` with
+     `--download-sections`, and the speed on a 10-minute 1080p range.
 3. **Audio only** works the same way with `-f bestaudio[ext=m4a]`.
 
 ### Progress (the real engineering risk)
@@ -94,8 +105,8 @@ embedding a player and streaming, which is a different product.
 
 ## Size of the work
 
-Roughly 2 to 3 days: engine and progress (1 day), range bar with storyboards and chapters (1 day), web UI, API,
-library, tests and the release check (0.5 to 1 day).
+Roughly 3 to 4 days: engine, hardware re-encode and progress (1.5 days), range bar with several ranges,
+storyboards and chapters (1.5 days), web UI, API, library, tests and the release check (1 day). Smart cut later.
 
 ## After shipping
 
@@ -105,7 +116,11 @@ library, tests and the release check (0.5 to 1 day).
 
 ## Open questions for Elior
 
-1. Exact cuts on by default (slower, precise) or keyframe cuts (instant, up to ~2 s off)? Proposed: exact.
-2. Several ranges from one video in one go (yt-dlp supports it, one file per range)? Proposed: not in the first
-   version.
-3. Free or Pro, if TBD gets a paid tier? It is the feature competitors charge for.
+Answered on 17/10: exact and fast cuts (see above), several ranges in v1, free.
+
+### Several ranges in v1
+
+The range bar takes several ranges: "+ Add a range" adds a pair of handles, each range shows as a coloured
+band with its own time fields and a × to remove it. One `--download-sections` per range; yt-dlp writes one
+file per range, named `Title (0m30s–1m10s).mp4`, `Title (5m00s–5m30s).mp4`. The library groups them under the
+video. Overlapping ranges are merged before starting. The chapter menu can tick several chapters at once.
