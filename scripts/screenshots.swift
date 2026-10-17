@@ -48,7 +48,7 @@ struct Shot {
 // MARK: - Arguments
 
 var repoDirectory = "docs/assets"
-var siteDirectory = ("~/Documents/Code/tbd-site/public/media" as NSString).expandingTildeInPath
+var siteDirectory = ("~/Documents/Code/Perso/tbd-site/public/media" as NSString).expandingTildeInPath
 var doRepo = true, doSite = true
 
 var arguments = Array(CommandLine.arguments.dropFirst())
