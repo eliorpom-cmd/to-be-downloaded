@@ -9,6 +9,61 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 Nothing yet.
 
+## [1.3.0] - 2026-11-01
+
+Download only the part of a video you want. That was the question people asked
+most, and the blog page explaining how to do it in a terminal is the most read
+page on the site after the home page. Trim does it with two handles, and only
+that part ever leaves YouTube's servers.
+
+### Added
+
+- **Trim.** Once the link is read, a Trim button appears next to the quality.
+  It opens a bar drawn from the video's own thumbnails, with handles to drag,
+  start and end times to type (`3:40`, `1:02:00`, `220` or `3m40s`), the
+  video's chapters to tick, and "Last 30 seconds" in one click. Several ranges
+  at once, each its own file: `Title (3m40s–7m15s).mp4`. A link that carries a
+  time (`?t=220`) opens Trim with the start already there. The phone page and
+  `POST /api/download` take a start and an end too.
+- **Only the range is downloaded.** yt-dlp asks YouTube for those bytes, never
+  the whole file: ten seconds out of a two-hour stream download ten seconds.
+- **Exact cuts.** The picture of a clip is re-encoded with the Mac's hardware
+  encoder, so it starts on the frame you chose rather than on the keyframe
+  before it. Ten seconds asked, ten seconds received (checked with `ffprobe`).
+- **More formats.** Video in MOV, MKV or WebM as well as MP4, always remuxed,
+  never re-encoded; each container only takes streams it can hold. Audio in
+  Opus (kept as YouTube sends it), FLAC and WAV as well as M4A and MP3.
+  Subtitles go in with the codec each container wants. MP4 stays the default.
+- **Browser cookies**, off by default. For videos YouTube shows only to
+  signed-in viewers, yt-dlp can use the session of a browser installed on this
+  Mac. The settings say before it happens that Safari needs Full Disk Access,
+  that Chrome and its family make macOS ask for your password in the name of
+  "yt-dlp", and that a second YouTube account is safer than your main one.
+- **Report a problem**, in Settings → About: opens a GitHub issue with the app,
+  yt-dlp and macOS versions already filled in. Nothing is sent until you post it.
+
+### Changed
+
+- **YouTube's challenges are solved by a bundled JavaScript runtime**,
+  QuickJS-NG (1.3 MB, MIT). Without one, yt-dlp fell back to a single client
+  and warned that formats might be missing; "made for kids" videos had no
+  fallback at all. If you installed Deno yourself, it is used instead, since it
+  is faster.
+- **Pausing and cancelling reach FFmpeg as well as yt-dlp.** A cancelled
+  download used to leave its FFmpeg running until it finished.
+- **"Download again" keeps the current settings**, audio format included, and a
+  clip comes back as the same clip.
+- MKV and WebM have their own one-time notice that QuickTime does not open them;
+  the Max notice now only appears for MP4.
+
+### Known issues
+
+- Subtitles are not added to clips: yt-dlp would embed the whole video's track,
+  out of step with the cut.
+- A WebM clip is saved as MP4: the exact cut is H.264, which WebM cannot hold.
+- Clips of one video are listed one per row in the Library, each with its
+  range, rather than grouped under the video.
+
 ## [1.2.0] - 2026-09-20
 
 One line instead of two. The app is signed with an Apple Developer ID
