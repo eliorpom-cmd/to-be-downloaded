@@ -158,6 +158,36 @@ enum WebUI {
             background:var(--card); color:var(--label);
             box-shadow:0 1px 2px rgba(0,0,0,.14);
           }
+          /* Trim: a compact toggle under the controls, styled like the segment's
+             active button, plus a row of two time fields shown when it is on. */
+          .trim {
+            margin-top:14px; border:0; background:var(--fill-3); color:var(--label-2);
+            font:inherit; font-size:14px; padding:5px 14px; border-radius:var(--r-ctrl);
+            cursor:pointer; transition:background .15s,color .15s;
+          }
+          .trim.active {
+            background:var(--card); color:var(--label);
+            box-shadow:0 1px 2px rgba(0,0,0,.14);
+          }
+          .range {
+            display:flex; flex-direction:column; align-items:center; gap:8px;
+            width:100%; margin-top:12px;
+          }
+          /* The author-level display rule above would win over the hidden attribute. */
+          .range[hidden] { display:none; }
+          .range-fields { display:flex; align-items:center; gap:8px; }
+          /* 16px font size: iOS zooms the page when a smaller input gets focus. */
+          .range input {
+            width:72px; border:0; outline:0; border-radius:var(--r-ctrl);
+            background:var(--fill-3); color:var(--label); font:inherit; font-size:16px;
+            text-align:center; padding:6px 8px;
+          }
+          .range input::placeholder { color:var(--label-3); }
+          .range input:focus { box-shadow:inset 0 0 0 1px var(--emphasis); }
+          .range .to { font-size:14px; color:var(--label-2); }
+          .range .qlabel { white-space:normal; text-align:center; }
+          .range .note { margin-top:0; text-align:center; }
+
           select {
             font:inherit; font-size:14px; color:var(--label); background:var(--fill-3);
             border:0; border-radius:var(--r-ctrl); padding:6px 28px 6px 11px; outline:0;
@@ -260,6 +290,17 @@ enum WebUI {
                 <span class="qlabel" id="qlabel" hidden></span>
               </span>
             </div>
+
+            <button class="trim" id="trimToggle" aria-pressed="false">Trim</button>
+            <div class="range" id="range" hidden>
+              <div class="range-fields">
+                <input id="start" inputmode="text" autocomplete="off" placeholder="0:00" aria-label="Start">
+                <span class="to">to</span>
+                <input id="end" inputmode="text" autocomplete="off" placeholder="1:30" aria-label="End">
+              </div>
+              <div class="qlabel">Only this part is downloaded. Times like 1:30 or 90.</div>
+              <div class="note" id="rangeNote"></div>
+            </div>
           </div>
 
           <div class="list">
@@ -298,6 +339,65 @@ enum WebUI {
           const urlEl = document.getElementById("url");
           const field = document.getElementById("field");
           const note = document.getElementById("note");
+          const trimToggle = document.getElementById("trimToggle");
+          const rangeRow = document.getElementById("range");
+          const startEl = document.getElementById("start");
+          const endEl = document.getElementById("end");
+          const rangeNote = document.getElementById("rangeNote");
+          // Last URL seen by onInput(), so a time in the link is read once per URL.
+          let lastURL = "";
+
+          // Parses a time typed by the user or found in a link. Accepts seconds
+          // ("220", "220.5"), m:ss or h:mm:ss ("3:40", "1:02:00") and unit
+          // suffixes ("3m40s", "1h2m", "90s"). Returns seconds, or null.
+          function parseTime(input) {
+            const s = String(input || "").trim().toLowerCase();
+            if (!s) return null;
+            if (s.indexOf(":") !== -1) {
+              const parts = s.split(":");
+              if (parts.length < 2 || parts.length > 3) return null;
+              if (!parts.every(p => /^[0-9]+([.][0-9]+)?$/.test(p))) return null;
+              const nums = parts.map(Number);
+              // Every part after the first is minutes or seconds, so it must be under 60.
+              if (nums.slice(1).some(n => n >= 60)) return null;
+              return nums.reduce((acc, n) => acc * 60 + n, 0);
+            }
+            if (/^[0-9]+([.][0-9]+)?$/.test(s)) return Number(s);
+            const unit = s.match(/^(?:([0-9]+)h)?(?:([0-9]+)m)?(?:([0-9]+(?:[.][0-9]+)?)s)?$/);
+            if (unit && (unit[1] || unit[2] || unit[3])) {
+              return (+unit[1] || 0) * 3600 + (+unit[2] || 0) * 60 + (+unit[3] || 0);
+            }
+            return null;
+          }
+
+          // Seconds back to "m:ss", or "h:mm:ss" past one hour.
+          function formatTime(sec) {
+            const total = Math.floor(sec);
+            const h = Math.floor(total / 3600);
+            const m = Math.floor((total % 3600) / 60);
+            const r = total % 60;
+            const pad = n => String(n).padStart(2, "0");
+            return h ? `${h}:${pad(m)}:${pad(r)}` : `${m}:${pad(r)}`;
+          }
+
+          // Start time carried by a link: "t" or "start" query item, or "#t=" fragment.
+          function timeFromURL(v) {
+            try {
+              const u = new URL(v.trim());
+              const raw = u.searchParams.get("t") || u.searchParams.get("start")
+                || new URLSearchParams(u.hash.slice(1)).get("t");
+              return parseTime(raw);
+            } catch { return null; }
+          }
+
+          // Opening and closing the range row. Nothing is remembered: trim is per link.
+          function setTrim(open) {
+            rangeRow.hidden = !open;
+            trimToggle.classList.toggle("active", open);
+            trimToggle.setAttribute("aria-pressed", String(open));
+            if (!open) rangeNote.classList.remove("show");
+          }
+          trimToggle.onclick = () => setTrim(rangeRow.hidden);
 
           function fillQuality() {
             const opts = kind === "video" ? VQ : AQ;
@@ -348,6 +448,16 @@ enum WebUI {
             go.classList.toggle("on", valid);
             field.classList.toggle("invalid", v.length > 0 && !valid);
             note.classList.toggle("show", v.length > 0 && !valid);
+            // A link that carries a start time opens the range row, once per URL,
+            // and only when the start field is still empty.
+            if (v !== lastURL && valid) {
+              const t = timeFromURL(v);
+              if (t !== null && !startEl.value.trim()) {
+                startEl.value = formatTime(t);
+                setTrim(true);
+              }
+            }
+            lastURL = v;
           }
           urlEl.addEventListener("input", onInput);
           urlEl.addEventListener("keydown", e => { if (e.key === "Enter") go.click(); });
@@ -355,13 +465,36 @@ enum WebUI {
           go.onclick = async () => {
             const url = urlEl.value.trim();
             if (!isValidURL(url)) return;
+            const body = { url, kind, quality: q.value };
+            if (!rangeRow.hidden) {
+              const start = parseTime(startEl.value);
+              const end = parseTime(endEl.value);
+              // A filled field that cannot be read gets the format hint; an empty
+              // or reversed range gets the ordering message.
+              const unreadable = (startEl.value.trim() && start === null)
+                || (endEl.value.trim() && end === null);
+              let msg = "";
+              if (unreadable) msg = "Times look like 1:30 or 90.";
+              else if (start === null || end === null || start >= end) msg = "Start must be before end.";
+              if (msg) {
+                rangeNote.textContent = msg;
+                rangeNote.classList.add("show");
+                return;
+              }
+              rangeNote.classList.remove("show");
+              body.start = start;
+              body.end = end;
+            }
             try {
               await fetch("/api/download", {
                 method:"POST", headers:{"Content-Type":"application/json"},
-                body: JSON.stringify({ url, kind, quality: q.value })
+                body: JSON.stringify(body)
               });
               urlEl.value = "";
+              startEl.value = "";
+              endEl.value = "";
               urlEl.blur();
+              setTrim(false);
               refresh();
             } finally { onInput(); }
           };

@@ -61,4 +61,14 @@ enum Format {
             ? String(format: "%d:%02d:%02d", h, m, s)
             : String(format: "%d:%02d", m, s)
     }
+
+    /// Length of a clip, as a person says it: `40 s`, `3 min 35 s`,
+    /// `1 h 02 min`.
+    static func clipLength(_ seconds: Double) -> String {
+        let total = Int(max(0, seconds).rounded())
+        let h = total / 3600, m = (total % 3600) / 60, s = total % 60
+        if h > 0 { return String(format: "%d h %02d min", h, m) }
+        if m > 0 { return s > 0 ? "\(m) min \(s) s" : "\(m) min" }
+        return "\(s) s"
+    }
 }

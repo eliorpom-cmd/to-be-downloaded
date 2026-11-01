@@ -143,6 +143,8 @@ targets:
       - path: App/Sources/Core/BinaryLocator.swift
       - path: App/Sources/Core/ClipRange.swift
       - path: App/Sources/Core/DownloadEngine.swift
+      - path: App/Sources/Core/DownloadJob.swift
+      - path: App/Sources/Server/APIModels.swift
       - path: App/Sources/Core/DownloadFormat.swift
       - path: App/Sources/Core/DownloadProgress.swift
       - path: App/Sources/Core/FilenameTemplate.swift

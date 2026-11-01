@@ -130,8 +130,12 @@ enum BinaryLocator {
     /// it is about seven times faster at solving a new player. See
     /// docs/research/2026-09-30-js-runtime.md.
     static func jsRuntimeArguments() -> [String] {
-        jsRuntimeArguments(
-            bundledQuickJS: (try? url(for: "qjs"))?.path,
+        // Looked up, never touched: `ensureExecutable` would try to rewrite
+        // attributes inside the signed bundle. The build signs `qjs` and
+        // keeps its executable bit.
+        let qjs = binDirectory?.appendingPathComponent("qjs").path
+        return jsRuntimeArguments(
+            bundledQuickJS: qjs.flatMap { FileManager.default.isExecutableFile(atPath: $0) ? $0 : nil },
             isExecutable: { FileManager.default.isExecutableFile(atPath: $0) })
     }
 

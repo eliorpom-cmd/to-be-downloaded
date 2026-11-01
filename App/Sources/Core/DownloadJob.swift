@@ -7,6 +7,9 @@ struct DownloadJob: Identifiable, Sendable {
     let id: UUID
     let url: String
     let format: DownloadFormat
+    /// The part of the video to download; `nil` = the whole video, and then
+    /// nothing differs from before partial downloads existed.
+    let range: ClipRange?
     var state: State
     var progress: DownloadProgress?
     var fileURL: URL?
@@ -33,10 +36,11 @@ struct DownloadJob: Identifiable, Sendable {
 
     /// Explicit `id` on restore: it designates the partial-file folder,
     /// the only way to resume where we left off.
-    init(url: String, format: DownloadFormat, id: UUID = UUID()) {
+    init(url: String, format: DownloadFormat, range: ClipRange? = nil, id: UUID = UUID()) {
         self.id = id
         self.url = url
         self.format = format
+        self.range = range
         self.state = .queued
     }
 
@@ -85,6 +89,10 @@ struct DownloadJob: Identifiable, Sendable {
     /// audio is short, assembly is shorter still. A video goes through
     /// 0→58% (video), 58→88% (audio), 88→100% (assembly); an MP3 has
     /// only one stream, then extraction.
+    /// A clip is one FFmpeg pass that reads both streams at once and writes
+    /// the final file: one phase, measured by FFmpeg's `time=`.
+    static let clipSpan: ClosedRange<Double> = 0...0.95
+
     static func phaseSpan(streamIndex: Int, kind: MediaKind) -> ClosedRange<Double> {
         switch kind {
         case .audio:
@@ -100,6 +108,7 @@ struct DownloadJob: Identifiable, Sendable {
 
     /// Where the download stops and post-processing begins.
     var postProcessingFloor: Double {
+        if range != nil { return Self.clipSpan.upperBound }
         switch format.kind {
         case .audio: return 0.85
         case .video: return 0.88
@@ -108,6 +117,11 @@ struct DownloadJob: Identifiable, Sendable {
 
     /// Final filename (if completed).
     var fileName: String? { fileURL?.lastPathComponent }
+
+    /// "MP4 · 1080p", plus the range for a clip: "MP4 · 1080p · 3:40–7:15".
+    var formatLabel: String {
+        range.map { "\(format.shortLabel) · \($0.label)" } ?? format.shortLabel
+    }
 
     /// Best label to display: known title > filename > raw URL.
     var displayTitle: String {

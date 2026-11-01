@@ -182,7 +182,8 @@ final class ServerController: ObservableObject {
             // the web page does not expose them, it must not decide for them.
             let defaults = await MainActor.run { AppSettings.shared.currentDefaultFormat }
             let id = await downloads.startDownload(
-                urlString: dto.url, format: dto.toFormat(defaults: defaults))
+                urlString: dto.url, format: dto.toFormat(defaults: defaults),
+                range: dto.clipRange)
             let payload = ["id": id?.uuidString ?? ""]
             let data = (try? JSONEncoder().encode(payload)) ?? Data("{}".utf8)
             return HTTPResponse(statusCode: .ok,
