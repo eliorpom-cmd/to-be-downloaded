@@ -15,6 +15,15 @@ struct SettingsPane: View {
 
     @State private var portText = ""
     @State private var showClearConfirm = false
+    /// A browser whose cookies sit behind the keychain, waiting for the
+    /// person to read what macOS is about to ask before it is turned on.
+    @State private var pendingKeychainBrowser: CookieBrowser?
+    /// Re-checked when the window comes back: the person may have just
+    /// granted Full Disk Access in System Settings.
+    ///
+    /// Only ever tested once Safari is the chosen browser: TBD does not touch
+    /// Safari's folder for anyone who did not ask for it.
+    @State private var safariReadable = false
 
     var body: some View {
         ScrollView {
@@ -62,13 +71,21 @@ struct SettingsPane: View {
                         picker($settings.defaultVideoQuality, values: VideoQuality.allCases) { $0.label }
                     }
                     divider
+                    row("Video format", detail: settings.videoContainer.detail, wraps: true) {
+                        picker($settings.videoContainer, values: VideoContainer.allCases) { $0.label }
+                    }
+                    divider
                     row("Subtitles",
-                        detail: "Embedded as a track in the MP4, when the video has them") {
+                        detail: settings.videoContainer.embedsSubtitles
+                            ? "Embedded as a track in the video, when it has them"
+                            : "MOV can't hold subtitles. Choose MP4, MKV or WebM to get them.",
+                        wraps: true) {
                         Toggle("", isOn: $settings.embedSubtitles)
                             .toggleStyle(.switch)
                             .labelsHidden()
+                            .disabled(!settings.videoContainer.embedsSubtitles)
                     }
-                    if settings.embedSubtitles {
+                    if settings.embedSubtitles, settings.videoContainer.embedsSubtitles {
                         divider
                         row("Subtitle language",
                             detail: "English is always kept as a fallback") {
@@ -95,6 +112,71 @@ struct SettingsPane: View {
                             }
                         }
                     }
+                }
+
+                section("Browser Cookies") {
+                    row("Use cookies from",
+                        detail: "For videos YouTube shows only to signed-in viewers. "
+                              + "Off by default. Use a second YouTube account, not your "
+                              + "main one: yt-dlp can sign that browser out of YouTube.",
+                        wraps: true) {
+                        Picker("", selection: cookieBrowserBinding) {
+                            Text("Off").tag(CookieBrowser?.none)
+                            ForEach(installedBrowsers) { browser in
+                                Text(browser.label).tag(CookieBrowser?.some(browser))
+                            }
+                        }
+                        .labelsHidden()
+                        .fixedSize()
+                    }
+                    if settings.cookieBrowser == .safari {
+                        divider
+                        row("Full Disk Access",
+                            detail: safariReadable
+                                ? "TBD can read Safari's cookies."
+                                : "Safari keeps its cookies in a folder macOS protects. "
+                                  + "Allow TBD in System Settings > Privacy & Security > "
+                                  + "Full Disk Access, then come back here.",
+                            wraps: true) {
+                            if !safariReadable {
+                                Button("Open System Settings") {
+                                    NSWorkspace.shared.open(CookieBrowser.fullDiskAccessSettings)
+                                }
+                                .buttonStyle(.push)
+                            }
+                        }
+                    } else if let browser = settings.cookieBrowser,
+                              let item = browser.keychainItem {
+                        divider
+                        row("Keychain",
+                            detail: "The first time, macOS asks for your login password "
+                                  + "so that “yt-dlp” can read “\(item)”. yt-dlp is the "
+                                  + "tool TBD downloads with. Choose Always Allow.",
+                            wraps: true) {
+                            EmptyView()
+                        }
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(
+                    for: NSApplication.didBecomeActiveNotification)) { _ in
+                    refreshSafariAccess()
+                }
+                .onAppear(perform: refreshSafariAccess)
+                .alert(
+                    "macOS will ask for your password",
+                    isPresented: Binding(
+                        get: { pendingKeychainBrowser != nil },
+                        set: { if !$0 { pendingKeychainBrowser = nil } }),
+                    presenting: pendingKeychainBrowser
+                ) { browser in
+                    Button("Use \(browser.label)") { applyCookieBrowser(browser) }
+                    Button("Cancel", role: .cancel) { pendingKeychainBrowser = nil }
+                } message: { browser in
+                    Text("\(browser.label) encrypts its cookies with a key kept in your "
+                         + "keychain. To read them, “yt-dlp”, the tool TBD downloads with, "
+                         + "needs “\(browser.keychainItem ?? "")”. macOS will ask for your "
+                         + "login password in its name. Choose Always Allow so it asks "
+                         + "only once.")
                 }
 
                 section("Shortcuts") {
@@ -247,6 +329,16 @@ struct SettingsPane: View {
                         }
                     }
                     divider
+                    // Opens a page, sends nothing: the person sees the text
+                    // and decides whether to post it.
+                    row("Report a problem",
+                        detail: "Opens a GitHub issue with your app, yt-dlp and macOS "
+                              + "versions filled in. Nothing is sent until you post it.",
+                        wraps: true) {
+                        Button("Report…", action: reportProblem)
+                            .buttonStyle(.push)
+                    }
+                    divider
                     row("Support the app",
                         detail: "\(AppConfig.displayName) is free. A coffee keeps it updated.") {
                         Button("Support Me") {
@@ -302,11 +394,17 @@ struct SettingsPane: View {
     /// permanently. The Download screen warns once; someone who chose Max as
     /// their default made the choice here and can be reminded here.
     private var videoQualityDetail: String? {
-        settings.defaultVideoQuality == .max
-            ? "Max downloads up to 4K, which YouTube only serves as VP9. "
+        guard settings.defaultVideoQuality == .max else { return nil }
+        switch settings.videoContainer {
+        case .mp4:
+            return "Max downloads up to 4K, which YouTube only serves as VP9. "
                 + "QuickTime cannot play it. You'll need another player such as "
                 + "VLC or IINA."
-            : nil
+        case .mov:
+            return "In MOV, Max stops at 1080p: YouTube serves H.264 no higher."
+        case .mkv, .webm:
+            return "Max downloads up to 4K."
+        }
     }
 
     /// Concrete example below the setting: a naming template only makes
@@ -483,6 +581,10 @@ struct SettingsPane: View {
                       detail: "Joins video and audio, extracts audio, embeds subtitles. GPL v3.",
                       url: AppConfig.Credits.ffmpeg)
             divider
+            creditRow("QuickJS-NG",
+                      detail: "Runs the JavaScript YouTube uses to protect its videos. MIT.",
+                      url: AppConfig.Credits.quickJS)
+            divider
             creditRow("FlyingFox",
                       detail: "The HTTP server behind Remote Control. MIT.",
                       url: AppConfig.Credits.flyingFox)
@@ -594,6 +696,55 @@ struct SettingsPane: View {
             settings.outputDirectory = url
             manager.reconfigure()
         }
+    }
+
+    /// Browsers installed on this Mac. The current choice stays listed even
+    /// if its browser was removed since, so the menu never shows a blank.
+    private var installedBrowsers: [CookieBrowser] {
+        var list = CookieBrowser.installed { id in
+            NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) != nil
+        }
+        if let current = settings.cookieBrowser, !list.contains(current) { list.append(current) }
+        return list
+    }
+
+    /// A keychain browser goes through the alert first; the others apply.
+    private var cookieBrowserBinding: Binding<CookieBrowser?> {
+        Binding(
+            get: { settings.cookieBrowser },
+            set: { choice in
+                if let choice, choice.usesKeychain {
+                    pendingKeychainBrowser = choice
+                } else {
+                    applyCookieBrowser(choice)
+                }
+            })
+    }
+
+    private func applyCookieBrowser(_ browser: CookieBrowser?) {
+        pendingKeychainBrowser = nil
+        settings.cookieBrowser = browser
+        refreshSafariAccess()
+        // The engine carries the arguments: rebuild it so the next download
+        // and the next preview use the new choice.
+        manager.reconfigure()
+    }
+
+    private func refreshSafariAccess() {
+        guard settings.cookieBrowser == .safari else { return }
+        safariReadable = CookieBrowser.canReadSafariCookies()
+    }
+
+    private func reportProblem() {
+        let details = ProblemReport.Details(
+            appVersion: appUpdater.currentVersion,
+            ytDlpVersion: updater.installedVersion,
+            updateChannel: settings.updateChannel.label,
+            macOSVersion: ProblemReport.currentMacOSVersion,
+            macModel: ProblemReport.currentMacModel)
+        guard let url = ProblemReport.issueURL(
+            repository: AppConfig.updateRepository, details: details) else { return }
+        NSWorkspace.shared.open(url)
     }
 
     private func applyPort() {

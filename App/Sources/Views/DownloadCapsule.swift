@@ -234,11 +234,13 @@ struct DownloadCapsule: View {
     private var metaText: String {
         switch job.state {
         case .queued:
-            return waiting ? "Waiting…" : "Preparing…"
+            let status = waiting ? "Waiting…" : "Preparing…"
+            return job.range.map { "\($0.label) · \(status)" } ?? status
         case .downloading:
             // The percentage follows the overall bar, not the current stream:
             // both must tell the same story.
-            return "\(Int(job.overallProgress * 100))%"
+            let percent = "\(Int(job.overallProgress * 100))%"
+            return job.range.map { "\($0.label) · \(percent)" } ?? percent
         case .paused:
             // The word, not the number: without it, a stopped bar looks like
             // a stalled download. The percentage is in the tooltip.
@@ -246,7 +248,10 @@ struct DownloadCapsule: View {
         case .merging:
             return "Finishing up…"
         case .completed:
-            return job.fileSize.map(Format.bytes) ?? "Done"
+            let size = job.fileSize.map(Format.bytes) ?? "Done"
+            // Several clips of one video share a title: the range tells
+            // them apart.
+            return job.range.map { "\($0.label) · \(size)" } ?? size
         case .failed:
             return "Failed · Retry"
         case .cancelled:

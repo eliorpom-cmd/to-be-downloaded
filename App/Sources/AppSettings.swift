@@ -68,6 +68,9 @@ final class AppSettings: ObservableObject {
         static let shortcutKeyCode = "globalShortcutKeyCode"
         static let shortcutModifiers = "globalShortcutModifiers"
         static let shortcutLabel = "globalShortcutLabel"
+        static let cookieBrowser = "cookiesFromBrowser"
+        static let videoContainer = "defaultVideoContainer"
+        static let playbackWarnings = "playbackWarningsDismissed"
     }
 
     @Published var outputDirectory: URL {
@@ -123,6 +126,16 @@ final class AppSettings: ObservableObject {
     /// Audio container produced (M4A no re-encoding by default).
     @Published var audioFormat: AudioFormat {
         didSet { store.set(audioFormat.rawValue, forKey: Key.audioFormat) }
+    }
+    /// Container videos are written in. MP4 by default, and that default is
+    /// the promise that a download opens in QuickTime.
+    @Published var videoContainer: VideoContainer {
+        didSet { store.set(videoContainer.rawValue, forKey: Key.videoContainer) }
+    }
+    /// Containers whose "QuickTime can't open this" notice was acknowledged.
+    /// Shown once per container, like the Max one.
+    @Published var playbackWarningsDismissed: Set<String> {
+        didSet { store.set(Array(playbackWarningsDismissed).sorted(), forKey: Key.playbackWarnings) }
     }
     /// Embed subtitles in videos.
     @Published var embedSubtitles: Bool {
@@ -184,6 +197,11 @@ final class AppSettings: ObservableObject {
             store.set(globalShortcut, forKey: Key.globalShortcut)
             applyGlobalShortcut()
         }
+    }
+    /// Browser whose YouTube session yt-dlp may use. `nil` = off, which is
+    /// the default: nothing is read from any browser unless chosen here.
+    @Published var cookieBrowser: CookieBrowser? {
+        didSet { store.set(cookieBrowser?.rawValue ?? "", forKey: Key.cookieBrowser) }
     }
     @Published private(set) var shortcutKeyCode: Int
     @Published private(set) var shortcutModifiers: UInt
@@ -247,7 +265,8 @@ final class AppSettings: ObservableObject {
                        videoQuality: defaultVideoQuality,
                        audioBitrate: defaultAudioBitrate,
                        audioFormat: audioFormat,
-                       subtitles: embedSubtitles)
+                       subtitles: embedSubtitles,
+                       videoContainer: videoContainer)
     }
 
     /// Cycle through System → Light → Dark → System (header toggle button).
@@ -314,6 +333,8 @@ final class AppSettings: ObservableObject {
 
         audioFormat = AudioFormat(rawValue: store.string(forKey: Key.audioFormat) ?? "") ?? .m4a
         embedSubtitles = store.object(forKey: Key.subtitles) as? Bool ?? false
+        videoContainer = VideoContainer(rawValue: store.string(forKey: Key.videoContainer) ?? "") ?? .mp4
+        playbackWarningsDismissed = Set(store.stringArray(forKey: Key.playbackWarnings) ?? [])
         subtitleLanguage = SubtitleLanguage(
             rawValue: store.string(forKey: Key.subtitleLanguage) ?? "") ?? .system
         autoSubtitles = store.object(forKey: Key.autoSubtitles) as? Bool ?? true
@@ -342,6 +363,7 @@ final class AppSettings: ObservableObject {
         }
         remoteControl = store.object(forKey: Key.remoteControl) as? Bool ?? false
         globalShortcut = store.object(forKey: Key.globalShortcut) as? Bool ?? false
+        cookieBrowser = CookieBrowser(rawValue: store.string(forKey: Key.cookieBrowser) ?? "")
         shortcutKeyCode = store.object(forKey: Key.shortcutKeyCode) as? Int
             ?? GlobalShortcut.defaultKeyCode
         shortcutModifiers = UInt(store.object(forKey: Key.shortcutModifiers) as? Int

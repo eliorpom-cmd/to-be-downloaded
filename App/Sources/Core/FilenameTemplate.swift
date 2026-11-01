@@ -63,4 +63,16 @@ enum FilenameTemplate: String, CaseIterable, Identifiable, Sendable {
         }
         return base + ".%(ext)s"
     }
+
+    /// Puts a suffix before the extension of an `-o` pattern:
+    /// `%(title)s.%(ext)s` → `%(title)s (3m40s–7m15s).%(ext)s`.
+    ///
+    /// `%` is doubled: in a yt-dlp pattern it starts a field, and the suffix
+    /// is plain text.
+    static func inserting(suffix: String, into pattern: String) -> String {
+        let literal = suffix.replacingOccurrences(of: "%", with: "%%")
+        let ext = ".%(ext)s"
+        guard pattern.hasSuffix(ext) else { return pattern + literal }
+        return String(pattern.dropLast(ext.count)) + literal + ext
+    }
 }

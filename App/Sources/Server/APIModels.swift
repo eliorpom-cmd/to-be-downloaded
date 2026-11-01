@@ -7,6 +7,17 @@ struct DownloadRequestDTO: Codable, Sendable {
     let url: String
     let kind: String        // "video" | "audio"
     let quality: String?    // "360".."1080" / "max"  or  "128".."320"
+    /// Optional part of the video, in seconds. Both or neither.
+    var start: Double? = nil
+    var end: Double? = nil
+
+    /// The part to download, or `nil` when the two times do not make a range
+    /// (the server then answers 400 rather than fetch the whole video).
+    var clipRange: ClipRange? {
+        guard let start, let end else { return nil }
+        let range = ClipRange(start: max(0, start), end: end)
+        return range.isValid ? range : nil
+    }
 
     /// `defaults` carries what the web page does not expose (audio container,
     /// subtitles): these choices belong to the app's settings.
@@ -59,7 +70,7 @@ struct JobDTO: Codable, Sendable {
         title = job.displayTitle
         channel = job.metadata?.channel
         thumbnail = job.metadata?.thumbnailURL
-        format = job.format.shortLabel
+        format = job.formatLabel
         state = job.state.apiValue
         progress = job.state == .completed ? 1 : job.overallProgress
         fraction = job.progress?.fraction

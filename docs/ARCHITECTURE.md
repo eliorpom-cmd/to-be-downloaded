@@ -6,7 +6,7 @@
 App/
   Info.plist              URL scheme (tbd://), NSServices, LSUIElement…
   TBD.entitlements
-  Resources/bin/          bundled: yt-dlp (seed), cacert.pem — FFmpeg is NOT here
+  Resources/bin/          bundled: yt-dlp (seed), qjs (QuickJS-NG), cacert.pem — FFmpeg is NOT here
   Sources/
     TBDApp.swift          @main, scenes, MenuBarExtra
     AppConfig.swift       names, bundle paths, update repo + public keys

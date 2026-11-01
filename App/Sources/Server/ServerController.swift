@@ -178,11 +178,19 @@ final class ServerController: ObservableObject {
                                     headers: HTTPHeaders([.contentType: "application/json"]),
                                     body: Data(#"{"error":"invalid request"}"#.utf8))
             }
+            // Times that do not make a range are an error, not a request for
+            // the whole video.
+            if (dto.start != nil || dto.end != nil) && dto.clipRange == nil {
+                return HTTPResponse(statusCode: .badRequest,
+                                    headers: HTTPHeaders([.contentType: "application/json"]),
+                                    body: Data(#"{"error":"invalid range"}"#.utf8))
+            }
             // Audio container and subtitles follow the app's settings:
             // the web page does not expose them, it must not decide for them.
             let defaults = await MainActor.run { AppSettings.shared.currentDefaultFormat }
             let id = await downloads.startDownload(
-                urlString: dto.url, format: dto.toFormat(defaults: defaults))
+                urlString: dto.url, format: dto.toFormat(defaults: defaults),
+                range: dto.clipRange)
             let payload = ["id": id?.uuidString ?? ""]
             let data = (try? JSONEncoder().encode(payload)) ?? Data("{}".utf8)
             return HTTPResponse(statusCode: .ok,

@@ -50,6 +50,12 @@ struct DownloadPane: View {
     /// them, as the clipboard keeps the link long after.
     @State private var handledLinks: Set<String> = []
 
+    /// Trim: download only parts of the video. Off for every new link: the
+    /// default download stays exactly what it was.
+    @State private var trimOn = false
+    @State private var ranges: [ClipRange] = []
+    @State private var rangeSelection = 0
+
     /// Number of capsules shown before the fade (see mockup).
     private let visibleCapsules = 2
 
@@ -63,13 +69,36 @@ struct DownloadPane: View {
                        videoQuality: videoQuality,
                        audioBitrate: audioBitrate,
                        audioFormat: settings.audioFormat,
-                       subtitles: settings.embedSubtitles)
+                       subtitles: settings.embedSubtitles,
+                       videoContainer: settings.videoContainer)
     }
 
     /// Library entry matching the entered link, if there is one.
     private var alreadyDownloaded: LibraryItem? {
         guard isValidURL else { return nil }
         return library.existing(forURL: trimmedURL, kind: kind)
+    }
+
+    /// Trim needs the duration, so it appears with the full metadata. Not
+    /// for a live stream, and not for a playlist: one range means nothing
+    /// across several videos.
+    private var canTrim: Bool {
+        guard showsLinkPreview, let preview, let duration = preview.duration, duration > 0
+        else { return false }
+        return !preview.isLive
+    }
+
+    private var isTrimming: Bool { trimOn && canTrim }
+
+    /// What Trim will download, ready for the engine.
+    private var clipRanges: [ClipRange] {
+        ClipRange.normalized(ranges, duration: preview?.duration)
+    }
+
+    /// Every range can be downloaded. A start after its end disables the
+    /// download button; the range row says why.
+    private var rangesAreValid: Bool {
+        !ranges.isEmpty && ranges.allSatisfy(\.isValid)
     }
 
     /// Session jobs, newest to oldest.
@@ -154,6 +183,22 @@ struct DownloadPane: View {
 
             formatControls
 
+            if isTrimming, let duration = preview?.duration {
+                Spacer().frame(height: Theme.Space.s12)
+                TrimEditor(ranges: $ranges, selection: $rangeSelection,
+                           duration: duration, metadata: preview, format: currentFormat)
+                    .frame(maxWidth: 440)
+                    .transition(.opacity)
+                if let note = trimNote {
+                    Spacer().frame(height: Theme.Space.s8)
+                    Text(note)
+                        .font(Theme.Text.callout)
+                        .foregroundStyle(Theme.labelSecondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 440)
+                }
+            }
+
             if showsMaxWarning {
                 Spacer().frame(height: Theme.Space.s12)
                 maxQualityWarning.frame(maxWidth: 440)
@@ -173,6 +218,7 @@ struct DownloadPane: View {
         // all at once while the capsule itself animated — creating a stutter.
         .animation(.easeOut(duration: 0.22), value: sessionJobs.count)
         .animation(.easeOut(duration: 0.22), value: showsLinkPreview)
+        .animation(.easeOut(duration: 0.2), value: isTrimming)
     }
 
     // MARK: - Max Quality
@@ -189,18 +235,64 @@ struct DownloadPane: View {
     /// back: someone who asks for 4K should get 4K. Shown once and dismissed
     /// for good, since the default is 1080p and only a deliberate choice
     /// reaches here.
-    private var showsMaxWarning: Bool {
-        kind == .video && videoQuality == .max && !settings.maxQualityWarningDismissed
+    ///
+    /// Since 1.3 the container matters too: MKV and WebM never open in
+    /// QuickTime, whatever the quality, so the notice names the container
+    /// rather than the resolution. Each is acknowledged once.
+    private var playbackWarning: (id: String, message: String)? {
+        guard kind == .video else { return nil }
+        // A clip is H.264 in MP4, MOV or MKV: only the MKV warning applies.
+        let container = isTrimming ? settings.videoContainer.forClip() : settings.videoContainer
+        switch container {
+        case .mp4:
+            guard videoQuality == .max, !isTrimming,
+                  !settings.maxQualityWarningDismissed else { return nil }
+            return ("max-mp4",
+                    "Max downloads up to 4K, which YouTube only serves as VP9. "
+                    + "QuickTime cannot play it. You'll need another player such as "
+                    + "VLC or IINA.")
+        case .mov:
+            return nil
+        case .mkv:
+            guard !settings.playbackWarningsDismissed.contains("mkv") else { return nil }
+            return ("mkv", "MKV files don't open in QuickTime or Photos. VLC and IINA play them.")
+        case .webm:
+            guard !settings.playbackWarningsDismissed.contains("webm") else { return nil }
+            return ("webm", "WebM files don't open in QuickTime or Photos. "
+                    + "VLC, IINA and web browsers play them.")
+        }
     }
 
+    private var showsMaxWarning: Bool { playbackWarning != nil }
+
+    @ViewBuilder
     private var maxQualityWarning: some View {
-        InlineNotice(
-            symbol: "exclamationmark.triangle.fill",
-            message: "Max downloads up to 4K, which YouTube only serves as VP9. "
-                + "QuickTime cannot play it. You'll need another player such as "
-                + "VLC or IINA.",
-            actionTitle: "Got It",
-            action: { settings.maxQualityWarningDismissed = true })
+        if let warning = playbackWarning {
+            InlineNotice(
+                symbol: "exclamationmark.triangle.fill",
+                message: warning.message,
+                actionTitle: "Got It",
+                action: {
+                    if warning.id == "max-mp4" {
+                        settings.maxQualityWarningDismissed = true
+                    } else {
+                        settings.playbackWarningsDismissed.insert(warning.id)
+                    }
+                })
+        }
+    }
+
+    /// What Trim changes about the result, said under the range bar.
+    private var trimNote: String? {
+        guard kind == .video else { return nil }
+        var notes: [String] = []
+        if settings.videoContainer == .webm {
+            notes.append("Parts of a video are saved as MP4: WebM can't hold the exact cut.")
+        }
+        if settings.embedSubtitles {
+            notes.append("Subtitles are not added to parts of a video.")
+        }
+        return notes.isEmpty ? nil : notes.joined(separator: " ")
     }
 
     // MARK: - Link Preview
@@ -419,9 +511,11 @@ struct DownloadPane: View {
                 }
             }
             .buttonStyle(.plain)
-            .disabled(!isValidURL || !manager.isReady || loadingPlaylist)
+            .disabled(!isValidURL || !manager.isReady || loadingPlaylist
+                      || (isTrimming && !rangesAreValid))
             .help(YouTubeLink.playlistURL(from: trimmedURL) != nil
-                  ? "Choose what to download" : "Download")
+                  ? "Choose what to download"
+                  : isTrimming ? "Download the chosen parts" : "Download")
         }
         .padding(.leading, 18)
         .padding(.trailing, 4)
@@ -463,6 +557,9 @@ struct DownloadPane: View {
             qualityMenu
                 .frame(width: 108, alignment: .leading)
 
+            trimButton
+                .frame(width: Self.trimSlot, alignment: .leading)
+
             // The estimate arrives a moment after the link, so its slot is
             // reserved too, empty or not.
             estimate
@@ -473,19 +570,57 @@ struct DownloadPane: View {
         // the quality control permanently off-centre. An equal, invisible slot
         // on the other end keeps the pair where the mockup put it, and nothing
         // in the row ever moves again.
-        .padding(.leading, Self.estimateSlot + Theme.Space.s8)
+        .padding(.leading, Self.estimateSlot + Self.trimSlot + Theme.Space.s8 * 2)
         .animation(.easeOut(duration: 0.2), value: preview)
     }
 
     /// Widest realistic reading is "≈ 158,4 MB"; a four-digit megabyte count
     /// is already a gigabyte, and prints shorter.
     private static let estimateSlot: CGFloat = 84
+    private static let trimSlot: CGFloat = 74
+
+    /// Trim on and off. Present only once the duration is known; its slot
+    /// is reserved before that so the row does not move when it appears.
+    @ViewBuilder
+    private var trimButton: some View {
+        if canTrim {
+            Button {
+                trimOn.toggle()
+                if trimOn, ranges.isEmpty { resetRanges() }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "scissors").font(.system(size: 11))
+                    Text("Trim").font(Theme.Text.body)
+                }
+                .foregroundStyle(trimOn ? Theme.inkOn : Theme.label)
+                .padding(.horizontal, Theme.Space.s10)
+                .frame(height: 22)
+                .background(
+                    RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
+                        .fill(trimOn ? Theme.ink : Theme.fillTertiary))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(trimOn ? "Download the whole video" : "Download only part of the video")
+            .transition(.opacity)
+        }
+    }
+
+    /// One range: from the time in the link if it carries one, else the
+    /// whole video, ready to be narrowed.
+    private func resetRanges() {
+        let duration = preview?.duration ?? 0
+        let start = min(YouTubeLink.startTime(from: trimmedURL) ?? 0,
+                        max(0, duration - TrimEditor.minimumLength))
+        ranges = [ClipRange(start: start, end: duration)]
+        rangeSelection = 0
+    }
 
     @ViewBuilder
     private var estimate: some View {
         // "≈" is intentional: yt-dlp itself only knows the size of fragmented
         // streams approximately.
-        if let bytes = preview?.estimatedBytes(for: currentFormat), bytes > 0 {
+        if let bytes = estimatedTotal, bytes > 0 {
             Text("≈ \(Format.bytes(bytes))")
                 .font(Theme.Text.caption)
                 .monospacedDigit()
@@ -493,6 +628,14 @@ struct DownloadPane: View {
                 .lineLimit(1)
                 .transition(.opacity)
         }
+    }
+
+    /// Whole file, or the sum of the clips when trimming.
+    private var estimatedTotal: Int64? {
+        guard let preview else { return nil }
+        guard isTrimming else { return preview.estimatedBytes(for: currentFormat) }
+        let sizes = clipRanges.compactMap { preview.estimatedBytes(for: currentFormat, range: $0) }
+        return sizes.isEmpty ? nil : sizes.reduce(0, +)
     }
 
     // MARK: - Resume After Close
@@ -749,7 +892,15 @@ struct DownloadPane: View {
 
     private func launch(_ link: String) {
         handledLinks.insert(link)
-        manager.startDownload(urlString: link, format: currentFormat)
+        if isTrimming {
+            guard rangesAreValid else { return }
+            manager.startClips(urlString: link, format: currentFormat,
+                               ranges: ranges, duration: preview?.duration)
+        } else {
+            manager.startDownload(urlString: link, format: currentFormat)
+        }
+        trimOn = false
+        ranges = []
         urlText = ""
         preview = nil
         quickPreview = nil
@@ -786,6 +937,8 @@ struct DownloadPane: View {
     private func loadPreview() async {
         quickPreview = nil
         preview = nil
+        trimOn = false
+        ranges = []
         guard showsLinkPreview else { return }
         try? await Task.sleep(nanoseconds: 250_000_000)
         guard !Task.isCancelled else { return }
@@ -816,6 +969,12 @@ struct DownloadPane: View {
         let full = await manager.fetchMetadata(urlString: link)
         guard !Task.isCancelled else { return }
         preview = full
+        // A link at a timestamp usually means "from here": open Trim with
+        // the start handle already there.
+        if YouTubeLink.startTime(from: link) != nil, canTrim {
+            resetRanges()
+            trimOn = true
+        }
     }
 
     private func refreshClipboard() {

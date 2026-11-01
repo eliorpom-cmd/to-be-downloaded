@@ -175,14 +175,12 @@ struct LibraryPane: View {
     }
 
     /// Restart the download with default settings of the same type: the
-    /// exact original quality is not preserved in the library.
+    /// exact original quality is not preserved in the library. A clip is
+    /// downloaded again as the same clip.
     private func downloadAgain(_ item: LibraryItem) {
-        let format = DownloadFormat(
-            kind: item.kind,
-            videoQuality: settings.defaultVideoQuality,
-            audioBitrate: settings.defaultAudioBitrate
-        )
-        manager.startDownload(urlString: item.sourceURL, format: format)
+        var format = settings.currentDefaultFormat
+        format.kind = item.kind
+        manager.startDownload(urlString: item.sourceURL, format: format, range: item.range)
     }
 }
 

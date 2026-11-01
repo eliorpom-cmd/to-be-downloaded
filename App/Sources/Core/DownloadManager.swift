@@ -120,7 +120,8 @@ final class DownloadManager: ObservableObject {
                 trustBundle: trustBundle,
                 outputPattern: settings.outputPattern,
                 subtitleLanguages: settings.subtitleLanguages,
-                autoSubtitles: settings.autoSubtitles
+                autoSubtitles: settings.autoSubtitles,
+                commonArguments: Self.commonArguments()
             ))
             setupError = nil
             needsFFmpeg = false
@@ -133,6 +134,18 @@ final class DownloadManager: ObservableObject {
             setupError = error.localizedDescription
             needsFFmpeg = false
         }
+    }
+
+    /// Arguments every yt-dlp call carries.
+    ///
+    /// The cache lives next to the rest of TBD's state. It is what makes the
+    /// bundled QuickJS cheap: the solved player is kept, so its few seconds
+    /// are paid once per YouTube player version, not once per video.
+    static func commonArguments() -> [String] {
+        let cache = AppConfig.supportDirectory.appendingPathComponent("cache", isDirectory: true)
+        return BinaryLocator.jsRuntimeArguments()
+            + ["--cache-dir", cache.path]
+            + CookieBrowser.arguments(for: AppSettings.shared.cookieBrowser)
     }
 
     var isReady: Bool { engine != nil }
@@ -170,11 +183,12 @@ final class DownloadManager: ObservableObject {
     /// change — but delays the first usable file and makes all remaining
     /// times dishonest.
     @discardableResult
-    func startDownload(urlString: String, format: DownloadFormat, id: UUID = UUID()) -> UUID? {
+    func startDownload(urlString: String, format: DownloadFormat, range: ClipRange? = nil,
+                       id: UUID = UUID()) -> UUID? {
         let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, engine != nil else { return nil }
 
-        let job = DownloadJob(url: trimmed, format: format, id: id)
+        let job = DownloadJob(url: trimmed, format: format, range: range, id: id)
         jobs.insert(job, at: 0)
 
         // Title and channel in two stages: oEmbed responds in a few hundred
@@ -206,6 +220,23 @@ final class DownloadManager: ObservableObject {
         return job.id
     }
 
+    /// Queues one download per range of the same video.
+    ///
+    /// One job per range rather than one yt-dlp call with several sections:
+    /// each clip gets its own capsule, progress, retry and library entry, and
+    /// a failure on one does not take the others down. Ranges are normalized
+    /// first, so overlapping ones are merged and nothing downloads twice.
+    @discardableResult
+    func startClips(urlString: String, format: DownloadFormat, ranges: [ClipRange],
+                    duration: Double?) -> [UUID] {
+        let clips = ClipRange.normalized(ranges, duration: duration)
+        // Reverse: `startDownload` inserts at the head, so the first range
+        // ends up on top, in the order of the video.
+        return clips.reversed().compactMap {
+            startDownload(urlString: urlString, format: format, range: $0)
+        }.reversed()
+    }
+
     /// Queues all chosen videos from a playlist, in order.
     func startPlaylist(_ entries: [Playlist.Entry], format: DownloadFormat) {
         // In reverse: `startDownload` inserts at head, so starting from the
@@ -233,7 +264,8 @@ final class DownloadManager: ObservableObject {
             }) else { return }
             let job = jobs[index]
             do {
-                let run = try engine.start(url: job.url, format: job.format, jobID: job.id)
+                let run = try engine.start(
+                    url: job.url, format: job.format, range: job.range, jobID: job.id)
                 running[job.id] = run
                 // The state stays `queued`: yt-dlp must first start and query
                 // YouTube, which takes a very visible amount of time.
@@ -261,6 +293,8 @@ final class DownloadManager: ObservableObject {
         let url: String
         let format: DownloadFormat
         var title: String?
+        /// Absent in files written before 1.3: decodes as `nil`, a whole video.
+        var range: ClipRange?
     }
 
     private var pendingFileURL: URL {
@@ -269,7 +303,8 @@ final class DownloadManager: ObservableObject {
 
     private func savePending() {
         let pending = jobs.filter { $0.state.isActive }.map {
-            PendingJob(id: $0.id, url: $0.url, format: $0.format, title: $0.metadata?.title)
+            PendingJob(id: $0.id, url: $0.url, format: $0.format,
+                       title: $0.metadata?.title, range: $0.range)
         }
         let directory = pendingFileURL.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -293,7 +328,7 @@ final class DownloadManager: ObservableObject {
         let pending = resumable
         resumable = []
         for item in pending.reversed() {
-            startDownload(urlString: item.url, format: item.format, id: item.id)
+            startDownload(urlString: item.url, format: item.format, range: item.range, id: item.id)
         }
     }
 
@@ -323,6 +358,13 @@ final class DownloadManager: ObservableObject {
             merged.channelURL = metadata.channelURL ?? job.metadata?.channelURL
             merged.channelAvatarURL = metadata.channelAvatarURL ?? job.metadata?.channelAvatarURL
             job.metadata = merged
+            // A range past the end (possible through the API) would label the
+            // clip with times that do not exist and stall its progress bar.
+            if let duration = metadata.duration, duration > 0,
+               var range = job.range, range.end > duration {
+                range.end = duration
+                if range.isValid { job.range = range }
+            }
         }
     }
 
@@ -391,6 +433,13 @@ final class DownloadManager: ObservableObject {
         guard let run = running[jobID],
               let job = jobs.first(where: { $0.id == jobID }), job.state == .paused
         else { return }
+        // A clip is fetched by FFmpeg, which cannot continue a connection the
+        // server closed during the pause: start the clip again instead.
+        if job.range != nil {
+            run.resume()
+            _ = retry(jobID)
+            return
+        }
         if run.resume() {
             update(jobID) { $0.state = .downloading }
         }
@@ -520,6 +569,16 @@ final class DownloadManager: ObservableObject {
                         job.progress = p
                         Self.advance(&job, with: p)
                     }
+                case .clipProgress(let seconds):
+                    self.update(jobID) { job in
+                        guard job.state != .cancelled, job.state != .paused,
+                              let range = job.range, range.length > 0 else { return }
+                        job.state = .downloading
+                        let within = min(1, max(0, seconds / range.length))
+                        let span = DownloadJob.clipSpan
+                        let mapped = span.lowerBound + within * (span.upperBound - span.lowerBound)
+                        job.overallProgress = max(job.overallProgress, mapped)
+                    }
                 case .postProcessing:
                     self.update(jobID) { job in
                         guard job.state != .cancelled else { return }
@@ -550,7 +609,7 @@ final class DownloadManager: ObservableObject {
                     self.update(jobID) {
                         if $0.state != .cancelled {
                             $0.state = .failed
-                            $0.errorMessage = message
+                            $0.errorMessage = Self.explain(message, for: $0)
                         }
                     }
                     self.savePending()
@@ -563,6 +622,17 @@ final class DownloadManager: ObservableObject {
             // A slot is freed: the next job in the queue can go.
             self.pump()
         }
+    }
+
+    /// A WebM that cannot be made says why, rather than yt-dlp's
+    /// "Requested format is not available": some videos have no VP9 or Opus
+    /// stream, and nothing else fits a WebM file.
+    static func explain(_ message: String, for job: DownloadJob) -> String {
+        guard job.format.kind == .video, job.range == nil,
+              job.format.videoContainer == .webm,
+              message.localizedCaseInsensitiveContains("requested format is not available")
+        else { return message }
+        return "This video has no WebM version. Choose MP4 or MKV in Settings."
     }
 
     // MARK: - Overall progress

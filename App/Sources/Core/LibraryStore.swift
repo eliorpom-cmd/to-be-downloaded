@@ -19,6 +19,9 @@ struct LibraryItem: Identifiable, Codable, Sendable, Equatable {
     var addedAt: Date
     /// Original YouTube URL, for "Download Again" and "Copy Link".
     var sourceURL: String
+    /// The part of the video this file holds; `nil` = the whole video.
+    /// Absent in libraries written before 1.3, which decode as `nil`.
+    var range: ClipRange?
 
     var fileURL: URL { URL(fileURLWithPath: filePath) }
 
@@ -30,12 +33,13 @@ struct LibraryItem: Identifiable, Codable, Sendable, Equatable {
         self.title = job.displayTitle
         self.channel = job.metadata?.channel
         self.thumbnailURL = job.metadata?.thumbnailURL
-        self.formatLabel = job.format.shortLabel
+        self.formatLabel = job.formatLabel
         self.kind = job.format.kind
         self.filePath = fileURL.path
         self.fileSize = job.fileSize
         self.addedAt = Date()
         self.sourceURL = job.url
+        self.range = job.range
     }
 }
 
@@ -92,6 +96,9 @@ final class LibraryStore: ObservableObject {
         guard let videoID = YouTubeLink.videoID(from: url) else { return nil }
         return sorted.first {
             $0.kind == kind
+                // A clip is not the video: having 30 seconds of it does not
+                // mean you already have it.
+                && $0.range == nil
                 && $0.fileExists
                 && YouTubeLink.videoID(from: $0.sourceURL) == videoID
         }

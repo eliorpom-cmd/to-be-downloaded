@@ -99,6 +99,11 @@ for bin in yt-dlp; do
     --entitlements "$ROOT/App/ytdlp.entitlements" \
     "$APP/Contents/Resources/bin/$bin"
 done
+# QuickJS-NG, the JavaScript runtime yt-dlp uses for YouTube's challenges.
+# Hardened runtime and timestamp like everything else, and NO entitlements:
+# it is a plain interpreter, with no JIT and no libraries to load.
+codesign --force --sign "$IDENTITY" "${SIGN_FLAGS[@]+"${SIGN_FLAGS[@]}"}" \
+  "$APP/Contents/Resources/bin/qjs"
 # Extension BEFORE the app: signing the app seals the PlugIns contents, so
 # signing the extension afterward would invalidate the app's signature.
 for appex in "$APP/Contents/PlugIns/"*.appex; do

@@ -1,6 +1,13 @@
 # Partial download (trim before downloading): design notes
 
-17 October 2026. Thinking ahead for the next notable release (1.5 or 2.0). Nothing is built yet.
+17 October 2026. Thinking ahead for the next notable release.
+
+> **Built in 1.3 (1 November 2026).** One yt-dlp job per range; picture re-encoded with
+> `h264_videotoolbox` through `--downloader-args ffmpeg_o:` (verified: a 1:00–1:10 range of a
+> 1080p60 video gives `duration=10.000000`); progress read from FFmpeg's `time=`. Differences
+> from the notes below: subtitles are not embedded in a clip (yt-dlp would add the whole video's
+> track, out of sync), and the library lists clips one per row with their range rather than
+> grouped under the video. Smart cut is still to do.
 
 > **Elior's decisions (17/10):** exact cuts, **and fast** · **several ranges from one video in v1** ·
 > free, like everything in TBD (open source, no paid tier). The sections below are updated accordingly.

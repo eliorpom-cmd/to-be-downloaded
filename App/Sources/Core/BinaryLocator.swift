@@ -112,6 +112,46 @@ enum BinaryLocator {
         return managedFFmpeg
     }
 
+    // MARK: - JavaScript runtime (YouTube challenges)
+
+    /// Places where a Deno installed by the user usually lives. A GUI app's
+    /// `PATH` contains none of them, so yt-dlp never finds it on its own.
+    static let denoCandidates: [String] = [
+        "/opt/homebrew/bin/deno",
+        "/usr/local/bin/deno",
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".deno/bin/deno").path,
+    ]
+
+    /// `--js-runtimes` arguments for yt-dlp.
+    ///
+    /// The bundled QuickJS-NG always; plus the user's own Deno when there is
+    /// one. yt-dlp ranks Deno above QuickJS, so it takes over by itself, and
+    /// it is about seven times faster at solving a new player. See
+    /// docs/research/2026-09-30-js-runtime.md.
+    static func jsRuntimeArguments() -> [String] {
+        // Looked up, never touched: `ensureExecutable` would try to rewrite
+        // attributes inside the signed bundle. The build signs `qjs` and
+        // keeps its executable bit.
+        let qjs = binDirectory?.appendingPathComponent("qjs").path
+        return jsRuntimeArguments(
+            bundledQuickJS: qjs.flatMap { FileManager.default.isExecutableFile(atPath: $0) ? $0 : nil },
+            isExecutable: { FileManager.default.isExecutableFile(atPath: $0) })
+    }
+
+    /// Testable core of `jsRuntimeArguments()`.
+    static func jsRuntimeArguments(bundledQuickJS: String?,
+                                   isExecutable: (String) -> Bool) -> [String] {
+        var args: [String] = []
+        if let deno = denoCandidates.first(where: isExecutable) {
+            args += ["--js-runtimes", "deno:\(deno)"]
+        }
+        if let qjs = bundledQuickJS {
+            args += ["--js-runtimes", "quickjs:\(qjs)"]
+        }
+        return args
+    }
+
     /// Path of a resource (non-executable) in `bin`, if it exists.
     static func resourceInBin(_ name: String) -> URL? {
         guard let dir = binDirectory else { return nil }

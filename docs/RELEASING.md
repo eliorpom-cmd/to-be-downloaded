@@ -142,9 +142,13 @@ command does not contain the repo name.
 
 - [ ] `CHANGELOG.md` updated
 - [ ] bundled yt-dlp refreshed (`release.sh` does it)
-- [ ] `App/Resources/bin/` still contains only `yt-dlp` and `cacert.pem`
+- [ ] `App/Resources/bin/` still contains only `yt-dlp`, `qjs` and `cacert.pem`
 - [ ] `./scripts/release.sh <version>` green
 - [ ] `.zip` **and** `.zip.sig` attached to the release
 - [ ] cask copied to the tap and pushed
 - [ ] `spctl -a -vvv dist/TBD.app` says `source=Notarized Developer ID`
 - [ ] fresh-machine install tested
+- [ ] partial download, by hand: 10 seconds of a Creative Commons video (Big Buck
+      Bunny, `aqz-KE-bpKQ`, Trim 1:00 → 1:10), then
+      `ffprobe -v error -show_entries format=duration -of csv=p=0 "<file>"` gives
+      10.0 ± 0.1 s and the video stream is `h264`

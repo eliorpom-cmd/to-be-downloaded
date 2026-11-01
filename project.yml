@@ -23,8 +23,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    MARKETING_VERSION: "1.2.0"
-    CURRENT_PROJECT_VERSION: "202609201654"
+    MARKETING_VERSION: "1.3.0"
+    CURRENT_PROJECT_VERSION: "202611011513"
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
 
@@ -55,6 +55,15 @@ targets:
       - path: App/Resources/Logos
         type: folder
         buildPhase: resources
+      # License texts of bundled third-party code that asks for its notice to
+      # travel with every copy (QuickJS-NG, MIT).
+      - path: App/Resources/Licenses
+        type: folder
+        buildPhase: resources
+    # The scheme runs the unit tests below (`xcodebuild test -scheme TBD`).
+    scheme:
+      testTargets:
+        - TBDTests
     dependencies:
       - package: FlyingFox
       # "Download with …" in Safari's Share menu.
@@ -98,6 +107,8 @@ targets:
       # Link validator shared with the app: single definition of what is
       # acceptable.
       - path: App/Sources/Core/YouTubeLink.swift
+      # Time parsing used by YouTubeLink.startTime.
+      - path: App/Sources/Core/ClipRange.swift
       # And the URL scheme, for the same reason: the extension writes the link
       # that the app must recognize.
       - path: App/Sources/AppConfig.swift
@@ -118,3 +129,35 @@ targets:
         LD_RUNPATH_SEARCH_PATHS:
           - "$(inherited)"
           - "@executable_path/../../../../Frameworks"
+
+  # Unit tests of the engine's pure logic: argument building, time parsing,
+  # progress parsing, file names. No host app: the sources under test are
+  # compiled into the bundle itself, so running the tests never launches TBD
+  # (no window, no server, no FFmpeg download).
+  TBDTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests/TBDTests
+      - path: App/Sources/AppConfig.swift
+      - path: App/Sources/Core/BinaryLocator.swift
+      - path: App/Sources/Core/BrowserCookies.swift
+      - path: App/Sources/Core/ClipRange.swift
+      - path: App/Sources/Core/DownloadEngine.swift
+      - path: App/Sources/Core/DownloadJob.swift
+      - path: App/Sources/Server/APIModels.swift
+      - path: App/Sources/Core/DownloadFormat.swift
+      - path: App/Sources/Core/DownloadProgress.swift
+      - path: App/Sources/Core/FilenameTemplate.swift
+      - path: App/Sources/Core/MediaMetadata.swift
+      - path: App/Sources/Core/Playlist.swift
+      - path: App/Sources/Core/ProblemReport.swift
+      - path: App/Sources/Core/ProcessRunner.swift
+      - path: App/Sources/Core/YouTubeLink.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.byelior.tbd.tests
+        GENERATE_INFOPLIST_FILE: YES
+        # XCTest itself requires 14; the code under test still targets 13.
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        SWIFT_TREAT_WARNINGS_AS_ERRORS: YES

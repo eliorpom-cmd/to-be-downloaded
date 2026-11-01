@@ -83,6 +83,28 @@ enum YouTubeLink {
         playlistID(from: string).map { "https://www.youtube.com/playlist?list=\($0)" }
     }
 
+    /// Time carried by a link (`?t=220`, `&t=3m40s`, `#t=1:02`), in seconds.
+    ///
+    /// Someone sharing a link at a timestamp usually means "from here": the
+    /// app opens Trim with the start already there.
+    static func startTime(from string: String) -> Double? {
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let components = URLComponents(string: trimmed),
+              let host = components.host?.lowercased(),
+              allowedHosts.contains(host)
+        else { return nil }
+        let fromQuery = components.queryItems?
+            .first(where: { $0.name == "t" || $0.name == "start" })?.value
+        let fromFragment = components.fragment.flatMap { fragment -> String? in
+            guard fragment.hasPrefix("t=") else { return nil }
+            return String(fragment.dropFirst(2))
+        }
+        guard let raw = fromQuery ?? fromFragment,
+              let seconds = ClipRange.parseTime(raw), seconds > 0
+        else { return nil }
+        return seconds
+    }
+
     /// Official thumbnail of a video, deducible without any network call.
     /// `mqdefault` (320×180) is plenty for the sizes we display it at.
     static func thumbnailURL(for string: String) -> String? {

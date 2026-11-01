@@ -92,9 +92,16 @@ Right-click a link in Safari → **Services** → *Download with TBD*.
 
 **Formats**
 - MP4 video with quality selection, H.264 preferred so QuickTime can actually
-  play it (YouTube serves AV1 that most Macs can't decode).
-- Audio as **M4A**, remuxed without re-encoding — MP3 if you'd rather.
+  play it (YouTube serves AV1 that most Macs can't decode). MOV, MKV and WebM
+  in Settings, always remuxed, never re-encoded.
+- Audio as **M4A**, remuxed without re-encoding — or Opus (kept as is), MP3,
+  FLAC and WAV.
 - Subtitles embedded as a track, when the video has them.
+
+**Part of a video**
+- **Trim** picks one or several ranges on a strip of the video's thumbnails, by
+  dragging, typing times or ticking chapters. Only those parts are downloaded,
+  cut on the exact frame. A link with `?t=` opens at that time.
 
 **Downloading**
 - **Queue** — two at a time by default, the rest wait.
@@ -104,6 +111,8 @@ Right-click a link in Safari → **Services** → *Download with TBD*.
   library.
 - **Resume** — quit mid-download, come back, it picks up where it stopped.
 - Pause and resume any job.
+- **Browser cookies**, off by default, for videos YouTube shows only to
+  signed-in viewers.
 
 **Living with it**
 - **Library** that survives restarts, with thumbnails, reveal in Finder, and

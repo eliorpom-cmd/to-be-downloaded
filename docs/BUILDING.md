@@ -39,7 +39,8 @@ from `project.yml` is never applied by Xcode. Without those flags the app ships
 with no entitlements at all, which is invisible until the hardened runtime is
 switched on and the frozen yt-dlp stops starting.
 
-`App/Resources/bin/` holds only `yt-dlp` and `cacert.pem`. **FFmpeg is not in
+`App/Resources/bin/` holds only `yt-dlp`, `qjs` (QuickJS-NG, refreshed by
+`scripts/update-qjs.sh`) and `cacert.pem`. **FFmpeg is not in
 the repository and must not be added back**: the build that used to live there
 was not redistributable, and the app now fetches it on first launch
 ([THIRD-PARTY.md](THIRD-PARTY.md#ffmpeg-is-downloaded-not-bundled)). A build of
