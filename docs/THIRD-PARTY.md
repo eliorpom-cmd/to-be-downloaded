@@ -7,6 +7,7 @@ ships and depends on other people's work, which keeps its own terms.
 | --- | --- | --- | --- |
 | [yt-dlp](https://github.com/yt-dlp/yt-dlp) (`yt-dlp_macos`) | bundled: `App/Resources/bin/yt-dlp` | Unlicense (public domain) | Yes |
 | Python + `curl_cffi`, `certifi`, … inside that PyInstaller bundle | same file | PSF / MIT / MPL-2.0 | Yes |
+| [QuickJS-NG](https://github.com/quickjs-ng/quickjs) (`qjs-darwin-arm64`, ~1.3 MB) | bundled: `App/Resources/bin/qjs` — the JavaScript runtime yt-dlp uses for YouTube's challenges; license text in `App/Resources/Licenses/` | MIT | Yes |
 | Mozilla CA bundle | bundled: `App/Resources/bin/cacert.pem` | MPL-2.0 | Yes |
 | [FlyingFox](https://github.com/swhitty/FlyingFox) | SwiftPM dependency, statically linked | MIT | Yes |
 | [FFmpeg](https://ffmpeg.org) + ffprobe | **not bundled** — downloaded on first launch | GPL v3 (publisher's build) | Not ours to redistribute — and we don't |

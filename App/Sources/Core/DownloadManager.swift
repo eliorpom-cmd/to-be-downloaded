@@ -120,7 +120,8 @@ final class DownloadManager: ObservableObject {
                 trustBundle: trustBundle,
                 outputPattern: settings.outputPattern,
                 subtitleLanguages: settings.subtitleLanguages,
-                autoSubtitles: settings.autoSubtitles
+                autoSubtitles: settings.autoSubtitles,
+                commonArguments: Self.commonArguments()
             ))
             setupError = nil
             needsFFmpeg = false
@@ -133,6 +134,16 @@ final class DownloadManager: ObservableObject {
             setupError = error.localizedDescription
             needsFFmpeg = false
         }
+    }
+
+    /// Arguments every yt-dlp call carries.
+    ///
+    /// The cache lives next to the rest of TBD's state. It is what makes the
+    /// bundled QuickJS cheap: the solved player is kept, so its few seconds
+    /// are paid once per YouTube player version, not once per video.
+    static func commonArguments() -> [String] {
+        let cache = AppConfig.supportDirectory.appendingPathComponent("cache", isDirectory: true)
+        return BinaryLocator.jsRuntimeArguments() + ["--cache-dir", cache.path]
     }
 
     var isReady: Bool { engine != nil }

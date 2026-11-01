@@ -42,8 +42,10 @@ The license above covers the source code of this repository. It does not cover:
   copyrighted work of its author, Saint (https://x.com/app_settings), used here
   with permission and NOT relicensed. A fork must ship its own icon;
 
-- yt-dlp and the Mozilla CA bundle, bundled under App/Resources/bin/, each
-  under its own license (Unlicense, MPL-2.0);
+- yt-dlp, QuickJS-NG and the Mozilla CA bundle, bundled under
+  App/Resources/bin/, each under its own license (Unlicense, MIT, MPL-2.0).
+  QuickJS-NG's MIT license ships inside the app, in
+  Contents/Resources/Licenses/QuickJS-NG.txt;
 
 - FFmpeg and ffprobe, which are not bundled at all — they are downloaded from
   their publisher on first launch;

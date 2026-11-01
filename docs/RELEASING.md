@@ -142,7 +142,7 @@ command does not contain the repo name.
 
 - [ ] `CHANGELOG.md` updated
 - [ ] bundled yt-dlp refreshed (`release.sh` does it)
-- [ ] `App/Resources/bin/` still contains only `yt-dlp` and `cacert.pem`
+- [ ] `App/Resources/bin/` still contains only `yt-dlp`, `qjs` and `cacert.pem`
 - [ ] `./scripts/release.sh <version>` green
 - [ ] `.zip` **and** `.zip.sig` attached to the release
 - [ ] cask copied to the tap and pushed

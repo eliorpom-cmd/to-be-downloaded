@@ -106,6 +106,7 @@ enum AppConfig {
         static let ytDlp = URL(string: "https://github.com/yt-dlp/yt-dlp")!
         static let ffmpeg = URL(string: "https://ffmpeg.org")!
         static let flyingFox = URL(string: "https://github.com/swhitty/FlyingFox")!
+        static let quickJS = URL(string: "https://github.com/quickjs-ng/quickjs")!
 
         /// The license details, in the repository. Built from
         /// `updateRepository` so renaming the repo doesn't leave a

@@ -32,6 +32,11 @@ final class DownloadEngine: @unchecked Sendable {
         /// Accept YouTube's machine transcription when the channel wrote no
         /// subtitles of its own.
         var autoSubtitles: Bool = true
+        /// Passed to EVERY yt-dlp call (metadata, playlist, download): the
+        /// JavaScript runtimes and the cache folder. Without them on the
+        /// metadata call, the preview and the download would see different
+        /// formats.
+        var commonArguments: [String] = []
     }
 
     /// A download in progress; allows pause, resume, and cancellation.
@@ -186,7 +191,7 @@ final class DownloadEngine: @unchecked Sendable {
         let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
-        let args = [
+        let args = config.commonArguments + [
             "--impersonate", "chrome",
             "--no-playlist",
             "--skip-download",
@@ -207,7 +212,7 @@ final class DownloadEngine: @unchecked Sendable {
         let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
-        let args = [
+        let args = config.commonArguments + [
             "--impersonate", "chrome",
             "--flat-playlist",
             "--skip-download",
@@ -238,7 +243,7 @@ final class DownloadEngine: @unchecked Sendable {
     // MARK: - Argument building (no shell concatenation)
 
     private func buildArgs(url: String, format: DownloadFormat, resultFile: URL, workDir: URL) -> [String] {
-        var args: [String] = [
+        var args: [String] = config.commonArguments + [
             "--ffmpeg-location", config.ffmpegDirectory.path,
             // Routes requests via curl_cffi: only backend that honors
             // CURL_CA_BUNDLE (essential behind a TLS interceptor).
