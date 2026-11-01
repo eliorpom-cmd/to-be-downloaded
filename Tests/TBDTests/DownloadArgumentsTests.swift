@@ -127,7 +127,7 @@ final class DownloadArgumentsTests: XCTestCase {
     func testAudioMP3ClipSelector() {
         let args = arguments(format: DownloadFormat(kind: .audio, audioFormat: .mp3),
                              range: ClipRange(start: 220, end: 435))
-        XCTAssertEqual(value(after: "-f", in: args), "ba")
+        XCTAssertEqual(value(after: "-f", in: args), "ba[ext=m4a]/ba")
     }
 
     func testAudioM4AWholeSelectorKeepsMuxedFallback() {

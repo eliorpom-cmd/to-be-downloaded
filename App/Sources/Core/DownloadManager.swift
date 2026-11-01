@@ -143,7 +143,9 @@ final class DownloadManager: ObservableObject {
     /// are paid once per YouTube player version, not once per video.
     static func commonArguments() -> [String] {
         let cache = AppConfig.supportDirectory.appendingPathComponent("cache", isDirectory: true)
-        return BinaryLocator.jsRuntimeArguments() + ["--cache-dir", cache.path]
+        return BinaryLocator.jsRuntimeArguments()
+            + ["--cache-dir", cache.path]
+            + CookieBrowser.arguments(for: AppSettings.shared.cookieBrowser)
     }
 
     var isReady: Bool { engine != nil }

@@ -68,6 +68,7 @@ final class AppSettings: ObservableObject {
         static let shortcutKeyCode = "globalShortcutKeyCode"
         static let shortcutModifiers = "globalShortcutModifiers"
         static let shortcutLabel = "globalShortcutLabel"
+        static let cookieBrowser = "cookiesFromBrowser"
     }
 
     @Published var outputDirectory: URL {
@@ -184,6 +185,11 @@ final class AppSettings: ObservableObject {
             store.set(globalShortcut, forKey: Key.globalShortcut)
             applyGlobalShortcut()
         }
+    }
+    /// Browser whose YouTube session yt-dlp may use. `nil` = off, which is
+    /// the default: nothing is read from any browser unless chosen here.
+    @Published var cookieBrowser: CookieBrowser? {
+        didSet { store.set(cookieBrowser?.rawValue ?? "", forKey: Key.cookieBrowser) }
     }
     @Published private(set) var shortcutKeyCode: Int
     @Published private(set) var shortcutModifiers: UInt
@@ -342,6 +348,7 @@ final class AppSettings: ObservableObject {
         }
         remoteControl = store.object(forKey: Key.remoteControl) as? Bool ?? false
         globalShortcut = store.object(forKey: Key.globalShortcut) as? Bool ?? false
+        cookieBrowser = CookieBrowser(rawValue: store.string(forKey: Key.cookieBrowser) ?? "")
         shortcutKeyCode = store.object(forKey: Key.shortcutKeyCode) as? Int
             ?? GlobalShortcut.defaultKeyCode
         shortcutModifiers = UInt(store.object(forKey: Key.shortcutModifiers) as? Int

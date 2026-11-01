@@ -141,6 +141,7 @@ targets:
       - path: Tests/TBDTests
       - path: App/Sources/AppConfig.swift
       - path: App/Sources/Core/BinaryLocator.swift
+      - path: App/Sources/Core/BrowserCookies.swift
       - path: App/Sources/Core/ClipRange.swift
       - path: App/Sources/Core/DownloadEngine.swift
       - path: App/Sources/Core/DownloadJob.swift

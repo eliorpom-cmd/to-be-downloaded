@@ -350,7 +350,11 @@ final class DownloadEngine: @unchecked Sendable {
             switch format.audioFormat {
             case .mp3:
                 args += [
-                    "-f", range == nil ? "ba/b" : "ba",
+                    // On a clip, the AAC track first: a copied range of
+                    // YouTube's Opus/WebM track came out twice as long once
+                    // converted (measured: 20 s for a 10 s range), the AAC
+                    // one exact.
+                    "-f", range == nil ? "ba/b" : "ba[ext=m4a]/ba",
                     "-x",
                     "--audio-format", "mp3",
                     "--audio-quality", "\(format.audioBitrate.rawValue)K",
@@ -458,6 +462,8 @@ final class DownloadEngine: @unchecked Sendable {
         message = message
             .replacingOccurrences(of: "ERROR: ", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        // A cookie failure says what to do, not just what broke.
+        if let explained = CookieBrowser.explain(message) { return explained }
         return message.isEmpty ? "yt-dlp failed (code \(code))" : message
     }
 

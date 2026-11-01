@@ -15,6 +15,15 @@ struct SettingsPane: View {
 
     @State private var portText = ""
     @State private var showClearConfirm = false
+    /// A browser whose cookies sit behind the keychain, waiting for the
+    /// person to read what macOS is about to ask before it is turned on.
+    @State private var pendingKeychainBrowser: CookieBrowser?
+    /// Re-checked when the window comes back: the person may have just
+    /// granted Full Disk Access in System Settings.
+    ///
+    /// Only ever tested once Safari is the chosen browser: TBD does not touch
+    /// Safari's folder for anyone who did not ask for it.
+    @State private var safariReadable = false
 
     var body: some View {
         ScrollView {
@@ -95,6 +104,71 @@ struct SettingsPane: View {
                             }
                         }
                     }
+                }
+
+                section("Browser Cookies") {
+                    row("Use cookies from",
+                        detail: "For videos YouTube shows only to signed-in viewers. "
+                              + "Off by default. Use a second YouTube account, not your "
+                              + "main one: yt-dlp can sign that browser out of YouTube.",
+                        wraps: true) {
+                        Picker("", selection: cookieBrowserBinding) {
+                            Text("Off").tag(CookieBrowser?.none)
+                            ForEach(installedBrowsers) { browser in
+                                Text(browser.label).tag(CookieBrowser?.some(browser))
+                            }
+                        }
+                        .labelsHidden()
+                        .fixedSize()
+                    }
+                    if settings.cookieBrowser == .safari {
+                        divider
+                        row("Full Disk Access",
+                            detail: safariReadable
+                                ? "TBD can read Safari's cookies."
+                                : "Safari keeps its cookies in a folder macOS protects. "
+                                  + "Allow TBD in System Settings > Privacy & Security > "
+                                  + "Full Disk Access, then come back here.",
+                            wraps: true) {
+                            if !safariReadable {
+                                Button("Open System Settings") {
+                                    NSWorkspace.shared.open(CookieBrowser.fullDiskAccessSettings)
+                                }
+                                .buttonStyle(.push)
+                            }
+                        }
+                    } else if let browser = settings.cookieBrowser,
+                              let item = browser.keychainItem {
+                        divider
+                        row("Keychain",
+                            detail: "The first time, macOS asks for your login password "
+                                  + "so that “yt-dlp” can read “\(item)”. yt-dlp is the "
+                                  + "tool TBD downloads with. Choose Always Allow.",
+                            wraps: true) {
+                            EmptyView()
+                        }
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(
+                    for: NSApplication.didBecomeActiveNotification)) { _ in
+                    refreshSafariAccess()
+                }
+                .onAppear(perform: refreshSafariAccess)
+                .alert(
+                    "macOS will ask for your password",
+                    isPresented: Binding(
+                        get: { pendingKeychainBrowser != nil },
+                        set: { if !$0 { pendingKeychainBrowser = nil } }),
+                    presenting: pendingKeychainBrowser
+                ) { browser in
+                    Button("Use \(browser.label)") { applyCookieBrowser(browser) }
+                    Button("Cancel", role: .cancel) { pendingKeychainBrowser = nil }
+                } message: { browser in
+                    Text("\(browser.label) encrypts its cookies with a key kept in your "
+                         + "keychain. To read them, “yt-dlp”, the tool TBD downloads with, "
+                         + "needs “\(browser.keychainItem ?? "")”. macOS will ask for your "
+                         + "login password in its name. Choose Always Allow so it asks "
+                         + "only once.")
                 }
 
                 section("Shortcuts") {
@@ -608,6 +682,43 @@ struct SettingsPane: View {
             settings.outputDirectory = url
             manager.reconfigure()
         }
+    }
+
+    /// Browsers installed on this Mac. The current choice stays listed even
+    /// if its browser was removed since, so the menu never shows a blank.
+    private var installedBrowsers: [CookieBrowser] {
+        var list = CookieBrowser.installed { id in
+            NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) != nil
+        }
+        if let current = settings.cookieBrowser, !list.contains(current) { list.append(current) }
+        return list
+    }
+
+    /// A keychain browser goes through the alert first; the others apply.
+    private var cookieBrowserBinding: Binding<CookieBrowser?> {
+        Binding(
+            get: { settings.cookieBrowser },
+            set: { choice in
+                if let choice, choice.usesKeychain {
+                    pendingKeychainBrowser = choice
+                } else {
+                    applyCookieBrowser(choice)
+                }
+            })
+    }
+
+    private func applyCookieBrowser(_ browser: CookieBrowser?) {
+        pendingKeychainBrowser = nil
+        settings.cookieBrowser = browser
+        refreshSafariAccess()
+        // The engine carries the arguments: rebuild it so the next download
+        // and the next preview use the new choice.
+        manager.reconfigure()
+    }
+
+    private func refreshSafariAccess() {
+        guard settings.cookieBrowser == .safari else { return }
+        safariReadable = CookieBrowser.canReadSafariCookies()
     }
 
     private func reportProblem() {
