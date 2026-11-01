@@ -247,6 +247,16 @@ struct SettingsPane: View {
                         }
                     }
                     divider
+                    // Opens a page, sends nothing: the person sees the text
+                    // and decides whether to post it.
+                    row("Report a problem",
+                        detail: "Opens a GitHub issue with your app, yt-dlp and macOS "
+                              + "versions filled in. Nothing is sent until you post it.",
+                        wraps: true) {
+                        Button("Report…", action: reportProblem)
+                            .buttonStyle(.push)
+                    }
+                    divider
                     row("Support the app",
                         detail: "\(AppConfig.displayName) is free. A coffee keeps it updated.") {
                         Button("Support Me") {
@@ -483,6 +493,10 @@ struct SettingsPane: View {
                       detail: "Joins video and audio, extracts audio, embeds subtitles. GPL v3.",
                       url: AppConfig.Credits.ffmpeg)
             divider
+            creditRow("QuickJS-NG",
+                      detail: "Runs the JavaScript YouTube uses to protect its videos. MIT.",
+                      url: AppConfig.Credits.quickJS)
+            divider
             creditRow("FlyingFox",
                       detail: "The HTTP server behind Remote Control. MIT.",
                       url: AppConfig.Credits.flyingFox)
@@ -594,6 +608,18 @@ struct SettingsPane: View {
             settings.outputDirectory = url
             manager.reconfigure()
         }
+    }
+
+    private func reportProblem() {
+        let details = ProblemReport.Details(
+            appVersion: appUpdater.currentVersion,
+            ytDlpVersion: updater.installedVersion,
+            updateChannel: settings.updateChannel.label,
+            macOSVersion: ProblemReport.currentMacOSVersion,
+            macModel: ProblemReport.currentMacModel)
+        guard let url = ProblemReport.issueURL(
+            repository: AppConfig.updateRepository, details: details) else { return }
+        NSWorkspace.shared.open(url)
     }
 
     private func applyPort() {
