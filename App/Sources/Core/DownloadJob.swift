@@ -9,7 +9,7 @@ struct DownloadJob: Identifiable, Sendable {
     let format: DownloadFormat
     /// The part of the video to download; `nil` = the whole video, and then
     /// nothing differs from before partial downloads existed.
-    let range: ClipRange?
+    var range: ClipRange?
     var state: State
     var progress: DownloadProgress?
     var fileURL: URL?
@@ -120,7 +120,11 @@ struct DownloadJob: Identifiable, Sendable {
 
     /// "MP4 · 1080p", plus the range for a clip: "MP4 · 1080p · 3:40–7:15".
     var formatLabel: String {
-        range.map { "\(format.forClip().shortLabel) · \($0.label)" } ?? format.shortLabel
+        guard let range else { return format.shortLabel }
+        var label = format.forClip().shortLabel
+        // A clip's audio is re-encoded at the cut, so it is not the original track.
+        if label.hasSuffix(" · original") { label.removeLast(" · original".count) }
+        return "\(label) · \(range.label)"
     }
 
     /// Best label to display: known title > filename > raw URL.

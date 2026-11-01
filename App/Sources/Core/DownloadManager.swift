@@ -358,6 +358,13 @@ final class DownloadManager: ObservableObject {
             merged.channelURL = metadata.channelURL ?? job.metadata?.channelURL
             merged.channelAvatarURL = metadata.channelAvatarURL ?? job.metadata?.channelAvatarURL
             job.metadata = merged
+            // A range past the end (possible through the API) would label the
+            // clip with times that do not exist and stall its progress bar.
+            if let duration = metadata.duration, duration > 0,
+               var range = job.range, range.end > duration {
+                range.end = duration
+                if range.isValid { job.range = range }
+            }
         }
     }
 
@@ -426,6 +433,13 @@ final class DownloadManager: ObservableObject {
         guard let run = running[jobID],
               let job = jobs.first(where: { $0.id == jobID }), job.state == .paused
         else { return }
+        // A clip is fetched by FFmpeg, which cannot continue a connection the
+        // server closed during the pause: start the clip again instead.
+        if job.range != nil {
+            run.resume()
+            _ = retry(jobID)
+            return
+        }
         if run.resume() {
             update(jobID) { $0.state = .downloading }
         }

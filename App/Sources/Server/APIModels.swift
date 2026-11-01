@@ -11,8 +11,8 @@ struct DownloadRequestDTO: Codable, Sendable {
     var start: Double? = nil
     var end: Double? = nil
 
-    /// The part to download, or `nil` for the whole video (also when the two
-    /// times do not make a range).
+    /// The part to download, or `nil` when the two times do not make a range
+    /// (the server then answers 400 rather than fetch the whole video).
     var clipRange: ClipRange? {
         guard let start, let end else { return nil }
         let range = ClipRange(start: max(0, start), end: end)

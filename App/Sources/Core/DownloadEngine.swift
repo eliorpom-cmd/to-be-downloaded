@@ -61,6 +61,8 @@ final class DownloadEngine: @unchecked Sendable {
         ///
         /// The FFmpeg yt-dlp started is stopped too: for a clip, FFmpeg is
         /// the one downloading, and stopping only its parent left it running.
+        /// FFmpeg cannot pick up a connection the server dropped, so a paused
+        /// clip is restarted on resume (see `DownloadManager.resume`).
         @discardableResult
         func pause() -> Bool {
             guard process.isRunning else { return false }
@@ -444,8 +446,12 @@ final class DownloadEngine: @unchecked Sendable {
         if quality == .max {
             // "Best" means the highest resolution: we don't drop down to
             // 1080p for H.264. At equal resolution, however, H.264 comes first.
-            return ["-f", trimmed ? "bv*+ba" : "bv*+ba/b",
-                    "-S", "res,vcodec:h264,acodec:aac,ext:mp4:m4a"]
+            // A clip is re-encoded with Apple's H.264 encoder, which refuses
+            // pictures above about 4096 × 2304: an 8K stream would fail.
+            return trimmed
+                ? ["-f", "bv*[height<=2160]+ba/bv*+ba",
+                   "-S", "res:2160,vcodec:h264,acodec:aac,ext:mp4:m4a"]
+                : ["-f", "bv*+ba/b", "-S", "res,vcodec:h264,acodec:aac,ext:mp4:m4a"]
         }
         let h = quality.rawValue
         // The codec is filtered IN the selector, not just sorted: with a

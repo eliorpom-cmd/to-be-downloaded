@@ -47,6 +47,9 @@ final class ClipRangeTests: XCTestCase {
     func testCompactFormatting() {
         XCTAssertEqual(ClipRange.compact(220), "3m40s")
         XCTAssertEqual(ClipRange.compact(3720), "1h02m00s")
+        XCTAssertEqual(ClipRange.compact(220.5), "3m40.5s")
+        XCTAssertNotEqual(ClipRange(start: 220.2, end: 435).filenameSuffix,
+                          ClipRange(start: 220.8, end: 435).filenameSuffix)
     }
 
     // MARK: - yt-dlp and file name
@@ -99,12 +102,12 @@ final class ClipRangeTests: XCTestCase {
         XCTAssertEqual(result, [ClipRange(start: 0, end: 20)])
     }
 
-    func testNormalizedMergesTouchingRanges() {
+    func testNormalizedKeepsTouchingRangesApart() {
         let result = ClipRange.normalized([
             ClipRange(start: 0, end: 10),
             ClipRange(start: 10, end: 15),
         ], duration: nil)
-        XCTAssertEqual(result, [ClipRange(start: 0, end: 15)])
+        XCTAssertEqual(result, [ClipRange(start: 0, end: 10), ClipRange(start: 10, end: 15)])
     }
 
     func testNormalizedKeepsDisjointRanges() {
@@ -145,5 +148,13 @@ final class ClipRangeTests: XCTestCase {
 
     func testFFmpegProgressClampsNegativeTimeToZero() {
         XCTAssertEqual(FFmpegProgress.time(in: "time=-00:00:00.02"), 0)
+    }
+
+    func testTouchingRangesStaySeparate() {
+        let chapters = [ClipRange(start: 0, end: 120), ClipRange(start: 120, end: 300)]
+        XCTAssertEqual(ClipRange.normalized(chapters, duration: 600).count, 2)
+        let overlapping = [ClipRange(start: 0, end: 130), ClipRange(start: 120, end: 300)]
+        XCTAssertEqual(ClipRange.normalized(overlapping, duration: 600),
+                       [ClipRange(start: 0, end: 300)])
     }
 }

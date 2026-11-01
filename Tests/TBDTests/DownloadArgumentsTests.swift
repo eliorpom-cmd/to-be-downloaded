@@ -109,10 +109,12 @@ final class DownloadArgumentsTests: XCTestCase {
         XCTAssertTrue(args.contains("--embed-subs"))
     }
 
-    func testMaxQualityClipSelectorIsBestStreamsOnly() {
+    func testMaxQualityClipSelectorStopsAt2160p() {
+        // Apple's H.264 encoder refuses pictures above about 4096 × 2304.
         let args = arguments(format: DownloadFormat(kind: .video, videoQuality: .max),
                              range: ClipRange(start: 220, end: 435))
-        XCTAssertEqual(value(after: "-f", in: args), "bv*+ba")
+        XCTAssertEqual(value(after: "-f", in: args), "bv*[height<=2160]+ba/bv*+ba")
+        XCTAssertEqual(value(after: "-S", in: args), "res:2160,vcodec:h264,acodec:aac,ext:mp4:m4a")
     }
 
     // MARK: - Audio

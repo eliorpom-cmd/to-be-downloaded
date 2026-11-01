@@ -151,7 +151,9 @@ struct TrimEditor: View {
             .shadow(color: .black.opacity(0.3), radius: 1.5)
             .contentShape(Rectangle().inset(by: -6))
             .onHover { inside in
-                if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
+                // `set` rather than push/pop: a handle removed while hovered
+                // would never pop, leaving the resize cursor everywhere.
+                if inside { NSCursor.resizeLeftRight.set() } else { NSCursor.arrow.set() }
             }
     }
 

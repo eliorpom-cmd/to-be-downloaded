@@ -41,8 +41,9 @@ struct ClipRange: Codable, Hashable, Sendable {
     // MARK: - Several ranges
 
     /// Ranges ready to download: clamped to the duration, invalid ones
-    /// dropped, sorted, and overlapping or touching ones merged — two
-    /// overlapping ranges would otherwise download the shared part twice.
+    /// dropped, sorted, and overlapping ones merged — two overlapping ranges
+    /// would otherwise download the shared part twice. Ranges that only touch
+    /// (two consecutive chapters) stay two files, as the editor shows them.
     static func normalized(_ ranges: [ClipRange], duration: Double?) -> [ClipRange] {
         let clamped: [ClipRange] = ranges.compactMap { range in
             var r = range
@@ -54,7 +55,7 @@ struct ClipRange: Codable, Hashable, Sendable {
         }
         var merged: [ClipRange] = []
         for range in clamped.sorted(by: { $0.start < $1.start }) {
-            if let last = merged.last, range.start <= last.end {
+            if let last = merged.last, range.start < last.end {
                 merged[merged.count - 1].end = max(last.end, range.end)
             } else {
                 merged.append(range)
@@ -139,11 +140,15 @@ struct ClipRange: Codable, Hashable, Sendable {
     /// `3m40s`, `1h02m00s`: safe in a file name, unlike `:`, which Finder
     /// shows as `/`.
     static func compact(_ seconds: Double) -> String {
-        let total = Int(max(0, seconds).rounded(.down))
+        let tenths = Int((max(0, seconds) * 10).rounded())
+        let total = tenths / 10, fraction = tenths % 10
         let h = total / 3600, m = (total % 3600) / 60, s = total % 60
+        // Tenths only when present: "3m40s", but "3m40.5s" so that two clips
+        // a fraction of a second apart do not get the same file name.
+        let sec = fraction == 0 ? String(format: "%02ds", s) : String(format: "%02d.%ds", s, fraction)
         return h > 0
-            ? String(format: "%dh%02dm%02ds", h, m, s)
-            : String(format: "%dm%02ds", m, s)
+            ? String(format: "%dh%02dm", h, m) + sec
+            : String(format: "%dm", m) + sec
     }
 
     /// Seconds for yt-dlp, without float noise (`220`, `220.5`).
