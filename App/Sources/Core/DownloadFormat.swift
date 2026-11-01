@@ -8,8 +8,8 @@ enum MediaKind: String, Codable, Sendable, CaseIterable, Identifiable {
     case audio
     var id: String { rawValue }
 
-    /// The container is no longer in the label: it's set separately
-    /// (`AudioFormat`), and video always outputs as MP4.
+    /// The container is not in the label: it's set separately
+    /// (`VideoContainer`, `AudioFormat`).
     var label: String {
         switch self {
         case .video: return "Video"
@@ -85,34 +85,87 @@ enum AudioBitrate: Int, CaseIterable, Sendable, Identifiable {
     var label: String { "\(rawValue) kbps" }
 }
 
-/// Output audio container.
+/// Container a video is written in.
 ///
-/// YouTube serves AAC: converting it to MP3 re-encodes it, degrading quality
-/// and taking time. Keeping it as M4A avoids both — and AAC plays everywhere
-/// (Apple, Windows, Android, car stereos). MP3 is still offered for old
-/// hardware, which is the only thing that won't play it.
-enum AudioFormat: String, CaseIterable, Sendable, Identifiable, Codable {
-    case m4a
-    case mp3
+/// Every choice here is a REMUX: the streams YouTube sends are put in another
+/// box, instantly and without loss (`--merge-output-format`). Nothing is
+/// re-encoded, so the choice also decides which streams can be picked, since
+/// not every codec fits every container:
+/// - MP4: H.264 + AAC up to 1080p, VP9/AV1 above (Max). The default, and the
+///   promise that the file opens in QuickTime, Photos and on an iPhone.
+/// - MOV: H.264 + AAC only, so at most 1080p. Apple's own container.
+/// - MKV: holds anything. Same streams as MP4, for people whose player or
+///   editor wants MKV.
+/// - WebM: VP9/AV1 + Opus only, YouTube's own streams, untouched.
+/// AVI and FLV are left out: neither can hold the codecs YouTube serves today.
+enum VideoContainer: String, CaseIterable, Sendable, Identifiable, Codable {
+    case mp4, mov, mkv, webm
 
     var id: String { rawValue }
 
-    var label: String {
-        switch self {
-        case .m4a: return "M4A"
-        case .mp3: return "MP3"
-        }
-    }
+    var label: String { rawValue.uppercased() }
 
     var detail: String {
         switch self {
-        case .m4a: return "Keeps the original audio. No re-encoding, better quality."
-        case .mp3: return "Re-encoded, lower quality"
+        case .mp4:  return "Opens everywhere, including QuickTime and iPhone."
+        case .mov:  return "H.264 only, so up to 1080p. Opens everywhere on Apple devices."
+        case .mkv:  return "No re-encoding. QuickTime can't open MKV: use VLC or IINA."
+        case .webm: return "YouTube's own VP9 and Opus streams, no re-encoding. "
+                         + "QuickTime can't open WebM: use VLC, IINA or a browser."
         }
     }
 
-    /// Bitrate is adjustable only if we re-encode.
+    /// Does QuickTime open every file this container can produce at the
+    /// given quality?
+    func playsInQuickTime(at quality: VideoQuality) -> Bool {
+        switch self {
+        case .mov:  return true
+        case .mp4:  return quality != .max
+        case .mkv, .webm: return false
+        }
+    }
+
+    /// Subtitles can be embedded (yt-dlp embeds in MP4, MKV and WebM only).
+    var embedsSubtitles: Bool { self != .mov }
+
+    /// A part of a video is re-encoded to H.264 for an exact cut (see
+    /// `DownloadEngine.clipEncoderArguments`). WebM cannot hold H.264, so a
+    /// WebM clip is written as MP4, and the interface says so.
+    func forClip() -> VideoContainer { self == .webm ? .mp4 : self }
+}
+
+/// Output audio format.
+///
+/// YouTube serves AAC (M4A) and Opus. Keeping either as is avoids a second
+/// encode, which costs time and quality. The others are re-encoded, and say
+/// so: MP3 for old hardware, FLAC and WAV for editors that want them (they
+/// are larger, not better: the source is already compressed).
+enum AudioFormat: String, CaseIterable, Sendable, Identifiable, Codable {
+    case m4a
+    case opus
+    case mp3
+    case flac
+    case wav
+
+    var id: String { rawValue }
+
+    var label: String { rawValue.uppercased() }
+
+    var detail: String {
+        switch self {
+        case .m4a:  return "Keeps the original audio. No re-encoding, better quality."
+        case .opus: return "Keeps YouTube's Opus audio. No re-encoding. Not every player reads it."
+        case .mp3:  return "Re-encoded, lower quality"
+        case .flac: return "Re-encoded, lossless from here. Larger, not better than the source."
+        case .wav:  return "Re-encoded, uncompressed. Very large."
+        }
+    }
+
+    /// Bitrate is adjustable only for a lossy re-encode.
     var usesBitrate: Bool { self == .mp3 }
+
+    /// The source track is kept as is.
+    var keepsOriginal: Bool { self == .m4a || self == .opus }
 }
 
 /// Complete download specification.
@@ -121,17 +174,49 @@ struct DownloadFormat: Sendable, Equatable, Codable {
     var videoQuality: VideoQuality = .p1080
     var audioBitrate: AudioBitrate = .k192
     var audioFormat: AudioFormat = .m4a
-    /// Embed subtitles in the MP4 (video only).
+    /// Embed subtitles in the video (MP4, MKV, WebM).
     var subtitles: Bool = false
+    var videoContainer: VideoContainer = .mp4
+
+    init(kind: MediaKind, videoQuality: VideoQuality = .p1080,
+         audioBitrate: AudioBitrate = .k192, audioFormat: AudioFormat = .m4a,
+         subtitles: Bool = false, videoContainer: VideoContainer = .mp4) {
+        self.kind = kind
+        self.videoQuality = videoQuality
+        self.audioBitrate = audioBitrate
+        self.audioFormat = audioFormat
+        self.subtitles = subtitles
+        self.videoContainer = videoContainer
+    }
+
+    /// Every field but `kind` may be missing: `pending.json` written by an
+    /// older version has no `videoContainer`, and failing to read it would
+    /// lose the downloads waiting to be resumed.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        kind = try c.decode(MediaKind.self, forKey: .kind)
+        videoQuality = try c.decodeIfPresent(VideoQuality.self, forKey: .videoQuality) ?? .p1080
+        audioBitrate = try c.decodeIfPresent(AudioBitrate.self, forKey: .audioBitrate) ?? .k192
+        audioFormat = try c.decodeIfPresent(AudioFormat.self, forKey: .audioFormat) ?? .m4a
+        subtitles = try c.decodeIfPresent(Bool.self, forKey: .subtitles) ?? false
+        videoContainer = try c.decodeIfPresent(VideoContainer.self, forKey: .videoContainer) ?? .mp4
+    }
 
     var shortLabel: String {
         switch kind {
-        case .video: return "MP4 · \(videoQuality.label)"
+        case .video: return "\(videoContainer.label) · \(videoQuality.label)"
         case .audio:
-            return audioFormat.usesBitrate
-                ? "\(audioFormat.label) · \(audioBitrate.label)"
-                : "\(audioFormat.label) · original"
+            if audioFormat.usesBitrate { return "\(audioFormat.label) · \(audioBitrate.label)" }
+            return audioFormat.keepsOriginal ? "\(audioFormat.label) · original" : audioFormat.label
         }
+    }
+
+    /// The format a part of the video is actually written in (see
+    /// `VideoContainer.forClip`).
+    func forClip() -> DownloadFormat {
+        var format = self
+        format.videoContainer = videoContainer.forClip()
+        return format
     }
 }
 

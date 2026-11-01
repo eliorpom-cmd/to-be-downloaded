@@ -69,7 +69,8 @@ struct DownloadPane: View {
                        videoQuality: videoQuality,
                        audioBitrate: audioBitrate,
                        audioFormat: settings.audioFormat,
-                       subtitles: settings.embedSubtitles)
+                       subtitles: settings.embedSubtitles,
+                       videoContainer: settings.videoContainer)
     }
 
     /// Library entry matching the entered link, if there is one.
@@ -188,11 +189,13 @@ struct DownloadPane: View {
                            duration: duration, metadata: preview, format: currentFormat)
                     .frame(maxWidth: 440)
                     .transition(.opacity)
-                if kind == .video, settings.embedSubtitles {
+                if let note = trimNote {
                     Spacer().frame(height: Theme.Space.s8)
-                    Text("Subtitles are not added to parts of a video.")
+                    Text(note)
                         .font(Theme.Text.callout)
                         .foregroundStyle(Theme.labelSecondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 440)
                 }
             }
 
@@ -232,18 +235,64 @@ struct DownloadPane: View {
     /// back: someone who asks for 4K should get 4K. Shown once and dismissed
     /// for good, since the default is 1080p and only a deliberate choice
     /// reaches here.
-    private var showsMaxWarning: Bool {
-        kind == .video && videoQuality == .max && !settings.maxQualityWarningDismissed
+    ///
+    /// Since 1.3 the container matters too: MKV and WebM never open in
+    /// QuickTime, whatever the quality, so the notice names the container
+    /// rather than the resolution. Each is acknowledged once.
+    private var playbackWarning: (id: String, message: String)? {
+        guard kind == .video else { return nil }
+        // A clip is H.264 in MP4, MOV or MKV: only the MKV warning applies.
+        let container = isTrimming ? settings.videoContainer.forClip() : settings.videoContainer
+        switch container {
+        case .mp4:
+            guard videoQuality == .max, !isTrimming,
+                  !settings.maxQualityWarningDismissed else { return nil }
+            return ("max-mp4",
+                    "Max downloads up to 4K, which YouTube only serves as VP9. "
+                    + "QuickTime cannot play it. You'll need another player such as "
+                    + "VLC or IINA.")
+        case .mov:
+            return nil
+        case .mkv:
+            guard !settings.playbackWarningsDismissed.contains("mkv") else { return nil }
+            return ("mkv", "MKV files don't open in QuickTime or Photos. VLC and IINA play them.")
+        case .webm:
+            guard !settings.playbackWarningsDismissed.contains("webm") else { return nil }
+            return ("webm", "WebM files don't open in QuickTime or Photos. "
+                    + "VLC, IINA and web browsers play them.")
+        }
     }
 
+    private var showsMaxWarning: Bool { playbackWarning != nil }
+
+    @ViewBuilder
     private var maxQualityWarning: some View {
-        InlineNotice(
-            symbol: "exclamationmark.triangle.fill",
-            message: "Max downloads up to 4K, which YouTube only serves as VP9. "
-                + "QuickTime cannot play it. You'll need another player such as "
-                + "VLC or IINA.",
-            actionTitle: "Got It",
-            action: { settings.maxQualityWarningDismissed = true })
+        if let warning = playbackWarning {
+            InlineNotice(
+                symbol: "exclamationmark.triangle.fill",
+                message: warning.message,
+                actionTitle: "Got It",
+                action: {
+                    if warning.id == "max-mp4" {
+                        settings.maxQualityWarningDismissed = true
+                    } else {
+                        settings.playbackWarningsDismissed.insert(warning.id)
+                    }
+                })
+        }
+    }
+
+    /// What Trim changes about the result, said under the range bar.
+    private var trimNote: String? {
+        guard kind == .video else { return nil }
+        var notes: [String] = []
+        if settings.videoContainer == .webm {
+            notes.append("Parts of a video are saved as MP4: WebM can't hold the exact cut.")
+        }
+        if settings.embedSubtitles {
+            notes.append("Subtitles are not added to parts of a video.")
+        }
+        return notes.isEmpty ? nil : notes.joined(separator: " ")
     }
 
     // MARK: - Link Preview

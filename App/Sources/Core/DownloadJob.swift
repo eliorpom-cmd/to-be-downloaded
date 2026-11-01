@@ -120,7 +120,7 @@ struct DownloadJob: Identifiable, Sendable {
 
     /// "MP4 · 1080p", plus the range for a clip: "MP4 · 1080p · 3:40–7:15".
     var formatLabel: String {
-        range.map { "\(format.shortLabel) · \($0.label)" } ?? format.shortLabel
+        range.map { "\(format.forClip().shortLabel) · \($0.label)" } ?? format.shortLabel
     }
 
     /// Best label to display: known title > filename > raw URL.

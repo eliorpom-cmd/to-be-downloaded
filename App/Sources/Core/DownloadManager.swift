@@ -595,7 +595,7 @@ final class DownloadManager: ObservableObject {
                     self.update(jobID) {
                         if $0.state != .cancelled {
                             $0.state = .failed
-                            $0.errorMessage = message
+                            $0.errorMessage = Self.explain(message, for: $0)
                         }
                     }
                     self.savePending()
@@ -608,6 +608,17 @@ final class DownloadManager: ObservableObject {
             // A slot is freed: the next job in the queue can go.
             self.pump()
         }
+    }
+
+    /// A WebM that cannot be made says why, rather than yt-dlp's
+    /// "Requested format is not available": some videos have no VP9 or Opus
+    /// stream, and nothing else fits a WebM file.
+    static func explain(_ message: String, for job: DownloadJob) -> String {
+        guard job.format.kind == .video, job.range == nil,
+              job.format.videoContainer == .webm,
+              message.localizedCaseInsensitiveContains("requested format is not available")
+        else { return message }
+        return "This video has no WebM version. Choose MP4 or MKV in Settings."
     }
 
     // MARK: - Overall progress

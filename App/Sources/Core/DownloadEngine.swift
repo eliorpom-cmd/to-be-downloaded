@@ -315,10 +315,16 @@ final class DownloadEngine: @unchecked Sendable {
             args += ["--download-sections", range.sectionArgument]
         }
 
+        // A clip is re-encoded to H.264: written as MP4 when WebM was asked.
+        let format = range == nil ? format : format.forClip()
+
         switch format.kind {
         case .video:
-            args += videoSelector(quality: format.videoQuality, trimmed: range != nil)
-            args += ["--merge-output-format", "mp4"]
+            let container = format.videoContainer
+            args += videoSelector(quality: format.videoQuality, container: container,
+                                  trimmed: range != nil)
+            // A remux, never a re-encode: the streams change box, not codec.
+            args += ["--merge-output-format", container.rawValue]
 
             if range != nil {
                 args += ["--downloader-args", "ffmpeg_o:" + clipEncoderArguments(
@@ -327,11 +333,15 @@ final class DownloadEngine: @unchecked Sendable {
 
             // Not on a clip: yt-dlp would embed the subtitles of the whole
             // video, with times that no longer match the cut.
-            if format.subtitles, range == nil {
-                // Embedded in the MP4 (track `mov_text`), not deposited in
-                // `.srt` files alongside: a track you activate in the player
-                // is more useful than an extra file in the folder.
+            if format.subtitles, range == nil, container.embedsSubtitles {
+                // Embedded as a track, not deposited in `.srt` files alongside:
+                // a track you activate in the player is more useful than an
+                // extra file in the folder. yt-dlp picks the codec the
+                // container takes: `mov_text` in MP4, WebVTT in WebM, and
+                // SubRip in MKV once converted below (players read SRT more
+                // widely than VTT).
                 args += ["--embed-subs", "--write-subs"]
+                if container == .mkv { args += ["--convert-subs", "srt"] }
                 // Machine transcription, only if asked for. yt-dlp prefers a
                 // channel's own subtitles when both exist, so this is strictly
                 // a fallback — and one worth being able to refuse, since
@@ -368,6 +378,21 @@ final class DownloadEngine: @unchecked Sendable {
                     "-x",
                     "--audio-format", "m4a",
                 ]
+            case .opus:
+                // YouTube's Opus track, remuxed as is. Not on a clip: a copied
+                // Opus range came out with the wrong length, so a clip takes
+                // the AAC range and encodes it to Opus.
+                args += [
+                    "-f", range == nil ? "ba[acodec=opus]/ba/b" : "ba[ext=m4a]/ba",
+                    "-x",
+                    "--audio-format", "opus",
+                ]
+            case .flac, .wav:
+                args += [
+                    "-f", range == nil ? "ba/b" : "ba[ext=m4a]/ba",
+                    "-x",
+                    "--audio-format", format.audioFormat.rawValue,
+                ]
             }
         }
 
@@ -388,7 +413,34 @@ final class DownloadEngine: @unchecked Sendable {
     /// `trimmed`: separate video and audio streams only (DASH). The muxed
     /// fallbacks (`b…`) can pick format 18, on which FFmpeg's ranged request
     /// gets HTTP 403.
-    static func videoSelector(quality: VideoQuality, trimmed: Bool) -> [String] {
+    static func videoSelector(quality: VideoQuality, container: VideoContainer = .mp4,
+                              trimmed: Bool) -> [String] {
+        switch container {
+        case .mov:
+            // H.264 + AAC or nothing: the MOV muxer is only sure of those.
+            // "Max" is then the best H.264, which YouTube stops at 1080p.
+            let h = quality == .max ? 1080 : quality.rawValue
+            var choices = [
+                "bv*[vcodec^=avc1][height<=\(h)]+ba[acodec^=mp4a]",
+                "bv*[vcodec^=avc1]+ba[acodec^=mp4a]",
+            ]
+            if !trimmed { choices.append("b[vcodec^=avc1]") }
+            return ["-f", choices.joined(separator: "/"), "-S", "res:\(h)"]
+        case .webm:
+            // YouTube's VP9/AV1 video and Opus audio, both in WebM. Nothing
+            // else fits a WebM file, and a pair that does not fit would make
+            // yt-dlp switch to MKV on its own.
+            var choices: [String] = []
+            if quality != .max {
+                choices.append("bv*[ext=webm][height<=\(quality.rawValue)]+ba[ext=webm]")
+            }
+            choices.append("bv*[ext=webm]+ba[ext=webm]")
+            let sort = quality == .max ? "res" : "res:\(quality.rawValue)"
+            return ["-f", choices.joined(separator: "/"), "-S", sort]
+        case .mp4, .mkv:
+            break
+        }
+
         if quality == .max {
             // "Best" means the highest resolution: we don't drop down to
             // 1080p for H.264. At equal resolution, however, H.264 comes first.

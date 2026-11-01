@@ -69,6 +69,8 @@ final class AppSettings: ObservableObject {
         static let shortcutModifiers = "globalShortcutModifiers"
         static let shortcutLabel = "globalShortcutLabel"
         static let cookieBrowser = "cookiesFromBrowser"
+        static let videoContainer = "defaultVideoContainer"
+        static let playbackWarnings = "playbackWarningsDismissed"
     }
 
     @Published var outputDirectory: URL {
@@ -124,6 +126,16 @@ final class AppSettings: ObservableObject {
     /// Audio container produced (M4A no re-encoding by default).
     @Published var audioFormat: AudioFormat {
         didSet { store.set(audioFormat.rawValue, forKey: Key.audioFormat) }
+    }
+    /// Container videos are written in. MP4 by default, and that default is
+    /// the promise that a download opens in QuickTime.
+    @Published var videoContainer: VideoContainer {
+        didSet { store.set(videoContainer.rawValue, forKey: Key.videoContainer) }
+    }
+    /// Containers whose "QuickTime can't open this" notice was acknowledged.
+    /// Shown once per container, like the Max one.
+    @Published var playbackWarningsDismissed: Set<String> {
+        didSet { store.set(Array(playbackWarningsDismissed).sorted(), forKey: Key.playbackWarnings) }
     }
     /// Embed subtitles in videos.
     @Published var embedSubtitles: Bool {
@@ -253,7 +265,8 @@ final class AppSettings: ObservableObject {
                        videoQuality: defaultVideoQuality,
                        audioBitrate: defaultAudioBitrate,
                        audioFormat: audioFormat,
-                       subtitles: embedSubtitles)
+                       subtitles: embedSubtitles,
+                       videoContainer: videoContainer)
     }
 
     /// Cycle through System → Light → Dark → System (header toggle button).
@@ -320,6 +333,8 @@ final class AppSettings: ObservableObject {
 
         audioFormat = AudioFormat(rawValue: store.string(forKey: Key.audioFormat) ?? "") ?? .m4a
         embedSubtitles = store.object(forKey: Key.subtitles) as? Bool ?? false
+        videoContainer = VideoContainer(rawValue: store.string(forKey: Key.videoContainer) ?? "") ?? .mp4
+        playbackWarningsDismissed = Set(store.stringArray(forKey: Key.playbackWarnings) ?? [])
         subtitleLanguage = SubtitleLanguage(
             rawValue: store.string(forKey: Key.subtitleLanguage) ?? "") ?? .system
         autoSubtitles = store.object(forKey: Key.autoSubtitles) as? Bool ?? true

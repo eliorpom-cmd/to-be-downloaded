@@ -71,13 +71,21 @@ struct SettingsPane: View {
                         picker($settings.defaultVideoQuality, values: VideoQuality.allCases) { $0.label }
                     }
                     divider
+                    row("Video format", detail: settings.videoContainer.detail, wraps: true) {
+                        picker($settings.videoContainer, values: VideoContainer.allCases) { $0.label }
+                    }
+                    divider
                     row("Subtitles",
-                        detail: "Embedded as a track in the MP4, when the video has them") {
+                        detail: settings.videoContainer.embedsSubtitles
+                            ? "Embedded as a track in the video, when it has them"
+                            : "MOV can't hold subtitles. Choose MP4, MKV or WebM to get them.",
+                        wraps: true) {
                         Toggle("", isOn: $settings.embedSubtitles)
                             .toggleStyle(.switch)
                             .labelsHidden()
+                            .disabled(!settings.videoContainer.embedsSubtitles)
                     }
-                    if settings.embedSubtitles {
+                    if settings.embedSubtitles, settings.videoContainer.embedsSubtitles {
                         divider
                         row("Subtitle language",
                             detail: "English is always kept as a fallback") {
@@ -386,11 +394,17 @@ struct SettingsPane: View {
     /// permanently. The Download screen warns once; someone who chose Max as
     /// their default made the choice here and can be reminded here.
     private var videoQualityDetail: String? {
-        settings.defaultVideoQuality == .max
-            ? "Max downloads up to 4K, which YouTube only serves as VP9. "
+        guard settings.defaultVideoQuality == .max else { return nil }
+        switch settings.videoContainer {
+        case .mp4:
+            return "Max downloads up to 4K, which YouTube only serves as VP9. "
                 + "QuickTime cannot play it. You'll need another player such as "
                 + "VLC or IINA."
-            : nil
+        case .mov:
+            return "In MOV, Max stops at 1080p: YouTube serves H.264 no higher."
+        case .mkv, .webm:
+            return "Max downloads up to 4K."
+        }
     }
 
     /// Concrete example below the setting: a naming template only makes

@@ -147,8 +147,17 @@ struct MediaMetadata: Codable, Sendable, Equatable {
             return videoBytes?[format.videoQuality.rawValue]
         case .audio:
             switch format.audioFormat {
-            case .m4a:
+            case .m4a, .opus:
+                // Both YouTube tracks have about the same bitrate.
                 return audioBytes
+            case .wav:
+                // 48 kHz, 16-bit, stereo: 1,536 kbit/s whatever the source.
+                guard let duration, duration > 0 else { return nil }
+                return Int64(duration * 1_536_000 / 8)
+            case .flac:
+                // Lossless compression of that: about 60 % of the WAV.
+                guard let duration, duration > 0 else { return nil }
+                return Int64(duration * 1_536_000 / 8 * 0.6)
             case .mp3:
                 // MP3 is re-encoded at constant bitrate: its size is deduced
                 // from duration, not from the source's.
