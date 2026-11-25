@@ -64,6 +64,13 @@ final class FirstMouseHost<Content: View>: NSHostingView<Content> {
         RunLoop.current.run(until: Date().addingTimeInterval(seconds))
     }
 
+    /// CPU time used so far by the calling thread, in milliseconds.
+    static func threadCPU() -> Double {
+        var t = timespec()
+        clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t)
+        return Double(t.tv_sec) * 1000 + Double(t.tv_nsec) / 1_000_000
+    }
+
     static func event(_ type: NSEvent.EventType, at point: NSPoint, in window: NSWindow) -> NSEvent {
         NSEvent.mouseEvent(with: type, location: point, modifierFlags: [],
                            timestamp: ProcessInfo.processInfo.systemUptime,
@@ -98,12 +105,15 @@ final class FirstMouseHost<Content: View>: NSHostingView<Content> {
         host.layoutSubtreeIfNeeded()
         host.displayIfNeeded()
 
-        // Geometry of the bar (TrimEditor: 12 pt padding, 44 pt bar,
-        // 10 pt handles outside the track).
-        let barX: CGFloat = 20 + 12, barTop: CGFloat = 20 + 12, handle: CGFloat = 10
-        let track = width - 40 - 24 - handle * 2
-        let endX = barX + handle + CGFloat(end / duration) * track + handle / 2
-        let y = height - (barTop + 22)   // window coordinates start at the bottom
+        // Geometry of the bar, from TrimEditor: the strip is inset by a
+        // handle's width on each side, below the frame's overhang.
+        let handle = TrimEditor.handleWidth
+        let barX: CGFloat = 20 + handle
+        let barTop: CGFloat = 20 + TrimEditor.frameOverhang
+        let track = width - 40 - handle * 2
+        // Middle of the end handle, which sits just outside the range.
+        let endX = barX + CGFloat(end / duration) * track + handle / 2
+        let y = height - (barTop + TrimEditor.trackHeight / 2)   // window coordinates start at the bottom
 
         if ProcessInfo.processInfo.environment["BENCH_DEBUG"] != nil {
             let probe = NSPoint(x: endX, y: y)
@@ -111,9 +121,13 @@ final class FirstMouseHost<Content: View>: NSHostingView<Content> {
                   "key:", window.isKeyWindow, "size:", host.frame.size)
         }
 
-        let steps = 120, stepX: CGFloat = -1.5
+        // 90 pt in all. Before 1.3.1 the handle moved half as far as the
+        // pointer (see TrimEditor.trackSpace): -1.5 pt steps then moved it
+        // 90 pt too, so runs before and after that fix compare.
+        let steps = 120, stepX: CGFloat = -0.75
         var times: [Double] = []
         Probe.parentBodies = 0
+        let cpu0 = threadCPU()
 
         window.sendEvent(event(.leftMouseDown, at: NSPoint(x: endX, y: y), in: window))
         for i in 1...steps {
@@ -127,6 +141,7 @@ final class FirstMouseHost<Content: View>: NSHostingView<Content> {
             times.append(Double(DispatchTime.now().uptimeNanoseconds - t0) / 1_000_000)
         }
         let duringDrag = Probe.parentBodies
+        let dragCPU = threadCPU() - cpu0
         window.sendEvent(event(.leftMouseUp,
                                at: NSPoint(x: endX + CGFloat(steps) * stepX, y: y), in: window))
         spin(0.3)
@@ -137,6 +152,7 @@ final class FirstMouseHost<Content: View>: NSHostingView<Content> {
         let p95 = sorted[Int(Double(sorted.count) * 0.95)]
         print(String(format: "events: %d  mean: %.2f ms  median: %.2f ms  p95: %.2f ms  max: %.2f ms",
                      steps, mean, sorted[sorted.count / 2], p95, sorted.last ?? 0))
+        print(String(format: "main thread CPU during the drag: %.0f ms", dragCPU))
         print("parent bodies during the drag: \(duringDrag)  after release: \(Probe.parentBodies)")
         print("range end after release: \(Probe.lastEnd.map(ClipRange.clock) ?? "?")"
               + "  (started at \(ClipRange.clock(end)))")

@@ -72,6 +72,41 @@ struct ClipRange: Codable, Hashable, Sendable {
         return merged
     }
 
+    // MARK: - Whole video or parts
+
+    /// Shortest range a drag or a nudge can make. A zero-length range is not
+    /// a clip.
+    static let minimumLength: Double = 1
+
+    /// The range bar is on screen as soon as the duration is known, starting
+    /// as one range over the whole video. That range means "download the
+    /// file as usual", not "cut a clip from 0:00 to the end": a clip is
+    /// re-encoded at its cut points, the whole file is not.
+    static func wholeVideo(_ duration: Double) -> [ClipRange] {
+        [ClipRange(start: 0, end: max(0, duration))]
+    }
+
+    /// The ranges a new link starts with: the whole video, or from the time
+    /// in the link to the end (a link at a timestamp usually means "from
+    /// here").
+    static func initialRanges(duration: Double, linkStart: Double?) -> [ClipRange] {
+        guard let linkStart, linkStart > 0 else { return wholeVideo(duration) }
+        let start = min(linkStart, max(0, duration - minimumLength))
+        return [ClipRange(start: start, end: duration)]
+    }
+
+    /// One range from the very start to the very end: nothing to cut.
+    static func coversWholeVideo(_ ranges: [ClipRange], duration: Double) -> Bool {
+        guard ranges.count == 1, let only = ranges.first else { return ranges.isEmpty }
+        return only.start <= 0 && only.end >= duration
+    }
+
+    /// What to hand the engine: `nil` to download the file as usual, else
+    /// the parts to cut.
+    static func parts(_ ranges: [ClipRange], duration: Double) -> [ClipRange]? {
+        coversWholeVideo(ranges, duration: duration) ? nil : ranges
+    }
+
     // MARK: - Reading times
 
     /// Reads a time typed by a person or carried by a link.
