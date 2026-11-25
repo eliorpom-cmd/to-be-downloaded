@@ -9,6 +9,44 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 Nothing yet.
 
+## [1.3.1] - 2026-11-25
+
+Trim is easier to find and nicer to use, and a round of fixes to what 1.3.0
+added.
+
+### Changed
+
+- **The trim bar is always there.** Once a link is read, the video's thumbnails
+  appear under it, with "Drag the ends to download only a part". Leave it alone
+  and you get the whole video, as before. Drag an end and you get that part;
+  "Whole Video" goes back. The small Trim button is gone.
+- **The range is a white frame on the thumbnails**, with wide handles. The time
+  shows above the handle while you drag it, and a short range stays easy to
+  grab. Ranges are listed as chips under the bar; click one to type its times.
+- The handles work with the keyboard (arrow keys move one second) and VoiceOver.
+- A MOV clip in Max quality is encoded at a bitrate that matches its picture,
+  so the file is about three times smaller.
+
+### Fixed
+
+- Dragging a handle no longer slows the whole window down, and the handle
+  follows the pointer at full speed instead of half.
+- Resuming a paused clip no longer leaves a yt-dlp running that Pause and
+  Cancel could not reach.
+- A request to the phone page or the API with an absurd time no longer crashes
+  the app; ranges are fitted to the video's length before starting.
+- The "Full Disk Access" explanation only appears when browser cookies are on.
+- A clip no longer goes back from "finishing" to "downloading" at the end.
+- Clicking into a time field without typing no longer moves the range.
+- The phone page accepts `3m40` and an empty start, and explains a missing end.
+- An M4A clip shows "original", since its audio is not re-encoded.
+- A link copied with an invalid time is still offered from the clipboard.
+
+### Known issues
+
+- Since November 25, YouTube's "n" challenge fails with both QuickJS and Deno,
+  so some formats may be missing until yt-dlp is updated.
+
 ## [1.3.0] - 2026-11-01
 
 Download only the part of a video you want. That was the question people asked
@@ -332,7 +370,8 @@ its own.
 - 4K downloads are VP9 (YouTube has no H.264 above 1080p) and need a player like
   IINA or VLC.
 
-[Unreleased]: https://github.com/eliorpom-cmd/to-be-downloaded/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/eliorpom-cmd/to-be-downloaded/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/eliorpom-cmd/to-be-downloaded/compare/v1.3.0...v1.3.1
 [1.1.0]: https://github.com/eliorpom-cmd/to-be-downloaded/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/eliorpom-cmd/to-be-downloaded/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/eliorpom-cmd/to-be-downloaded/releases/tag/v0.1.0
