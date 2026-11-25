@@ -122,8 +122,12 @@ struct DownloadJob: Identifiable, Sendable {
     var formatLabel: String {
         guard let range else { return format.shortLabel }
         var label = format.forClip().shortLabel
-        // A clip's audio is re-encoded at the cut, so it is not the original track.
-        if label.hasSuffix(" · original") { label.removeLast(" · original".count) }
+        // An Opus clip is encoded from the AAC range (see DownloadEngine), so
+        // it is not the original track. An M4A clip is a copy: it still is.
+        if format.kind == .audio, format.audioFormat == .opus,
+           label.hasSuffix(" · original") {
+            label.removeLast(" · original".count)
+        }
         return "\(label) · \(range.label)"
     }
 

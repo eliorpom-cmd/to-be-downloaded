@@ -85,8 +85,34 @@ final class CookieBrowserTests: XCTestCase {
     func testCleanErrorExplainsSafariPermissionFailure() {
         let raw = "ERROR: [Errno 1] Operation not permitted: '/Users/x/Library/Containers/"
             + "com.apple.Safari/Data/Library/Cookies/Cookies.binarycookies'"
-        let message = DownloadEngine.cleanError(raw, code: 1)
+        let message = DownloadEngine.cleanError(raw, code: 1, usesBrowserCookies: true)
         XCTAssertTrue(message.contains("Full Disk Access"))
+    }
+
+    func testExplainsSafariDatabaseNotSeen() {
+        let explanation = CookieBrowser.explain("could not find safari cookies database")
+        XCTAssertTrue(explanation?.contains("Full Disk Access") ?? false)
+    }
+
+    func testExplainsMissingBrowserDatabase() {
+        let explanation = CookieBrowser.explain(
+            "could not find firefox cookies database in \"/Users/x/Library\"")
+        XCTAssertTrue(explanation?.contains("found no cookies") ?? false)
+    }
+
+    /// A title with "Cookie" in a write failure is not about cookies.
+    func testIgnoresCookieWordInUnrelatedPath() {
+        let message = "[Errno 1] Operation not permitted: '/Users/x/Downloads/Cookie Recipe.mp4'"
+        XCTAssertNil(CookieBrowser.explain(message))
+        XCTAssertNil(CookieBrowser.explain("[Errno 2] No such file: 'Cookie Recipe.mp4.part'"))
+    }
+
+    /// Cookies off: nothing is explained as a cookie failure.
+    func testCleanErrorLeavesCookieWordsAloneWhenCookiesAreOff() {
+        let raw = "ERROR: [Errno 1] Operation not permitted: '/Users/x/Library/Containers/"
+            + "com.apple.Safari/Data/Library/Cookies/Cookies.binarycookies'"
+        let message = DownloadEngine.cleanError(raw, code: 1)
+        XCTAssertFalse(message.contains("Full Disk Access"))
     }
 
     func testCleanErrorStripsPrefixForOrdinaryErrors() {

@@ -19,8 +19,16 @@ struct ClipRange: Codable, Hashable, Sendable {
 
     var length: Double { max(0, end - start) }
 
-    /// A range that can be downloaded: starts before it ends.
-    var isValid: Bool { start >= 0 && end > start }
+    /// Longest time a range can reach: 100 hours, far past any video
+    /// YouTube serves. Anything later comes from a bad request, and the
+    /// conversions to `Int` below would trap on it.
+    static let maximumTime: Double = 100 * 3600
+
+    /// A range that can be downloaded: starts before it ends, within
+    /// `maximumTime`.
+    var isValid: Bool {
+        start >= 0 && end > start && end.isFinite && end <= Self.maximumTime
+    }
 
     /// Value of `--download-sections`. The leading `*` means "time range",
     /// as opposed to a chapter title regex.
@@ -130,7 +138,7 @@ struct ClipRange: Codable, Hashable, Sendable {
     /// `3:40`, `1:02:00`. Whole seconds, rounded down: it is what a person
     /// reads on a player.
     static func clock(_ seconds: Double) -> String {
-        let total = Int(max(0, seconds).rounded(.down))
+        let total = Int(Self.bounded(seconds).rounded(.down))
         let h = total / 3600, m = (total % 3600) / 60, s = total % 60
         return h > 0
             ? String(format: "%d:%02d:%02d", h, m, s)
@@ -140,7 +148,7 @@ struct ClipRange: Codable, Hashable, Sendable {
     /// `3m40s`, `1h02m00s`: safe in a file name, unlike `:`, which Finder
     /// shows as `/`.
     static func compact(_ seconds: Double) -> String {
-        let tenths = Int((max(0, seconds) * 10).rounded())
+        let tenths = Int((Self.bounded(seconds) * 10).rounded())
         let total = tenths / 10, fraction = tenths % 10
         let h = total / 3600, m = (total % 3600) / 60, s = total % 60
         // Tenths only when present: "3m40s", but "3m40.5s" so that two clips
@@ -151,9 +159,15 @@ struct ClipRange: Codable, Hashable, Sendable {
             : String(format: "%dm", m) + sec
     }
 
+    /// Within 0...maximumTime, NaN as 0: what the `Int` conversions can take.
+    private static func bounded(_ seconds: Double) -> Double {
+        guard seconds.isFinite else { return seconds > 0 ? maximumTime : 0 }
+        return min(max(0, seconds), maximumTime)
+    }
+
     /// Seconds for yt-dlp, without float noise (`220`, `220.5`).
     private static func decimal(_ seconds: Double) -> String {
-        let rounded = (seconds * 1000).rounded() / 1000
+        let rounded = (bounded(seconds) * 1000).rounded() / 1000
         return rounded == rounded.rounded()
             ? String(Int(rounded))
             : String(format: "%.3f", rounded)

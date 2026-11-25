@@ -117,7 +117,11 @@ enum CookieBrowser: String, CaseIterable, Identifiable, Sendable, Codable {
             || lower.contains("keychain")
         guard aboutCookies else { return nil }
 
-        if lower.contains("binarycookies") || lower.contains("operation not permitted") {
+        // yt-dlp's own wording, not loose words: a video title or a file
+        // path can say "cookie" in a failure that has nothing to do with them.
+        // Without Full Disk Access, Safari's file is either refused or not
+        // even seen ("could not find safari cookies database").
+        if lower.contains("binarycookies") || lower.contains("safari cookies database") {
             return "TBD can't read Safari's cookies. Give TBD Full Disk Access in "
                 + "System Settings > Privacy & Security, or turn off browser cookies in Settings."
         }
@@ -126,8 +130,7 @@ enum CookieBrowser: String, CaseIterable, Identifiable, Sendable, Codable {
             return "TBD can't read the browser's cookies: the keychain password was not given. "
                 + "Try again and choose Allow, or turn off browser cookies in Settings."
         }
-        if lower.contains("could not find") || lower.contains("no such file")
-            || lower.contains("not find") {
+        if lower.contains("cookies database") {
             return "TBD found no cookies for this browser. Open it once and sign in to YouTube, "
                 + "or choose another browser in Settings."
         }

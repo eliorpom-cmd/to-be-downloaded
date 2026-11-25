@@ -891,9 +891,11 @@ struct DownloadPane: View {
     }
 
     private func launch(_ link: String) {
+        // Refused before the link counts as handled: otherwise it would stop
+        // being offered from the clipboard although nothing was downloaded.
+        if isTrimming, !rangesAreValid { return }
         handledLinks.insert(link)
         if isTrimming {
-            guard rangesAreValid else { return }
             manager.startClips(urlString: link, format: currentFormat,
                                ranges: ranges, duration: preview?.duration)
         } else {

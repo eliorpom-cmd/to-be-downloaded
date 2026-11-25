@@ -429,7 +429,10 @@ private struct TimeField: View {
     private func commit() {
         // Only a real change is written back: leaving a field untouched must
         // not rewrite the range (it can happen while the editor goes away).
-        if let parsed = ClipRange.parseTime(text), parsed != value {
+        // The field shows whole seconds, so untouched text is compared as
+        // text: parsing it back would round 63.4 s down to 63 s.
+        if text != ClipRange.clock(value), let parsed = ClipRange.parseTime(text),
+           parsed != value {
             value = parsed
         }
         text = ClipRange.clock(value)
