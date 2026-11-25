@@ -21,13 +21,35 @@ struct TrimEditor: View {
 
     private let barHeight: CGFloat = 44
 
+    /// The range being dragged, kept here until the handle is released.
+    ///
+    /// Writing `ranges` on every mouse event redrew the whole Download
+    /// screen at the rate of the mouse (field, notices, format controls,
+    /// session list), which is what made the handles lag. The bar and the
+    /// rows read this instead; the binding is written once, on release.
+    private struct LiveDrag {
+        let index: Int
+        /// The range as it was when the drag began.
+        let origin: ClipRange
+        var range: ClipRange
+    }
+
+    @State private var live: LiveDrag?
+
+    /// What range `i` looks like right now: the dragged value while a drag
+    /// is on, else the committed one.
+    private func shown(_ i: Int) -> ClipRange {
+        if let live, live.index == i { return live.range }
+        return ranges[i]
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.s12) {
             bar
             VStack(spacing: Theme.Space.s6) {
                 ForEach(ranges.indices, id: \.self) { index in
                     RangeRow(
-                        range: ranges[index],
+                        range: shown(index),
                         // Through a guarded closure, never `$ranges[index]`:
                         // a field that commits on losing focus can fire after
                         // the download started and the list was emptied, and
@@ -39,7 +61,7 @@ struct TrimEditor: View {
                         isSelected: index == selection,
                         canRemove: ranges.count > 1,
                         duration: duration,
-                        estimate: metadata?.estimatedBytes(for: format, range: ranges[index]),
+                        estimate: metadata?.estimatedBytes(for: format, range: shown(index)),
                         onSelect: { selection = index },
                         onRemove: { remove(at: index) })
                 }
@@ -65,6 +87,9 @@ struct TrimEditor: View {
                 ZStack(alignment: .topLeading) {
                     StoryboardStrip(storyboard: metadata?.storyboard, duration: duration,
                                     height: barHeight)
+                        // Same storyboard, same size: nothing to redraw while
+                        // a handle moves over it.
+                        .equatable()
                         .frame(width: track, height: barHeight)
 
                     // Everything outside the ranges is dimmed: what stays
@@ -76,8 +101,8 @@ struct TrimEditor: View {
                                 Rectangle()
                                 ForEach(ranges.indices, id: \.self) { i in
                                     Rectangle()
-                                        .frame(width: max(x(ranges[i].length, track), 2))
-                                        .offset(x: x(ranges[i].start, track))
+                                        .frame(width: max(x(shown(i).length, track), 2))
+                                        .offset(x: x(shown(i).start, track))
                                         .blendMode(.destinationOut)
                                 }
                             }
@@ -104,7 +129,7 @@ struct TrimEditor: View {
     }
 
     private func band(_ i: Int, track: CGFloat) -> some View {
-        let range = ranges[i]
+        let range = shown(i)
         let selected = i == selection
         let bandWidth = max(x(range.length, track), 2)
         return HStack(spacing: 0) {
@@ -161,39 +186,61 @@ struct TrimEditor: View {
 
     private enum Edge { case start, end }
 
-    @State private var dragOrigin: ClipRange?
-
     private func edgeGesture(_ i: Int, edge: Edge, width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
-                selection = i
-                let origin = dragOrigin ?? ranges[i]
-                if dragOrigin == nil { dragOrigin = origin }
+                guard let origin = beginDrag(i) else { return }
                 let delta = seconds(value.translation.width, width)
-                var r = ranges[i]
+                var r = origin
                 switch edge {
                 case .start:
                     r.start = min(max(0, origin.start + delta), r.end - Self.minimumLength)
                 case .end:
                     r.end = max(min(duration, origin.end + delta), r.start + Self.minimumLength)
                 }
-                ranges[i] = r
+                follow(r)
             }
-            .onEnded { _ in dragOrigin = nil }
+            .onEnded { _ in endDrag() }
     }
 
     private func moveGesture(_ i: Int, width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 3)
             .onChanged { value in
-                selection = i
-                let origin = dragOrigin ?? ranges[i]
-                if dragOrigin == nil { dragOrigin = origin }
+                guard let origin = beginDrag(i) else { return }
                 let delta = seconds(value.translation.width, width)
                 let length = origin.length
                 let start = min(max(0, origin.start + delta), max(0, duration - length))
-                ranges[i] = ClipRange(start: start, end: start + length)
+                follow(ClipRange(start: start, end: start + length))
             }
-            .onEnded { _ in dragOrigin = nil }
+            .onEnded { _ in endDrag() }
+    }
+
+    /// Range `i` as it was when its drag began, starting the drag on the
+    /// first event. `nil` if the range is gone.
+    private func beginDrag(_ i: Int) -> ClipRange? {
+        if let live, live.index == i { return live.origin }
+        guard ranges.indices.contains(i) else { return nil }
+        if selection != i { selection = i }
+        live = LiveDrag(index: i, origin: ranges[i], range: ranges[i])
+        return ranges[i]
+    }
+
+    /// One mouse event: only the local copy moves. Without animation: the
+    /// handle follows the pointer, and SwiftUI's velocity tracking of every
+    /// moved frame cost about a third of each update.
+    private func follow(_ range: ClipRange) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { live?.range = range }
+    }
+
+    /// Release: the range is written to the binding, once.
+    private func endDrag() {
+        guard let done = live else { return }
+        live = nil
+        if ranges.indices.contains(done.index), ranges[done.index] != done.range {
+            ranges[done.index] = done.range
+        }
     }
 
     private func jumpSelectedEdge(to time: Double) {
@@ -443,10 +490,14 @@ private struct TimeField: View {
 
 /// Thumbnails of the video side by side, cut from YouTube's storyboard
 /// sheets. A plain bar when the video has none.
-struct StoryboardStrip: View {
+struct StoryboardStrip: View, Equatable {
     let storyboard: Storyboard?
     let duration: Double
     let height: CGFloat
+
+    nonisolated static func == (a: Self, b: Self) -> Bool {
+        a.storyboard == b.storyboard && a.duration == b.duration && a.height == b.height
+    }
 
     @StateObject private var sheets = StoryboardSheets()
 
@@ -476,10 +527,8 @@ struct StoryboardStrip: View {
     @ViewBuilder
     private func tile(at seconds: Double) -> some View {
         if let storyboard, let spot = storyboard.tile(at: seconds),
-           let image = sheets.images[spot.sheet],
-           let cropped = image.cropping(to: CGRect(
-                x: spot.x, y: spot.y,
-                width: storyboard.tileWidth, height: storyboard.tileHeight)) {
+           let cropped = sheets.tile(spot, width: storyboard.tileWidth,
+                                     height: storyboard.tileHeight) {
             Image(decorative: cropped, scale: 1)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
@@ -495,11 +544,27 @@ struct StoryboardStrip: View {
 final class StoryboardSheets: ObservableObject {
     @Published private(set) var images: [Int: CGImage] = [:]
     private var loadedFor: String?
+    /// Tiles already cut, by sheet and position: cut once, not on every pass.
+    private var tiles: [TileKey: CGImage] = [:]
+
+    private struct TileKey: Hashable { let sheet: Int, x: Int, y: Int }
+
+    func tile(_ spot: (sheet: Int, x: Int, y: Int), width: Int, height: Int) -> CGImage? {
+        let key = TileKey(sheet: spot.sheet, x: spot.x, y: spot.y)
+        if let cached = tiles[key] { return cached }
+        guard let image = images[spot.sheet],
+              let cropped = image.cropping(to: CGRect(x: spot.x, y: spot.y,
+                                                      width: width, height: height))
+        else { return nil }
+        tiles[key] = cropped
+        return cropped
+    }
 
     func load(_ storyboard: Storyboard) async {
         guard loadedFor != storyboard.sheets.first else { return }
         loadedFor = storyboard.sheets.first
         images = [:]
+        tiles = [:]
         await withTaskGroup(of: (Int, CGImage?).self) { group in
             for (index, address) in storyboard.sheets.enumerated() {
                 guard let url = URL(string: address), url.host?.hasSuffix("ytimg.com") == true
