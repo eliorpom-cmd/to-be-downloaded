@@ -241,9 +241,12 @@ final class FirstMouseHost<Content: View>: NSHostingView<Content> {
         shoot("4-part-released")
 
         // The row under the bar: first chip on the left, Whole Video on the
-        // right. Read down the start handle's column (at 1:00 now).
+        // right. Read down the start handle's column (at 1:00 now), beside
+        // its chevron (which splits the white run) and its rounded corners.
         func rowY() -> CGFloat {
-            let top = frameTop(atX: x(60) - side / 2) ?? strip.top + TrimEditor.frameOverhang
+            guard let top = frameTop(atX: x(60) - 3) else {
+                print("frame not found under the start handle"); shoot("lost"); exit(1)
+            }
             return top - TrimEditor.frameOverhang - TrimEditor.trackHeight - 10 - 12
         }
         click(NSPoint(x: strip.left - side + 30, y: rowY()))
@@ -251,6 +254,8 @@ final class FirstMouseHost<Content: View>: NSHostingView<Content> {
         click(NSPoint(x: strip.left + strip.width + side - 40, y: rowY()))
         spin(0.5)
         shoot("6-back-to-whole")
+        // Back to the whole video: the frame spans the strip again.
+        if findStrip() == nil { print("Whole Video did not bring the whole video back"); exit(1) }
         exit(0)
     }
 }
