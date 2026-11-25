@@ -157,4 +157,39 @@ final class ClipRangeTests: XCTestCase {
         XCTAssertEqual(ClipRange.normalized(overlapping, duration: 600),
                        [ClipRange(start: 0, end: 300)])
     }
+
+    // MARK: - Whole video by default
+
+    func testNewLinkStartsAsTheWholeVideo() {
+        let ranges = ClipRange.initialRanges(duration: 635, linkStart: nil)
+        XCTAssertEqual(ranges, [ClipRange(start: 0, end: 635)])
+        XCTAssertNil(ClipRange.parts(ranges, duration: 635),
+                     "the untouched bar must download the file, not a clip")
+    }
+
+    func testNarrowedRangeIsDownloadedAsAPart() {
+        let ranges = [ClipRange(start: 60, end: 70)]
+        XCTAssertEqual(ClipRange.parts(ranges, duration: 635), ranges)
+        // Either end pulled in is enough.
+        XCTAssertNotNil(ClipRange.parts([ClipRange(start: 0, end: 600)], duration: 635))
+        XCTAssertNotNil(ClipRange.parts([ClipRange(start: 1, end: 635)], duration: 635))
+        // Two ranges are parts even if they cover everything together.
+        XCTAssertNotNil(ClipRange.parts([ClipRange(start: 0, end: 300),
+                                         ClipRange(start: 300, end: 635)], duration: 635))
+    }
+
+    func testWholeVideoButtonSendsNoRange() {
+        var ranges = [ClipRange(start: 60, end: 70), ClipRange(start: 300, end: 320)]
+        ranges = ClipRange.wholeVideo(635)
+        XCTAssertNil(ClipRange.parts(ranges, duration: 635))
+    }
+
+    func testLinkAtATimestampStartsAsAPart() {
+        let ranges = ClipRange.initialRanges(duration: 635, linkStart: 90)
+        XCTAssertEqual(ranges, [ClipRange(start: 90, end: 635)])
+        XCTAssertNotNil(ClipRange.parts(ranges, duration: 635))
+        // A time past the end still leaves a one-second part.
+        XCTAssertEqual(ClipRange.initialRanges(duration: 635, linkStart: 9_999),
+                       [ClipRange(start: 634, end: 635)])
+    }
 }

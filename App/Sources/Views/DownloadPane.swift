@@ -50,9 +50,9 @@ struct DownloadPane: View {
     /// them, as the clipboard keeps the link long after.
     @State private var handledLinks: Set<String> = []
 
-    /// Trim: download only parts of the video. Off for every new link: the
-    /// default download stays exactly what it was.
-    @State private var trimOn = false
+    /// Trim: the parts of the video to download. One range over the whole
+    /// video as soon as the duration is known, which downloads the file as
+    /// usual; pulling a handle in on the bar turns it into parts.
     @State private var ranges: [ClipRange] = []
     @State private var rangeSelection = 0
 
@@ -88,7 +88,11 @@ struct DownloadPane: View {
         return !preview.isLive
     }
 
-    private var isTrimming: Bool { trimOn && canTrim }
+    /// Parts chosen on the bar, rather than the whole video.
+    private var isTrimming: Bool {
+        guard canTrim, let duration = preview?.duration else { return false }
+        return ClipRange.parts(ranges, duration: duration) != nil
+    }
 
     /// What Trim will download, ready for the engine.
     private var clipRanges: [ClipRange] {
@@ -179,25 +183,18 @@ struct DownloadPane: View {
                 linkPreviewCard.frame(maxWidth: 440)
             }
 
+            if isTrimming, let note = trimNote {
+                Spacer().frame(height: Theme.Space.s8)
+                Text(note)
+                    .font(Theme.Text.callout)
+                    .foregroundStyle(Theme.labelSecondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 440)
+            }
+
             Spacer().frame(height: Theme.Space.s16)
 
             formatControls
-
-            if isTrimming, let duration = preview?.duration {
-                Spacer().frame(height: Theme.Space.s12)
-                TrimEditor(ranges: $ranges, selection: $rangeSelection,
-                           duration: duration, metadata: preview, format: currentFormat)
-                    .frame(maxWidth: 440)
-                    .transition(.opacity)
-                if let note = trimNote {
-                    Spacer().frame(height: Theme.Space.s8)
-                    Text(note)
-                        .font(Theme.Text.callout)
-                        .foregroundStyle(Theme.labelSecondary)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: 440)
-                }
-            }
 
             if showsMaxWarning {
                 Spacer().frame(height: Theme.Space.s12)
@@ -219,6 +216,7 @@ struct DownloadPane: View {
         .animation(.easeOut(duration: 0.22), value: sessionJobs.count)
         .animation(.easeOut(duration: 0.22), value: showsLinkPreview)
         .animation(.easeOut(duration: 0.2), value: isTrimming)
+        .animation(.easeOut(duration: 0.22), value: showsTrimBar)
     }
 
     // MARK: - Max Quality
@@ -312,7 +310,28 @@ struct DownloadPane: View {
         isValidURL && YouTubeLink.playlistURL(from: trimmedURL) == nil
     }
 
+    /// The range bar sits in the card as soon as the duration is known: it
+    /// is how anyone finds out that a part can be downloaded.
+    private var showsTrimBar: Bool { canTrim && !ranges.isEmpty }
+
     private var linkPreviewCard: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.s10) {
+            linkPreviewHeader
+            if showsTrimBar, let duration = preview?.duration {
+                TrimEditor(ranges: $ranges, selection: $rangeSelection,
+                           duration: duration, metadata: preview, format: currentFormat)
+                    .transition(.opacity)
+            }
+        }
+        .padding(Theme.Space.s8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.fillTertiary,
+                    in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .animation(.easeOut(duration: 0.2), value: previewTitle)
+        .transition(.appearingCapsule)
+    }
+
+    private var linkPreviewHeader: some View {
         HStack(spacing: Theme.Space.s12) {
             Thumbnail(urlString: YouTubeLink.thumbnailURL(for: trimmedURL)
                         ?? quickPreview?.thumbnailURL,
@@ -345,13 +364,7 @@ struct DownloadPane: View {
 
             Spacer(minLength: 0)
         }
-        .padding(Theme.Space.s8)
         .padding(.trailing, Theme.Space.s4)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.fillTertiary,
-                    in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-        .animation(.easeOut(duration: 0.2), value: previewTitle)
-        .transition(.appearingCapsule)
     }
 
     /// oEmbed first: it answers long before the extraction, and both give the
@@ -557,9 +570,6 @@ struct DownloadPane: View {
             qualityMenu
                 .frame(width: 108, alignment: .leading)
 
-            trimButton
-                .frame(width: Self.trimSlot, alignment: .leading)
-
             // The estimate arrives a moment after the link, so its slot is
             // reserved too, empty or not.
             estimate
@@ -570,49 +580,19 @@ struct DownloadPane: View {
         // the quality control permanently off-centre. An equal, invisible slot
         // on the other end keeps the pair where the mockup put it, and nothing
         // in the row ever moves again.
-        .padding(.leading, Self.estimateSlot + Self.trimSlot + Theme.Space.s8 * 2)
+        .padding(.leading, Self.estimateSlot + Theme.Space.s8)
         .animation(.easeOut(duration: 0.2), value: preview)
     }
 
     /// Widest realistic reading is "≈ 158,4 MB"; a four-digit megabyte count
     /// is already a gigabyte, and prints shorter.
     private static let estimateSlot: CGFloat = 84
-    private static let trimSlot: CGFloat = 74
-
-    /// Trim on and off. Present only once the duration is known; its slot
-    /// is reserved before that so the row does not move when it appears.
-    @ViewBuilder
-    private var trimButton: some View {
-        if canTrim {
-            Button {
-                trimOn.toggle()
-                if trimOn, ranges.isEmpty { resetRanges() }
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "scissors").font(.system(size: 11))
-                    Text("Trim").font(Theme.Text.body)
-                }
-                .foregroundStyle(trimOn ? Theme.inkOn : Theme.label)
-                .padding(.horizontal, Theme.Space.s10)
-                .frame(height: 22)
-                .background(
-                    RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                        .fill(trimOn ? Theme.ink : Theme.fillTertiary))
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help(trimOn ? "Download the whole video" : "Download only part of the video")
-            .transition(.opacity)
-        }
-    }
 
     /// One range: from the time in the link if it carries one, else the
-    /// whole video, ready to be narrowed.
+    /// whole video.
     private func resetRanges() {
-        let duration = preview?.duration ?? 0
-        let start = min(YouTubeLink.startTime(from: trimmedURL) ?? 0,
-                        max(0, duration - TrimEditor.minimumLength))
-        ranges = [ClipRange(start: start, end: duration)]
+        ranges = ClipRange.initialRanges(duration: preview?.duration ?? 0,
+                                         linkStart: YouTubeLink.startTime(from: trimmedURL))
         rangeSelection = 0
     }
 
@@ -891,15 +871,16 @@ struct DownloadPane: View {
     }
 
     private func launch(_ link: String) {
+        // Refused before the link counts as handled: otherwise it would stop
+        // being offered from the clipboard although nothing was downloaded.
+        if isTrimming, !rangesAreValid { return }
         handledLinks.insert(link)
         if isTrimming {
-            guard rangesAreValid else { return }
             manager.startClips(urlString: link, format: currentFormat,
                                ranges: ranges, duration: preview?.duration)
         } else {
             manager.startDownload(urlString: link, format: currentFormat)
         }
-        trimOn = false
         ranges = []
         urlText = ""
         preview = nil
@@ -937,7 +918,6 @@ struct DownloadPane: View {
     private func loadPreview() async {
         quickPreview = nil
         preview = nil
-        trimOn = false
         ranges = []
         guard showsLinkPreview else { return }
         try? await Task.sleep(nanoseconds: 250_000_000)
@@ -969,12 +949,8 @@ struct DownloadPane: View {
         let full = await manager.fetchMetadata(urlString: link)
         guard !Task.isCancelled else { return }
         preview = full
-        // A link at a timestamp usually means "from here": open Trim with
-        // the start handle already there.
-        if YouTubeLink.startTime(from: link) != nil, canTrim {
-            resetRanges()
-            trimOn = true
-        }
+        // The bar starts as the whole video, or from the time in the link.
+        if canTrim { resetRanges() }
     }
 
     private func refreshClipboard() {

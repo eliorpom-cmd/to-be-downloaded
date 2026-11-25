@@ -142,6 +142,7 @@ final class DownloadEngine: @unchecked Sendable {
             resultFile: resultFile, workDir: workDir)
 
         process.environment = trustEnvironment()
+        let usesBrowserCookies = config.commonArguments.contains("--cookies-from-browser")
 
         let outPipe = Pipe()
         let errPipe = Pipe()
@@ -181,7 +182,8 @@ final class DownloadEngine: @unchecked Sendable {
                 // Failure or app closure: we KEEP the `.part`, else resume would
                 // restart from zero. Cleanup happens on next launch for folders
                 // no job depends on anymore.
-                continuation.yield(.failed(message: Self.cleanError(errAcc.recentTail, code: code)))
+                continuation.yield(.failed(message: Self.cleanError(
+                    errAcc.recentTail, code: code, usesBrowserCookies: usesBrowserCookies)))
             }
             try? FileManager.default.removeItem(at: resultFile)
             continuation.finish()
@@ -330,7 +332,7 @@ final class DownloadEngine: @unchecked Sendable {
 
             if range != nil {
                 args += ["--downloader-args", "ffmpeg_o:" + clipEncoderArguments(
-                    quality: format.videoQuality).joined(separator: " ")]
+                    quality: format.videoQuality, container: container).joined(separator: " ")]
             }
 
             // Not on a clip: yt-dlp would embed the subtitles of the whole
@@ -470,7 +472,12 @@ final class DownloadEngine: @unchecked Sendable {
     /// About two to three times what YouTube itself uses at each height:
     /// the hardware encoder is less efficient than YouTube's, and a second
     /// generation needs headroom to look the same. Higher only wastes disk.
-    static func clipVideoKilobits(for quality: VideoQuality) -> Int {
+    ///
+    /// `container`: a MOV clip at Max is the best H.264, which stops at
+    /// 1080p (see `videoSelector`), so it gets the 1080p rate, not 4K's.
+    static func clipVideoKilobits(for quality: VideoQuality,
+                                  container: VideoContainer = .mp4) -> Int {
+        if quality == .max, container == .mov { return clipVideoKilobits(for: .p1080) }
         switch quality {
         case .p360:  return 1_500
         case .p480:  return 2_500
@@ -489,8 +496,9 @@ final class DownloadEngine: @unchecked Sendable {
     /// silicon. The bitrate is high so the second encode is not visible, and
     /// the picture is forced to 8-bit 4:2:0, the only input H.264 hardware
     /// takes (YouTube's HDR streams are 10-bit). The audio is copied.
-    static func clipEncoderArguments(quality: VideoQuality) -> [String] {
-        let kilobits = clipVideoKilobits(for: quality)
+    static func clipEncoderArguments(quality: VideoQuality,
+                                     container: VideoContainer = .mp4) -> [String] {
+        let kilobits = clipVideoKilobits(for: quality, container: container)
         return [
             "-c:v", "h264_videotoolbox",
             "-b:v", "\(kilobits)k",
@@ -506,7 +514,11 @@ final class DownloadEngine: @unchecked Sendable {
         "download:@@PROG@@\t" + DownloadProgress.templateFieldOrder.joined(separator: "\t")
 
     /// Transforms raw yt-dlp stderr into a readable message.
-    static func cleanError(_ raw: String, code: Int32) -> String {
+    ///
+    /// `usesBrowserCookies`: whether this run read a browser's cookies. Only
+    /// then can a failure be about them; otherwise a title or a path with
+    /// "cookie" in it would get an explanation about Full Disk Access.
+    static func cleanError(_ raw: String, code: Int32, usesBrowserCookies: Bool = false) -> String {
         let lines = raw.split(separator: "\n").map(String.init)
         let errorLines = lines.filter { $0.contains("ERROR:") }
         var message = errorLines.isEmpty
@@ -521,7 +533,7 @@ final class DownloadEngine: @unchecked Sendable {
             .replacingOccurrences(of: "ERROR: ", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         // A cookie failure says what to do, not just what broke.
-        if let explained = CookieBrowser.explain(message) { return explained }
+        if usesBrowserCookies, let explained = CookieBrowser.explain(message) { return explained }
         return message.isEmpty ? "yt-dlp failed (code \(code))" : message
     }
 

@@ -363,7 +363,8 @@ enum WebUI {
               return nums.reduce((acc, n) => acc * 60 + n, 0);
             }
             if (/^[0-9]+([.][0-9]+)?$/.test(s)) return Number(s);
-            const unit = s.match(/^(?:([0-9]+)h)?(?:([0-9]+)m)?(?:([0-9]+(?:[.][0-9]+)?)s)?$/);
+            // Trailing digits without a unit ("3m40") are seconds, as in the app.
+            const unit = s.match(/^(?:([0-9]+)h)?(?:([0-9]+)m)?(?:([0-9]+(?:[.][0-9]+)?)s?)?$/);
             if (unit && (unit[1] || unit[2] || unit[3])) {
               return (+unit[1] || 0) * 3600 + (+unit[2] || 0) * 60 + (+unit[3] || 0);
             }
@@ -467,15 +468,16 @@ enum WebUI {
             if (!isValidURL(url)) return;
             const body = { url, kind, quality: q.value };
             if (!rangeRow.hidden) {
-              const start = parseTime(startEl.value);
+              // An empty Start is the start of the video, as its placeholder says.
+              const start = startEl.value.trim() ? parseTime(startEl.value) : 0;
               const end = parseTime(endEl.value);
-              // A filled field that cannot be read gets the format hint; an empty
-              // or reversed range gets the ordering message.
-              const unreadable = (startEl.value.trim() && start === null)
-                || (endEl.value.trim() && end === null);
+              // A filled field that cannot be read gets the format hint, a
+              // missing end asks for one, a reversed range gets the ordering message.
+              const unreadable = start === null || (endEl.value.trim() && end === null);
               let msg = "";
               if (unreadable) msg = "Times look like 1:30 or 90.";
-              else if (start === null || end === null || start >= end) msg = "Start must be before end.";
+              else if (end === null) msg = "Enter an end time.";
+              else if (start >= end) msg = "Start must be before end.";
               if (msg) {
                 rangeNote.textContent = msg;
                 rangeNote.classList.add("show");
@@ -486,10 +488,16 @@ enum WebUI {
               body.end = end;
             }
             try {
-              await fetch("/api/download", {
+              const res = await fetch("/api/download", {
                 method:"POST", headers:{"Content-Type":"application/json"},
                 body: JSON.stringify(body)
               });
+              // A refused range says so, and keeps what was typed.
+              if (!res.ok && body.start !== undefined) {
+                rangeNote.textContent = "This part is not in the video.";
+                rangeNote.classList.add("show");
+                return;
+              }
               urlEl.value = "";
               startEl.value = "";
               endEl.value = "";

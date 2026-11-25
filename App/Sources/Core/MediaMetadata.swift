@@ -102,8 +102,9 @@ struct MediaMetadata: Codable, Sendable, Equatable {
         if let formats = raw.formats {
             metadata.storyboard = Storyboard.pick(from: formats.compactMap { f in
                 guard f.format_id?.hasPrefix("sb") == true,
-                      let width = f.width, let height = f.height,
-                      let rows = f.rows, let columns = f.columns,
+                      // Zero sizes would divide by zero when cutting tiles.
+                      let width = f.width, width > 0, let height = f.height, height > 0,
+                      let rows = f.rows, rows > 0, let columns = f.columns, columns > 0,
                       let fps = f.fps, fps > 0
                 else { return nil }
                 let sheets = (f.fragments ?? []).compactMap(\.url)
@@ -175,7 +176,8 @@ struct MediaMetadata: Codable, Sendable, Equatable {
         guard length > 0 else { return nil }
         switch format.kind {
         case .video:
-            let videoRate = Double(DownloadEngine.clipVideoKilobits(for: format.videoQuality))
+            let videoRate = Double(DownloadEngine.clipVideoKilobits(
+                for: format.videoQuality, container: format.forClip().videoContainer))
                 * 1_000 / 8
             var audioRate = 128_000.0 / 8
             if let audioBytes, let duration, duration > 0 {

@@ -558,6 +558,11 @@ final class DownloadManager: ObservableObject {
         Task { [weak self] in
             guard let self else { return }
             for await event in run.events {
+                // A run that is no longer this job's own (a retry or a clip
+                // resumed after a pause replaced it while it was dying) must
+                // not touch the job: its last `.failed` would land on the new
+                // run and mark it failed.
+                guard self.running[jobID] === run else { continue }
                 switch event {
                 case .progress(let p):
                     self.update(jobID) { job in
@@ -571,7 +576,10 @@ final class DownloadManager: ObservableObject {
                     }
                 case .clipProgress(let seconds):
                     self.update(jobID) { job in
-                        guard job.state != .cancelled, job.state != .paused,
+                        // FFmpeg's lines come from stderr, post-processing
+                        // from stdout: a late `time=` line must not take a
+                        // merging clip back to "downloading".
+                        guard job.state == .queued || job.state == .downloading,
                               let range = job.range, range.length > 0 else { return }
                         job.state = .downloading
                         let within = min(1, max(0, seconds / range.length))
@@ -618,7 +626,9 @@ final class DownloadManager: ObservableObject {
                     }
                 }
             }
-            self.running[jobID] = nil
+            // Only its own handle: clearing a newer one would orphan that
+            // process, out of reach of Pause and Cancel.
+            if self.running[jobID] === run { self.running[jobID] = nil }
             // A slot is freed: the next job in the queue can go.
             self.pump()
         }

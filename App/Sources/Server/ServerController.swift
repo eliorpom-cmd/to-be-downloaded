@@ -187,10 +187,24 @@ final class ServerController: ObservableObject {
             }
             // Audio container and subtitles follow the app's settings:
             // the web page does not expose them, it must not decide for them.
+            // A range is fitted to the video before anything starts: past
+            // the end, yt-dlp would be asked for a part that does not exist,
+            // and the file name would carry times the clip does not have.
+            var range = dto.clipRange
+            if let asked = range,
+               let duration = await downloads.fetchMetadata(urlString: dto.url)?.duration,
+               duration > 0 {
+                guard let fitted = ClipRange.normalized([asked], duration: duration).first else {
+                    return HTTPResponse(statusCode: .badRequest,
+                                        headers: HTTPHeaders([.contentType: "application/json"]),
+                                        body: Data(#"{"error":"range past the end of the video"}"#.utf8))
+                }
+                range = fitted
+            }
             let defaults = await MainActor.run { AppSettings.shared.currentDefaultFormat }
             let id = await downloads.startDownload(
                 urlString: dto.url, format: dto.toFormat(defaults: defaults),
-                range: dto.clipRange)
+                range: range)
             let payload = ["id": id?.uuidString ?? ""]
             let data = (try? JSONEncoder().encode(payload)) ?? Data("{}".utf8)
             return HTTPResponse(statusCode: .ok,
