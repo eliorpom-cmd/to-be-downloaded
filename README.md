@@ -96,7 +96,9 @@ Right-click a link in Safari → **Services** → *Download with TBD*.
   in Settings, always remuxed, never re-encoded.
 - Audio as **M4A**, remuxed without re-encoding — or Opus (kept as is), MP3,
   FLAC and WAV.
-- Subtitles embedded as a track, when the video has them.
+- Subtitles embedded as a track, when the video has them, or saved as an
+  `.srt` file next to the video or audio. In the video's original language by
+  default.
 
 **Part of a video**
 - **Trim** picks one or several ranges on a strip of the video's thumbnails, by

@@ -7,7 +7,19 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **Save subtitles as a file.** A new switch in Settings → Format writes the
+  subtitles as an `.srt` file next to the video or audio, with the same name
+  plus the language (`Title.fr.srt`), when the video has them. Off by default.
+  It works for audio and for every video format, MOV included, and on its own
+  or together with the embedded track. Parts of a video get no file, for the
+  same reason they get no track: the times would not match the cut. In WebM,
+  asking for both writes the file only: WebM holds WebVTT subtitles, not SRT.
+- **"Original language" for subtitles**, now the default when no language was
+  ever chosen: the language the video was made in, rather than a translation
+  of it, with no English fallback. When the video's language isn't known, it
+  falls back to the system language. A language already chosen is kept.
 
 ## [1.3.1] - 2026-11-25
 

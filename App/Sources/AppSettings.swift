@@ -58,6 +58,7 @@ final class AppSettings: ObservableObject {
         static let subtitles = "embedSubtitles"
         static let subtitleLanguage = "subtitleLanguage"
         static let autoSubtitles = "embedAutoSubtitles"
+        static let subtitleFile = "saveSubtitleFile"
         static let maxWarningSeen = "maxQualityWarningDismissed"
         static let maxConcurrent = "maxConcurrentDownloads"
         static let filenameTemplate = "filenameTemplate"
@@ -141,8 +142,15 @@ final class AppSettings: ObservableObject {
     @Published var embedSubtitles: Bool {
         didSet { store.set(embedSubtitles, forKey: Key.subtitles) }
     }
+    /// Save subtitles as an `.srt` file next to the video or audio. Separate
+    /// from embedding: the file is for reading, searching or editing the
+    /// text, and works for audio too.
+    @Published var saveSubtitleFile: Bool {
+        didSet { store.set(saveSubtitleFile, forKey: Key.subtitleFile) }
+    }
     /// Which language to ask for. Used to be the system's plus English, in
-    /// code, with no way to say otherwise.
+    /// code, with no way to say otherwise. "Original language" when never
+    /// chosen; a choice already stored is kept.
     @Published var subtitleLanguage: SubtitleLanguage {
         didSet { store.set(subtitleLanguage.rawValue, forKey: Key.subtitleLanguage) }
     }
@@ -255,9 +263,6 @@ final class AppSettings: ObservableObject {
         FilenameTemplate.outputPattern(filenameTemplate, custom: filenameCustom)
     }
 
-    /// Requested subtitle languages, in preference order.
-    var subtitleLanguages: [String] { subtitleLanguage.codes }
-
     /// Format matching default settings, for triggers without choice UI
     /// (menu bar menu, ⌘⇧V).
     var currentDefaultFormat: DownloadFormat {
@@ -266,7 +271,8 @@ final class AppSettings: ObservableObject {
                        audioBitrate: defaultAudioBitrate,
                        audioFormat: audioFormat,
                        subtitles: embedSubtitles,
-                       videoContainer: videoContainer)
+                       videoContainer: videoContainer,
+                       subtitleFile: saveSubtitleFile)
     }
 
     /// Cycle through System → Light → Dark → System (header toggle button).
@@ -333,10 +339,11 @@ final class AppSettings: ObservableObject {
 
         audioFormat = AudioFormat(rawValue: store.string(forKey: Key.audioFormat) ?? "") ?? .m4a
         embedSubtitles = store.object(forKey: Key.subtitles) as? Bool ?? false
+        saveSubtitleFile = store.object(forKey: Key.subtitleFile) as? Bool ?? false
         videoContainer = VideoContainer(rawValue: store.string(forKey: Key.videoContainer) ?? "") ?? .mp4
         playbackWarningsDismissed = Set(store.stringArray(forKey: Key.playbackWarnings) ?? [])
         subtitleLanguage = SubtitleLanguage(
-            rawValue: store.string(forKey: Key.subtitleLanguage) ?? "") ?? .system
+            rawValue: store.string(forKey: Key.subtitleLanguage) ?? "") ?? .original
         autoSubtitles = store.object(forKey: Key.autoSubtitles) as? Bool ?? true
         maxQualityWarningDismissed = store.object(forKey: Key.maxWarningSeen) as? Bool ?? false
         maxConcurrent = min(max(store.object(forKey: Key.maxConcurrent) as? Int ?? 2, 1), 5)

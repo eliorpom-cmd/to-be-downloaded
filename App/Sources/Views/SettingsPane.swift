@@ -85,10 +85,23 @@ struct SettingsPane: View {
                             .labelsHidden()
                             .disabled(!settings.videoContainer.embedsSubtitles)
                     }
-                    if settings.embedSubtitles, settings.videoContainer.embedsSubtitles {
+                    divider
+                    // Never disabled: a file needs no container that holds
+                    // subtitles, so it works for MOV and for audio too.
+                    row("Save subtitles as a file",
+                        detail: "An .srt file next to the video or audio, when it has subtitles",
+                        wraps: true) {
+                        Toggle("", isOn: $settings.saveSubtitleFile)
+                            .toggleStyle(.switch)
+                            .labelsHidden()
+                    }
+                    if (settings.embedSubtitles && settings.videoContainer.embedsSubtitles)
+                        || settings.saveSubtitleFile {
                         divider
                         row("Subtitle language",
-                            detail: "English is always kept as a fallback") {
+                            detail: settings.subtitleLanguage == .original
+                                ? "The language the video was made in"
+                                : "English is always kept as a fallback") {
                             picker($settings.subtitleLanguage,
                                    values: SubtitleLanguage.allCases) { $0.label }
                         }

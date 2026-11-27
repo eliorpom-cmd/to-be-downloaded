@@ -32,16 +32,25 @@ final class DownloadEngine: @unchecked Sendable {
         let trustBundle: URL?
         /// Complete `-o` pattern, extension included.
         var outputPattern: String = "%(title)s.%(ext)s"
-        /// Subtitle languages to embed, by preference order.
-        var subtitleLanguages: [String] = ["en"]
+        /// Subtitle language to embed or save.
+        var subtitleLanguage: SubtitleLanguage = .en
         /// Accept YouTube's machine transcription when the channel wrote no
         /// subtitles of its own.
         var autoSubtitles: Bool = true
+        /// The language the video was made in, when its metadata says so.
+        /// Set per download (see `start`), read by `.original`.
+        var originalLanguage: String?
         /// Passed to EVERY yt-dlp call (metadata, playlist, download): the
         /// JavaScript runtimes and the cache folder. Without them on the
         /// metadata call, the preview and the download would see different
         /// formats.
         var commonArguments: [String] = []
+
+        /// Codes handed to `--sub-langs`, in preference order.
+        var subtitleLanguages: [String] {
+            subtitleLanguage.resolvedCodes(originalLanguage: originalLanguage,
+                                           autoCaptions: autoSubtitles)
+        }
     }
 
     /// A download in progress; allows pause, resume, and cancellation.
@@ -123,8 +132,11 @@ final class DownloadEngine: @unchecked Sendable {
     /// this allows an interrupted download to resume from the byte where it
     /// stopped on next launch, rather than from zero. It's only deleted on
     /// success or explicit cancellation.
+    ///
+    /// `originalLanguage`: the video's own language, from its metadata, for
+    /// the "Original language" subtitle choice. `nil` when not known yet.
     func start(url: String, format: DownloadFormat, range: ClipRange? = nil,
-               jobID: UUID) throws -> Running {
+               originalLanguage: String? = nil, jobID: UUID) throws -> Running {
         try FileManager.default.createDirectory(
             at: config.outputDirectory, withIntermediateDirectories: true)
 
@@ -135,10 +147,13 @@ final class DownloadEngine: @unchecked Sendable {
         let workDir = Self.partialDirectory(for: jobID)
         try? FileManager.default.createDirectory(at: workDir, withIntermediateDirectories: true)
 
+        var jobConfig = config
+        jobConfig.originalLanguage = originalLanguage
+
         let process = Process()
         process.executableURL = config.ytDlp
         process.arguments = Self.downloadArguments(
-            url: url, format: format, range: range, config: config,
+            url: url, format: format, range: range, config: jobConfig,
             resultFile: resultFile, workDir: workDir)
 
         process.environment = trustEnvironment()
@@ -336,26 +351,31 @@ final class DownloadEngine: @unchecked Sendable {
             }
 
             // Not on a clip: yt-dlp would embed the subtitles of the whole
-            // video, with times that no longer match the cut.
-            if format.subtitles, range == nil, container.embedsSubtitles {
-                // Embedded as a track, not deposited in `.srt` files alongside:
-                // a track you activate in the player is more useful than an
-                // extra file in the folder. yt-dlp picks the codec the
-                // container takes: `mov_text` in MP4, WebVTT in WebM, and
+            // video, with times that no longer match the cut. Same for the
+            // `.srt` file.
+            let writesFile = format.subtitleFile && range == nil
+            // WebM holds WebVTT only, and the `.srt` conversion happens
+            // before the embedding: with the file asked for too, yt-dlp
+            // would skip the track with a warning. The file is the one asked
+            // for explicitly, so it wins, and nothing is half-done.
+            let embeds = format.subtitles && range == nil && container.embedsSubtitles
+                && !(writesFile && container == .webm)
+            if embeds {
+                // Embedded as a track: a track you activate in the player is
+                // more useful than an extra file in the folder, which is a
+                // separate choice (`subtitleFile`). yt-dlp picks the codec
+                // the container takes: `mov_text` in MP4, WebVTT in WebM, and
                 // SubRip in MKV once converted below (players read SRT more
                 // widely than VTT).
-                args += ["--embed-subs", "--write-subs"]
-                if container == .mkv { args += ["--convert-subs", "srt"] }
-                // Machine transcription, only if asked for. yt-dlp prefers a
-                // channel's own subtitles when both exist, so this is strictly
-                // a fallback — and one worth being able to refuse, since
-                // YouTube's auto captions are punctuation-free and often wrong.
-                if config.autoSubtitles { args += ["--write-auto-subs"] }
-                args += [
-                    "--sub-langs", config.subtitleLanguages.joined(separator: ","),
-                    // Otherwise yt-dlp leaves `.vtt` files on disk too.
-                    "--compat-options", "no-keep-subs",
-                ]
+                args += ["--embed-subs"]
+            }
+            if embeds || writesFile {
+                args += ["--write-subs"]
+                if writesFile || container == .mkv { args += ["--convert-subs", "srt"] }
+                args += subtitleSelection(config: config)
+                // Otherwise yt-dlp leaves `.vtt` files on disk too. Not when
+                // the file is asked for: the `.srt` must stay next to the video.
+                if !writesFile { args += ["--compat-options", "no-keep-subs"] }
             }
 
         case .audio:
@@ -398,11 +418,29 @@ final class DownloadEngine: @unchecked Sendable {
                     "--audio-format", format.audioFormat.rawValue,
                 ]
             }
+
+            // Audio has no track to embed subtitles in, but the file works:
+            // yt-dlp writes it next to the audio, with the same base name.
+            // Not on a clip, for the same reason as a video's.
+            if format.subtitleFile, range == nil {
+                args += ["--write-subs", "--convert-subs", "srt"]
+                args += subtitleSelection(config: config)
+            }
         }
 
         // `--` then the URL last: protects against URLs starting with '-'.
         args += ["--", url]
         return args
+    }
+
+    /// Which subtitles to fetch, embedded or saved as a file.
+    private static func subtitleSelection(config: Config) -> [String] {
+        // Machine transcription, only if asked for. yt-dlp prefers a
+        // channel's own subtitles when both exist, so this is strictly
+        // a fallback — and one worth being able to refuse, since
+        // YouTube's auto captions are punctuation-free and often wrong.
+        (config.autoSubtitles ? ["--write-auto-subs"] : [])
+            + ["--sub-langs", config.subtitleLanguages.joined(separator: ",")]
     }
 
     /// `-f` and `-S` for a video.

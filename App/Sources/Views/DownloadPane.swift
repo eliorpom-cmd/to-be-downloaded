@@ -70,7 +70,8 @@ struct DownloadPane: View {
                        audioBitrate: audioBitrate,
                        audioFormat: settings.audioFormat,
                        subtitles: settings.embedSubtitles,
-                       videoContainer: settings.videoContainer)
+                       videoContainer: settings.videoContainer,
+                       subtitleFile: settings.saveSubtitleFile)
     }
 
     /// Library entry matching the entered link, if there is one.
@@ -287,7 +288,7 @@ struct DownloadPane: View {
         if settings.videoContainer == .webm {
             notes.append("Parts of a video are saved as MP4: WebM can't hold the exact cut.")
         }
-        if settings.embedSubtitles {
+        if settings.embedSubtitles || settings.saveSubtitleFile {
             notes.append("Subtitles are not added to parts of a video.")
         }
         return notes.isEmpty ? nil : notes.joined(separator: " ")
