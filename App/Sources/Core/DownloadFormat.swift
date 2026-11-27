@@ -30,13 +30,16 @@ enum VideoQuality: Int, CaseIterable, Sendable, Identifiable {
     var label: String { self == .max ? "Max" : "\(rawValue)p" }
 }
 
-/// Which subtitle track to embed, when the video has one.
+/// Which subtitle track to embed or save, when the video has one.
 ///
 /// Deliberately short. yt-dlp accepts every language YouTube has, but a list
 /// of two hundred entries is a worse answer than a list of nine: the ones
 /// worth naming are the ones people actually read, and "System language"
-/// covers everyone else without asking them anything.
+/// covers everyone else without asking them anything. "Original language"
+/// comes first and is the default: what the people in the video actually
+/// say, rather than a translation of it.
 enum SubtitleLanguage: String, CaseIterable, Sendable, Identifiable, Codable {
+    case original
     case system
     case en, fr, es, de, it, pt, ja, ko, zh
 
@@ -44,6 +47,7 @@ enum SubtitleLanguage: String, CaseIterable, Sendable, Identifiable, Codable {
 
     var label: String {
         switch self {
+        case .original: return "Original language"
         case .system: return "System language"
         case .en: return "English"
         case .fr: return "French"
@@ -62,9 +66,12 @@ enum SubtitleLanguage: String, CaseIterable, Sendable, Identifiable, Codable {
     /// English trails every other choice: it is the one language nearly every
     /// channel captions, so it is the fallback that stops "subtitles on"
     /// meaning "no subtitles" on a video that simply has none in yours.
+    ///
+    /// For `.original`, the video's language is not known here: these are the
+    /// "System language" codes, the fallback `resolvedCodes(originalLanguage:autoCaptions:)` uses.
     var codes: [String] {
         switch self {
-        case .system:
+        case .original, .system:
             let current = Locale.current.language.languageCode?.identifier ?? "en"
             return current == "en" ? ["en"] : [current, "en"]
         case .en:
@@ -72,6 +79,23 @@ enum SubtitleLanguage: String, CaseIterable, Sendable, Identifiable, Codable {
         default:
             return [rawValue, "en"]
         }
+    }
+
+    /// Codes handed to `--sub-langs` for a given video.
+    ///
+    /// `.original` asks for the language the video was made in, and only
+    /// that one: no English fallback, since a translation is exactly what it
+    /// is there to avoid. With automatic captions allowed, YouTube's
+    /// original-language transcription is asked for too: yt-dlp lists it as
+    /// `<language>-orig`, apart from the machine translations into that same
+    /// language. When the video's language is unknown, the "System language"
+    /// codes.
+    func resolvedCodes(originalLanguage: String?, autoCaptions: Bool) -> [String] {
+        guard self == .original,
+              let language = originalLanguage?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !language.isEmpty
+        else { return codes }
+        return autoCaptions ? [language, "\(language)-orig"] : [language]
     }
 }
 
@@ -177,16 +201,20 @@ struct DownloadFormat: Sendable, Equatable, Codable {
     /// Embed subtitles in the video (MP4, MKV, WebM).
     var subtitles: Bool = false
     var videoContainer: VideoContainer = .mp4
+    /// Save the subtitles as an `.srt` file next to the video or audio.
+    var subtitleFile: Bool = false
 
     init(kind: MediaKind, videoQuality: VideoQuality = .p1080,
          audioBitrate: AudioBitrate = .k192, audioFormat: AudioFormat = .m4a,
-         subtitles: Bool = false, videoContainer: VideoContainer = .mp4) {
+         subtitles: Bool = false, videoContainer: VideoContainer = .mp4,
+         subtitleFile: Bool = false) {
         self.kind = kind
         self.videoQuality = videoQuality
         self.audioBitrate = audioBitrate
         self.audioFormat = audioFormat
         self.subtitles = subtitles
         self.videoContainer = videoContainer
+        self.subtitleFile = subtitleFile
     }
 
     /// Every field but `kind` may be missing: `pending.json` written by an
@@ -200,6 +228,7 @@ struct DownloadFormat: Sendable, Equatable, Codable {
         audioFormat = try c.decodeIfPresent(AudioFormat.self, forKey: .audioFormat) ?? .m4a
         subtitles = try c.decodeIfPresent(Bool.self, forKey: .subtitles) ?? false
         videoContainer = try c.decodeIfPresent(VideoContainer.self, forKey: .videoContainer) ?? .mp4
+        subtitleFile = try c.decodeIfPresent(Bool.self, forKey: .subtitleFile) ?? false
     }
 
     var shortLabel: String {

@@ -30,6 +30,9 @@ struct MediaMetadata: Codable, Sendable, Equatable {
     /// A stream that is live right now: it cannot be trimmed (sections of a
     /// live stream need `--live-from-start`, a separate project).
     var isLive = false
+    /// The language the video was made in, as yt-dlp names it (`en`, `fr`…).
+    /// Unknown for some videos and sites.
+    var language: String?
 
     struct Chapter: Codable, Sendable, Equatable, Hashable {
         var title: String
@@ -78,6 +81,7 @@ struct MediaMetadata: Codable, Sendable, Equatable {
             let duration: Double?
             let thumbnail: String?
             let formats: [RawFormat]?
+            let language: String?
         }
         guard let raw = try? JSONDecoder().decode(Raw.self, from: data) else { return nil }
         let title = raw.title?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -91,6 +95,11 @@ struct MediaMetadata: Codable, Sendable, Equatable {
         )
 
         metadata.isLive = raw.is_live == true || raw.live_status == "is_live"
+        // The top-level field is the one of the formats yt-dlp would pick,
+        // joined with "+" when the picture and the sound both name one.
+        let language = raw.language?.split(separator: "+").first
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+        metadata.language = language?.isEmpty == false ? language : nil
         metadata.chapters = (raw.chapters ?? []).enumerated().compactMap { index, chapter in
             guard let start = chapter.start_time, let end = chapter.end_time, end > start
             else { return nil }

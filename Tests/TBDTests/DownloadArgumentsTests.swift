@@ -137,6 +137,147 @@ final class DownloadArgumentsTests: XCTestCase {
         XCTAssertEqual(value(after: "-f", in: args), "ba[ext=m4a]/ba/b")
     }
 
+    // MARK: - Subtitle file
+
+    private let subtitleFlagNames: Set<String> = [
+        "--embed-subs", "--write-subs", "--write-auto-subs", "--convert-subs",
+        "--sub-langs", "--compat-options",
+    ]
+
+    private func subtitleFlags(in args: [String]) -> [String] {
+        args.filter(subtitleFlagNames.contains)
+    }
+
+    func testSubtitleFileOnVideoWritesSRTWithoutEmbedding() {
+        let args = arguments(format: DownloadFormat(kind: .video, videoQuality: .p1080,
+                                                    subtitles: false, subtitleFile: true))
+        XCTAssertTrue(args.contains("--write-subs"))
+        XCTAssertEqual(value(after: "--convert-subs", in: args), "srt")
+        XCTAssertNotNil(value(after: "--sub-langs", in: args))
+        XCTAssertFalse(args.contains("--embed-subs"))
+        XCTAssertFalse(args.contains("no-keep-subs"))
+    }
+
+    func testSubtitleFileWithEmbeddingKeepsTheFile() {
+        let args = arguments(format: DownloadFormat(kind: .video, videoQuality: .p1080,
+                                                    subtitles: true, subtitleFile: true))
+        XCTAssertTrue(args.contains("--embed-subs"))
+        XCTAssertTrue(args.contains("--write-subs"))
+        XCTAssertEqual(value(after: "--convert-subs", in: args), "srt")
+        // `no-keep-subs` would delete the `.srt` once embedded.
+        XCTAssertFalse(args.contains("--compat-options"))
+        XCTAssertFalse(args.contains("no-keep-subs"))
+    }
+
+    func testSubtitleFileOnMOVVideo() {
+        let args = arguments(format: DownloadFormat(kind: .video, videoQuality: .p1080,
+                                                    subtitles: true, videoContainer: .mov,
+                                                    subtitleFile: true))
+        XCTAssertTrue(args.contains("--write-subs"))
+        XCTAssertEqual(value(after: "--convert-subs", in: args), "srt")
+        XCTAssertFalse(args.contains("--embed-subs"))
+    }
+
+    func testSubtitleFileOnWebMDoesNotEmbedSRT() {
+        // WebM holds WebVTT only: an `.srt` cannot go in as a track.
+        let args = arguments(format: DownloadFormat(kind: .video, videoQuality: .p1080,
+                                                    subtitles: true, videoContainer: .webm,
+                                                    subtitleFile: true))
+        XCTAssertTrue(args.contains("--write-subs"))
+        XCTAssertEqual(value(after: "--convert-subs", in: args), "srt")
+        XCTAssertFalse(args.contains("--embed-subs"))
+    }
+
+    func testEmbeddingOnlyIsUnchanged() {
+        let args = arguments(format: DownloadFormat(kind: .video, videoQuality: .p1080,
+                                                    subtitles: true))
+        guard let start = args.firstIndex(of: "--embed-subs") else {
+            return XCTFail("--embed-subs missing")
+        }
+        XCTAssertEqual(Array(args[start..<start + 8]), [
+            "--embed-subs", "--write-subs", "--write-auto-subs",
+            "--sub-langs", "en", "--compat-options", "no-keep-subs", "--",
+        ])
+        XCTAssertFalse(args.contains("--convert-subs"))
+    }
+
+    func testSubtitleFileOnAudioWritesSRT() {
+        let args = arguments(format: DownloadFormat(kind: .audio, audioFormat: .m4a,
+                                                    subtitleFile: true))
+        XCTAssertTrue(args.contains("--write-subs"))
+        XCTAssertEqual(value(after: "--convert-subs", in: args), "srt")
+        XCTAssertNotNil(value(after: "--sub-langs", in: args))
+        XCTAssertFalse(args.contains("--embed-subs"))
+    }
+
+    func testAudioWithoutSubtitleFileHasNoSubtitleFlags() {
+        let args = arguments(format: DownloadFormat(kind: .audio, audioFormat: .mp3,
+                                                    subtitles: true))
+        XCTAssertEqual(subtitleFlags(in: args), [])
+    }
+
+    func testSubtitleFileOnVideoClipHasNoSubtitleFlags() {
+        let args = arguments(format: DownloadFormat(kind: .video, videoQuality: .p1080,
+                                                    subtitles: true, subtitleFile: true),
+                             range: ClipRange(start: 220, end: 435))
+        XCTAssertEqual(subtitleFlags(in: args), [])
+    }
+
+    func testSubtitleFileOnAudioClipHasNoSubtitleFlags() {
+        let args = arguments(format: DownloadFormat(kind: .audio, audioFormat: .m4a,
+                                                    subtitleFile: true),
+                             range: ClipRange(start: 220, end: 435))
+        XCTAssertEqual(subtitleFlags(in: args), [])
+    }
+
+    func testAutomaticCaptionsFollowTheSetting() {
+        var custom = config
+        custom.autoSubtitles = false
+        let args = arguments(format: DownloadFormat(kind: .audio, subtitleFile: true),
+                             config: custom)
+        XCTAssertFalse(args.contains("--write-auto-subs"))
+        custom.autoSubtitles = true
+        XCTAssertTrue(arguments(format: DownloadFormat(kind: .audio, subtitleFile: true),
+                                config: custom).contains("--write-auto-subs"))
+    }
+
+    // MARK: - Original language
+
+    private func subtitleLanguages(_ language: SubtitleLanguage, original: String?,
+                                   autoSubtitles: Bool = true) -> [String] {
+        var custom = config
+        custom.subtitleLanguage = language
+        custom.originalLanguage = original
+        custom.autoSubtitles = autoSubtitles
+        let args = arguments(format: DownloadFormat(kind: .video, videoQuality: .p1080,
+                                                    subtitleFile: true),
+                             config: custom)
+        return (value(after: "--sub-langs", in: args) ?? "")
+            .split(separator: ",").map(String.init)
+    }
+
+    func testOriginalLanguageWithKnownLanguageHasNoEnglishFallback() {
+        let codes = subtitleLanguages(.original, original: "fr")
+        XCTAssertEqual(codes, ["fr", "fr-orig"])
+        XCTAssertFalse(codes.contains("en"))
+    }
+
+    func testOriginalLanguageWithoutAutomaticCaptionsAsksForTheLanguageOnly() {
+        XCTAssertEqual(subtitleLanguages(.original, original: "ja", autoSubtitles: false), ["ja"])
+    }
+
+    func testOriginalLanguageWithUnknownLanguageFallsBackToSystem() {
+        let system = subtitleLanguages(.system, original: nil)
+        XCTAssertFalse(system.isEmpty)
+        XCTAssertEqual(subtitleLanguages(.original, original: nil), system)
+        XCTAssertEqual(subtitleLanguages(.original, original: ""), system)
+        XCTAssertEqual(system, SubtitleLanguage.system.codes)
+    }
+
+    func testOtherLanguagesIgnoreTheOriginalLanguage() {
+        XCTAssertEqual(subtitleLanguages(.de, original: "fr"), ["de", "en"])
+    }
+
     // MARK: - Config
 
     func testCommonArgumentsComeFirst() {

@@ -72,6 +72,37 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(format.videoContainer, .mp4)
     }
 
+    func testDecodingOldJSONLeavesSubtitleFileOff() throws {
+        let json = #"{"kind":"video","subtitles":true,"videoContainer":"mkv"}"#
+        let format = try JSONDecoder().decode(DownloadFormat.self, from: Data(json.utf8))
+        XCTAssertTrue(format.subtitles)
+        XCTAssertFalse(format.subtitleFile)
+    }
+
+    func testSubtitleFileRoundTrip() throws {
+        let original = DownloadFormat(kind: .audio, audioFormat: .opus, subtitleFile: true)
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(DownloadFormat.self, from: data)
+        XCTAssertEqual(decoded, original)
+        XCTAssertTrue(decoded.subtitleFile)
+    }
+
+    func testMetadataDecodesTheVideoLanguage() {
+        func language(_ json: String) -> String? {
+            MediaMetadata.decode(from: Data(json.utf8))?.language
+        }
+        XCTAssertEqual(language(#"{"title":"T","language":"fr"}"#), "fr")
+        XCTAssertEqual(language(#"{"title":"T","language":"en+fr"}"#), "en")
+        XCTAssertNil(language(#"{"title":"T","language":""}"#))
+        XCTAssertNil(language(#"{"title":"T","language":null}"#))
+        XCTAssertNil(language(#"{"title":"T"}"#))
+    }
+
+    func testOriginalLanguageIsTheFirstChoice() {
+        XCTAssertEqual(SubtitleLanguage.allCases.first, .original)
+        XCTAssertEqual(SubtitleLanguage.original.label, "Original language")
+    }
+
     func testWebMRoundTripPreservesFormat() throws {
         let original = DownloadFormat(kind: .video, videoQuality: .max, subtitles: true,
                                       videoContainer: .webm)

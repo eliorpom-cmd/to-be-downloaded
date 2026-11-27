@@ -119,7 +119,7 @@ final class DownloadManager: ObservableObject {
                 outputDirectory: settings.outputDirectory,
                 trustBundle: trustBundle,
                 outputPattern: settings.outputPattern,
-                subtitleLanguages: settings.subtitleLanguages,
+                subtitleLanguage: settings.subtitleLanguage,
                 autoSubtitles: settings.autoSubtitles,
                 commonArguments: Self.commonArguments()
             ))
@@ -263,9 +263,14 @@ final class DownloadManager: ObservableObject {
                 $0.state == .queued && running[$0.id] == nil
             }) else { return }
             let job = jobs[index]
+            // The job's metadata often arrives after this point, but the link
+            // preview has usually read the same video already.
+            let originalLanguage = job.metadata?.language
+                ?? metadataCache[YouTubeLink.videoID(from: job.url) ?? job.url]?.language
             do {
                 let run = try engine.start(
-                    url: job.url, format: job.format, range: job.range, jobID: job.id)
+                    url: job.url, format: job.format, range: job.range,
+                    originalLanguage: originalLanguage, jobID: job.id)
                 running[job.id] = run
                 // The state stays `queued`: yt-dlp must first start and query
                 // YouTube, which takes a very visible amount of time.
